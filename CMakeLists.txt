@@ -11,6 +11,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 option(EK_BUILD_TESTS "Build unit tests" ON)
+option(EK_BUILD_TOOLS "Build the UI snapshot tool" OFF)
 
 # ---------------------------------------------------------------------------
 # JUCE (pinned tag). A local checkout can be used with
@@ -104,4 +105,17 @@ if(EK_BUILD_TESTS)
         juce::juce_recommended_warning_flags)
     enable_testing()
     add_test(NAME EffectorKillaTests COMMAND EffectorKillaTests)
+endif()
+
+# ---------------------------------------------------------------------------
+# UI snapshot tool (renders the editor to PNG, software TV)
+# ---------------------------------------------------------------------------
+if(EK_BUILD_TOOLS)
+    juce_add_console_app(EffectorKillaSnapshot PRODUCT_NAME "EffectorKillaSnapshot")
+    target_sources(EffectorKillaSnapshot PRIVATE Tools/Snapshot.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp
+        ${EK_ENGINE_SOURCES} ${EK_UI_SOURCES})
+    target_include_directories(EffectorKillaSnapshot PRIVATE Source)
+    target_compile_definitions(EffectorKillaSnapshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(EffectorKillaSnapshot PRIVATE EffectorKillaData juce::juce_audio_utils juce::juce_dsp juce::juce_opengl
+        juce::juce_recommended_config_flags)
 endif()

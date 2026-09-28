@@ -107,6 +107,7 @@ public:
     float getSlotParam (int slot, int param) const;
     ek::EffectType getSlotType (int slot) const noexcept { return meta.slots[(size_t) slot].type; }
     const ek::SlotState& getSlotMeta (int slot) const noexcept { return meta.slots[(size_t) slot]; }
+    ek::SlotState getSlotState (int slot) const; // meta + live parameter values (pause, mix, P1-P8)
     int selectedSlot = -1;
 
     // source / modulation / settings
@@ -115,6 +116,8 @@ public:
     void setOversampling (int osFactorLog2);
     int getOversampling() const noexcept { return oversampling; }
     bool premiumCable = true;
+    float uiScale = 1.0f;       // 1.0 / 1.25 / 1.5
+    bool softwareTv = false;    // force the software TV renderer
 
     // macro gestures from the UI (host automation of macros disconnects AV modulation)
     void beginUiGesture (int macro);

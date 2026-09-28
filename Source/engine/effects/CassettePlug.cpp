@@ -143,13 +143,13 @@ private:
         {
             x = preEmph[(size_t) ch].process (x);
             const float y = fastTanh (g * x + b) - fastTanh (b);
-            return deEmph[(size_t) ch].process (y) / std::sqrt (g);
+            return deEmph[(size_t) ch].process (y) * std::pow (g, -0.75f);
         }
         // Tube: asymmetric transfer (softer negative half) + bias -> even harmonics.
         const float v = g * x + b;
         const float y = v >= 0.0f ? fastTanh (v) : fastTanh (0.72f * v) * 1.25f;
         const float y0 = b >= 0.0f ? fastTanh (b) : fastTanh (0.72f * b) * 1.25f;
-        return (y - y0) / std::sqrt (g);
+        return (y - y0) * std::pow (g, -0.75f);
     }
 
     void updateTone()

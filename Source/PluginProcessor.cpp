@@ -455,6 +455,15 @@ void EffectorKillaAudioProcessor::setSlotParam (int slot, int param, float v)
     else setParamNorm (ParamIDs::slotPause (slot), v);
 }
 
+SlotState EffectorKillaAudioProcessor::getSlotState (int slot) const
+{
+    auto s = meta.slots[(size_t) slot];
+    for (int k = 0; k < kNumParams; ++k) s.p[(size_t) k] = pSlot[(size_t) slot][(size_t) k]->load();
+    s.mix = pMix[(size_t) slot]->load();
+    s.pause = pPause[(size_t) slot]->load() > 0.5f;
+    return s;
+}
+
 float EffectorKillaAudioProcessor::getSlotParam (int slot, int param) const
 {
     if (param < kNumParams) return pSlot[(size_t) slot][(size_t) param]->load();
@@ -516,6 +525,8 @@ void EffectorKillaAudioProcessor::getStateInformation (juce::MemoryBlock& destDa
     root.setProperty ("side", side, nullptr);
     root.setProperty ("oversampling", oversampling, nullptr);
     root.setProperty ("premium", premiumCable, nullptr);
+    root.setProperty ("uiScale", uiScale, nullptr);
+    root.setProperty ("softwareTv", softwareTv, nullptr);
     root.setProperty ("killLevel", (int) killLevel, nullptr);
     root.setProperty ("screening", screening, nullptr);
     root.setProperty ("lastChannel", lastChannel, nullptr);
@@ -541,6 +552,8 @@ void EffectorKillaAudioProcessor::setStateInformation (const void* data, int siz
     sides[1] = ProgramState::fromJson (root.getProperty ("sideB").toString());
     side = juce::jlimit (0, 1, (int) root.getProperty ("side", 0));
     premiumCable = (bool) root.getProperty ("premium", true);
+    uiScale = juce::jlimit (1.0f, 1.5f, (float) (double) root.getProperty ("uiScale", 1.0));
+    softwareTv = (bool) root.getProperty ("softwareTv", false);
     killLevel = (KillLevel) juce::jlimit (0, 2, (int) root.getProperty ("killLevel", 1));
     screening = juce::jlimit (-1, kNumSlots - 1, (int) root.getProperty ("screening", -1));
     lastChannel = juce::jlimit (0, 11, (int) root.getProperty ("lastChannel", 0));
