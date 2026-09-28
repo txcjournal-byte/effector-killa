@@ -12,11 +12,7 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     setWantsKeyboardFocus (true);
     processor.addChangeListener (this);
 
-    gl = std::make_unique<ui::TvGl> (*this, [this]
-    {
-        auto& tv = cabinet.getTv();
-        return getLocalArea (&tv, tv.getLocalBounds());
-    });
+    gl = std::make_unique<ui::TvGl> (cabinet.getTv(), [this] { return cabinet.getTv().getLocalBounds(); });
     // the AV3 screensaver logo is the cabinet logo
     auto reference = juce::ImageCache::getFromMemory (EKData::reference_png, EKData::reference_pngSize);
     if (reference.isValid())
@@ -88,7 +84,14 @@ void EffectorKillaAudioProcessorEditor::timerCallback()
     auto& tv = cabinet.getTv();
     if (gl != nullptr && ! processor.softwareTv)
     {
-        if (gl->hasFailed() && tv.isGlActive()) { tv.setGlActive (false); cabinet.repaint(); }
+        if (gl->hasFailed())
+        {
+            // no usable OpenGL: detach for good and use the software TV
+            gl->detach();
+            processor.softwareTv = true;
+            tv.setGlActive (false);
+            cabinet.repaint();
+        }
         else if (gl->isWorking() && ! tv.isGlActive()) { tv.setGlActive (true); cabinet.repaint(); }
     }
     cabinet.tick (dt);

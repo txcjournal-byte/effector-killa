@@ -406,7 +406,9 @@ void main()
 TvGl::TvGl (Component& t, std::function<Rectangle<int>()> b) : target (t), tvBounds (std::move (b))
 {
     context.setRenderer (this);
-    context.setComponentPaintingEnabled (true);
+    // Only the TV is drawn by OpenGL (the rest of the UI keeps the software renderer). JUCE's GL
+    // component painting needs shaders and would crash on GL 1.1 machines (VMs, remote desktop).
+    context.setComponentPaintingEnabled (false);
     context.setContinuousRepainting (true);
     context.setOpenGLVersionRequired (OpenGLContext::openGL3_2);
     context.setMultisamplingEnabled (false);
@@ -458,8 +460,12 @@ bool TvGl::compile (std::unique_ptr<OpenGLShaderProgram>& prog, const char* frag
 
 void TvGl::newOpenGLContextCreated()
 {
+    const char* version = (const char*) glGetString (GL_VERSION);
     if (std::getenv ("EK_GL_DEBUG") != nullptr)
-        std::fprintf (stderr, "Effector Killa: OpenGL %s\n", (const char*) glGetString (GL_VERSION));
+        std::fprintf (stderr, "Effector Killa: OpenGL %s\n", version != nullptr ? version : "?");
+    // needs GLSL shaders + buffer objects (GL 2.1+); otherwise fall back to the software TV
+    const int major = version != nullptr ? String (version).getIntValue() : 0;
+    if (major < 2 || OpenGLShaderProgram::getLanguageVersion() <= 0) { failed = true; return; }
     const bool ok = compile (scene, sceneFragmentShader()) && compile (crt, crtFragmentShader());
     if (! ok) { failed = true; return; }
     const float quad[] = { -1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f };
