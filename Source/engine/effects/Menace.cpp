@@ -61,7 +61,8 @@ public:
 
     void applyParameters() override
     {
-        type = choice (0);
+        const int newType = choice (0);
+        if (newType != type) { type = newType; lastDrive = -1.0f; }
         driveAmt = getReal (1);
         drive.setTarget (driveAmt);
         toneValue = getReal (2);
@@ -79,8 +80,9 @@ public:
             for (int i = 0; i < nOS; ++i)
             {
                 const float d = drive.next();
-                l[i] = postLp2[0].process (postLp[0].process (shape (preHp[0].process (l[i]), d)));
-                r[i] = postLp2[1].process (postLp[1].process (shape (preHp[1].process (r[i]), d)));
+                if (d != lastDrive) updateShape (d);
+                l[i] = postLp2[0].process (postLp[0].process (shape (preHp[0].process (l[i]))));
+                r[i] = postLp2[1].process (postLp[1].process (shape (preHp[1].process (r[i]))));
             }
         });
 
@@ -94,38 +96,45 @@ public:
     int getLatencySamples() const noexcept override { return host.getLatency(); }
 
 private:
-    inline float shape (float x, float d) const noexcept
+    // per-drive constants (recomputed only while the drive moves)
+    void updateShape (float d) noexcept
+    {
+        lastDrive = d;
+        switch (type)
+        {
+            case FUZZ:     gain = dbToGainFast (6.0f + d * 34.0f); comp = std::pow (gain, -0.55f) * 1.4f; break;
+            case CLIP:     gain = dbToGainFast (d * 30.0f); comp = std::pow (gain, -0.65f); break;
+            case FOLDBACK: gain = 1.0f + d * 9.0f; comp = 0.8f + 0.2f / gain; break;
+            case RECTIFY:
+            default:       gain = dbToGainFast (d * 24.0f); comp = std::pow (gain, -0.45f); break;
+        }
+        rectDry = 1.0f - d * 0.7f;
+        rectWet = 0.4f + d * 0.8f;
+    }
+
+    inline float shape (float x) const noexcept
     {
         switch (type)
         {
             case FUZZ:
             {
-                const float g = dbToGainFast (6.0f + d * 34.0f);
-                const float a = fastTanh (g * x + 0.25f) - 0.2449187f; // tanh(0.25)
-                return fastTanh (1.6f * a) * std::pow (g, -0.55f) * 1.4f;
+                const float a = fastTanh (gain * x + 0.25f) - 0.2449187f; // tanh(0.25)
+                return fastTanh (1.6f * a) * comp;
             }
             case CLIP:
             {
-                const float g = dbToGainFast (d * 30.0f);
-                const float v = g * x;
-                const float a = std::abs (v);
                 // smooth hard clip: x / (1 + |x|^6)^(1/6)
-                const float a2 = a * a, a6 = a2 * a2 * a2;
-                const float y = v / std::pow (1.0f + a6, 1.0f / 6.0f);
-                return y * std::pow (g, -0.65f);
+                const float v = gain * x;
+                const float a2 = v * v, a6 = a2 * a2 * a2;
+                return v / std::pow (1.0f + a6, 1.0f / 6.0f) * comp;
             }
             case FOLDBACK:
-            {
-                const float g = 1.0f + d * 9.0f;
-                return std::sin (juce::jlimit (-40.0f, 40.0f, g * x) * 1.5707963f) * (0.8f + 0.2f / g);
-            }
+                return std::sin (juce::jlimit (-40.0f, 40.0f, gain * x) * 1.5707963f) * comp;
             case RECTIFY:
             default:
             {
-                const float g = dbToGainFast (d * 24.0f);
-                const float t = fastTanh (g * x);
-                const float rect = std::abs (t);
-                return (t * (1.0f - d * 0.7f) + rect * (0.4f + d * 0.8f)) * std::pow (g, -0.45f);
+                const float t = fastTanh (gain * x);
+                return (t * rectDry + std::abs (t) * rectWet) * comp;
             }
         }
     }
@@ -160,6 +169,7 @@ private:
     int type = CLIP;
     float driveAmt = 0.3f, toneValue = 0.5f, preHpHz = 20.0f, postLpHz = 20000.0f, lowKeep = 20.0f, mix = 1.0f;
     float lastPreHp = -1.0f, lastPostLp = -1.0f;
+    float lastDrive = -1.0f, gain = 1.0f, comp = 1.0f, rectDry = 1.0f, rectWet = 0.0f;
     Smoothed drive;
     std::array<Biquad, 2> preHp, postLp, postLp2, tone;
     std::array<DcBlocker, 2> dc;

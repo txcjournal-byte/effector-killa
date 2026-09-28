@@ -1,19 +1,36 @@
 #include "Theme.h"
+#include "EKBinaryData.h"
 
 namespace ek::theme
 {
 using namespace juce;
 
+// Licensed fonts are embedded when present in Resources/Fonts (osd.ttf, vfd.ttf, hand.ttf).
+static Typeface::Ptr embedded (const char* resourceName)
+{
+    int size = 0;
+    if (const char* data = EKData::getNamedResource (resourceName, size))
+        return Typeface::createSystemTypefaceFor (data, (size_t) size);
+    return nullptr;
+}
+
+static Typeface::Ptr osdFace()  { static auto t = embedded ("osd_ttf");  return t; }
+static Typeface::Ptr vfdFace()  { static auto t = embedded ("vfd_ttf");  return t; }
+static Typeface::Ptr handFace() { static auto t = embedded ("hand_ttf"); return t; }
+
 Font osdFont (float h)
 {
+    if (auto t = osdFace()) return Font (FontOptions (t).withHeight (h));
     return Font (FontOptions().withName (Font::getDefaultMonospacedFontName()).withHeight (h).withStyle ("Bold"));
 }
 Font vfdFont (float h)
 {
+    if (auto t = vfdFace()) return Font (FontOptions (t).withHeight (h));
     return Font (FontOptions().withName (Font::getDefaultMonospacedFontName()).withHeight (h)).withHorizontalScale (1.05f);
 }
 Font handFont (float h)
 {
+    if (auto t = handFace()) return Font (FontOptions (t).withHeight (h));
     return Font (FontOptions().withName (Font::getDefaultSansSerifFontName()).withHeight (h).withStyle ("Bold Italic"))
         .withHorizontalScale (0.86f);
 }

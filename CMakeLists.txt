@@ -47,12 +47,21 @@ juce_add_plugin(EffectorKilla
     VST3_CATEGORIES             Fx Distortion Reverb
     AU_MAIN_TYPE                kAudioUnitType_Effect)
 
+# Graphic assets: reference.png is the cabinet placeholder. Drop in Resources/Design/cabinet.png and
+# fonts (Resources/Fonts/osd.ttf, vfd.ttf, hand.ttf) and they are picked up automatically.
+set(EK_DATA Resources/Presets/factory.json Resources/Design/reference.png)
+set(EK_DATA_DEFS)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Design/cabinet.png")
+    list(APPEND EK_DATA Resources/Design/cabinet.png)
+    list(APPEND EK_DATA_DEFS EK_HAS_CABINET=1)
+endif()
+file(GLOB EK_FONT_FILES CONFIGURE_DEPENDS Resources/Fonts/*.ttf Resources/Fonts/*.otf)
+list(APPEND EK_DATA ${EK_FONT_FILES})
 juce_add_binary_data(EffectorKillaData
     HEADER_NAME EKBinaryData.h
     NAMESPACE   EKData
-    SOURCES
-        Resources/Presets/factory.json
-        Resources/Design/reference.png)
+    SOURCES     ${EK_DATA})
+target_compile_definitions(EffectorKillaData INTERFACE ${EK_DATA_DEFS})
 
 # Engine sources are shared by the plugin and the test runner.
 file(GLOB_RECURSE EK_ENGINE_SOURCES CONFIGURE_DEPENDS Source/engine/*.cpp)

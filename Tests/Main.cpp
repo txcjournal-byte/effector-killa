@@ -6,7 +6,12 @@ int main (int argc, char** argv)
     juce::UnitTestRunner runner;
     runner.setAssertOnFailure (false);
     if (argc > 1) runner.runTestsInCategory (argv[1]);
-    else runner.runAllTests();
+    else
+    {
+        // everything except the (slow, machine dependent) benchmark
+        for (auto& cat : juce::UnitTest::getAllCategories())
+            if (cat != "benchmark") runner.runTestsInCategory (cat);
+    }
 
     int failures = 0;
     for (int i = 0; i < runner.getNumResults(); ++i)

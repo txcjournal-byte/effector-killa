@@ -207,7 +207,11 @@ CabinetView::CabinetView (EffectorKillaAudioProcessor& p)
       vcr (p)
 {
     setOpaque (true);
-    background = ImageCache::getFromMemory (EKData::reference_png, EKData::reference_pngSize);
+   #if EK_HAS_CABINET
+    background = ImageCache::getFromMemory (EKData::cabinet_png, EKData::cabinet_pngSize);
+   #else
+    background = ImageCache::getFromMemory (EKData::reference_png, EKData::reference_pngSize); // placeholder
+   #endif
 
     // KILL
     addAndMakeVisible (kill);

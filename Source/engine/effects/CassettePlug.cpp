@@ -109,6 +109,7 @@ public:
                 }
                 const float g = drive.next();
                 const float b = bias.next() * 0.35f;
+                if (g != lastG) { lastG = g; comp = std::pow (g, -0.75f); } // loudness make-up
                 l[i] = saturate (0, l[i], g, b);
                 r[i] = saturate (1, r[i], g, b);
             }
@@ -143,13 +144,13 @@ private:
         {
             x = preEmph[(size_t) ch].process (x);
             const float y = fastTanh (g * x + b) - fastTanh (b);
-            return deEmph[(size_t) ch].process (y) * std::pow (g, -0.75f);
+            return deEmph[(size_t) ch].process (y) * comp;
         }
         // Tube: asymmetric transfer (softer negative half) + bias -> even harmonics.
         const float v = g * x + b;
         const float y = v >= 0.0f ? fastTanh (v) : fastTanh (0.72f * v) * 1.25f;
         const float y0 = b >= 0.0f ? fastTanh (b) : fastTanh (0.72f * b) * 1.25f;
-        return (y - y0) * std::pow (g, -0.75f);
+        return (y - y0) * comp;
     }
 
     void updateTone()
@@ -177,6 +178,7 @@ private:
     Biquad headBump, hissHp, hissHp2;
     NoiseGen noise;
     float wowPhase = 0.0f, flutterPhase = 0.0f;
+    float lastG = -1.0f, comp = 1.0f;
 };
 } // namespace
 

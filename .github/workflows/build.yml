@@ -1,0 +1,73 @@
+name: Build & test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+            pluginval: pluginval_Windows.zip
+            exe: pluginval.exe
+          - os: macos-latest
+            name: macOS
+            pluginval: pluginval_macOS.zip
+            exe: pluginval.app/Contents/MacOS/pluginval
+          - os: ubuntu-24.04
+            name: Linux
+            pluginval: pluginval_Linux.zip
+            exe: pluginval
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libxrandr-dev libxinerama-dev libxcursor-dev libxcomposite-dev \
+            libgl1-mesa-dev libxext-dev libfreetype-dev libfontconfig1-dev xvfb
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Unit tests
+        shell: bash
+        run: |
+          T=$(find build -type f \( -name EffectorKillaTests -o -name EffectorKillaTests.exe \) -perm -u+x | head -n 1)
+          [ -z "$T" ] && T=$(find build -type f -name "EffectorKillaTests.exe" | head -n 1)
+          "$T"
+
+      - name: pluginval (strictness 5)
+        shell: bash
+        run: |
+          curl -sSL -o pv.zip "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval }}"
+          unzip -q pv.zip
+          VST3=$(find build -type d -name "Effector Killa.vst3" | head -n 1)
+          if [ "$RUNNER_OS" == "Linux" ]; then PREFIX="xvfb-run -a"; fi
+          $PREFIX ./${{ matrix.exe }} --strictness-level 5 --validate-in-process --timeout-ms 600000 "$VST3"
+
+      - name: Collect artefacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          VST3=$(find build -type d -name "Effector Killa.vst3" | head -n 1)
+          cp -R "$VST3" dist/
+          find build -path "*Standalone*" \( -name "Effector Killa" -o -name "Effector Killa.exe" -o -name "Effector Killa.app" \) -maxdepth 6 \
+            -exec cp -R {} dist/ \; || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EffectorKilla-${{ matrix.name }}
+          path: dist
