@@ -51,6 +51,9 @@ jobs:
 
       - name: pluginval (strictness 5)
         shell: bash
+        env:
+          # CI runners have no GPU (Windows: OpenGL 1.1 only) -> test the editor with the software TV
+          EK_SOFTWARE_TV: "1"
         run: |
           curl -sSL -o pv.zip "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval }}"
           unzip -q pv.zip

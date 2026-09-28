@@ -36,6 +36,8 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
             }
         gl->setLogo (logo);
     }
+    // EK_SOFTWARE_TV=1 forces the software TV (machines / VMs without a usable OpenGL driver)
+    if (std::getenv ("EK_SOFTWARE_TV") != nullptr) processor.softwareTv = true;
     if (! processor.softwareTv) gl->attach();
 
     addMouseListener (this, true); // any click inside -> keyboard shortcuts work
