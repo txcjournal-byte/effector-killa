@@ -1,0 +1,3122 @@
+{
+ "version": 1,
+ "product": "Effector Killa",
+ "channels": [
+  {
+   "number": 1,
+   "name": "MELODIA",
+   "description": "melodie, klávesy",
+   "colour": "#8A2BE2",
+   "source": "MELODY",
+   "presets": [
+    {
+     "name": "Melodia",
+     "description": "teplá čistá melodie",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "TILT": -1
+       }
+      },
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.25
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.25
+       }
+      }
+     ]
+    },
+    {
+     "name": "Dark Keys",
+     "description": "tmavé klávesy",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.4
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 2500
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.35
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.3
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC",
+     "maps": [
+      {
+       "macro": "VILLAIN ARC",
+       "slot": 1,
+       "param": "CUTOFF",
+       "zero": 6000,
+       "one": 800
+      }
+     ]
+    },
+    {
+     "name": "Glass Bells",
+     "description": "jasné bells",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH": 3
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/8D",
+        "SYNC": "ON",
+        "MIX": 0.3
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "PLATE",
+        "MIX": 0.35,
+        "DAMPING": 0.1
+       }
+      }
+     ],
+     "focusMacro": "AURA",
+     "tags": [
+      "v1.1: Heaven Mode"
+     ]
+    },
+    {
+     "name": "Villain Piano",
+     "description": "temné piano",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TUBE",
+        "DRIVE": 0.4
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 1800
+       }
+      },
+      {
+       "fx": "Swirl",
+       "params": {
+        "MIX": 0.2,
+        "RATE": 0.12
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "DARK",
+        "MIX": 0.4
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC"
+    },
+    {
+     "name": "Wide Dream",
+     "description": "široký dreamy",
+     "slots": [
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.5
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.8
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.5,
+        "DECAY": 6.0
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Detroit Pluck",
+     "description": "tvrdý pluck",
+     "slots": [
+      {
+       "fx": "Slap",
+       "params": {
+        "ATTACK": 0.5
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW-CUT": 200
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/16",
+        "SYNC": "ON",
+        "MIX": 0.2
+       }
+      }
+     ],
+     "focusMacro": "KNOCK"
+    },
+    {
+     "name": "Guitar Soul",
+     "description": "emo kytara",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.35
+       }
+      },
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.3
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/4",
+        "SYNC": "ON",
+        "MIX": 0.25
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.3
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    },
+    {
+     "name": "Melodia Mid",
+     "description": "nenápadné vylepšení",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "TILT": 1
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 2.0,
+        "THRESHOLD": -14,
+        "ATTACK": 15,
+        "RELEASE": 150,
+        "MAKEUP": 1.0
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "number": 2,
+   "name": "VOX DEI",
+   "description": "vokály",
+   "colour": "#40E0D0",
+   "source": "VOX",
+   "presets": [
+    {
+     "name": "Vox Dei",
+     "description": "moderní trap vokál",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW-CUT": 120,
+        "HIGH": 3
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 4,
+        "THRESHOLD": -20,
+        "ATTACK": 8,
+        "RELEASE": 120,
+        "MAKEUP": 3
+       }
+      },
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.2
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/4",
+        "SYNC": "ON",
+        "MIX": 0.15
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "PLATE",
+        "MIX": 0.15
+       }
+      }
+     ]
+    },
+    {
+     "name": "Rage Vox",
+     "description": "agresivní",
+     "slots": [
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FUZZ",
+        "DRIVE": 0.35
+       }
+      },
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.4
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH": 4
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/8",
+        "SYNC": "ON",
+        "MIX": 0.2
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Phone Ghost",
+     "description": "telefon",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "BP",
+        "CUTOFF": 1224.744871391589,
+        "BP WIDTH": 2.585
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.2
+       }
+      }
+     ]
+    },
+    {
+     "name": "Demon Double",
+     "description": "temný dubl",
+     "slots": [
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.5
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.2
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 2000
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.4
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC",
+     "tags": [
+      "v1.1: Alter Ego -12"
+     ]
+    },
+    {
+     "name": "Angel Air",
+     "description": "vzdušný",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH": 5
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 2.0,
+        "THRESHOLD": -14,
+        "ATTACK": 15,
+        "RELEASE": 150,
+        "MAKEUP": 1.0
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.35,
+        "DAMPING": 0.1
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.5
+       }
+      }
+     ],
+     "focusMacro": "AURA",
+     "tags": [
+      "v1.1: Heaven Mode"
+     ]
+    },
+    {
+     "name": "Throw It Back",
+     "description": "ad-lib do prostoru",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "HP",
+        "CUTOFF": 300
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/4",
+        "SYNC": "ON",
+        "MIX": 0.45,
+        "PING-PONG": "ON"
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.4
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    },
+    {
+     "name": "Crash Out Vox",
+     "description": "přetížený",
+     "slots": [
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.6
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.5
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.5,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Whisper Tape",
+     "description": "lo-fi šepot",
+     "slots": [
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 12
+       }
+      },
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.4
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 5000
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.25
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "number": 3,
+   "name": "SVBTERRA",
+   "description": "808 / bas",
+   "colour": "#B22222",
+   "source": "808",
+   "presets": [
+    {
+     "name": "Svbterra",
+     "description": "808 slyšitelná na mobilu",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.5,
+        "BIAS": 0.3,
+        "LOW KEEP": 60
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW-MID": 2,
+        "LOW-MID FREQ": 150,
+        "HIGH-MID": 3,
+        "HIGH-MID FREQ": 900
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.0,
+        "MONO BELOW": 120
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT",
+     "maps": [
+      {
+       "macro": "CRASH OUT",
+       "slot": 0,
+       "param": "DRIVE",
+       "zero": 0.2,
+       "one": 0.85
+      }
+     ]
+    },
+    {
+     "name": "Grave Digger",
+     "description": "tmavá těžká",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TUBE",
+        "DRIVE": 0.5,
+        "LOW KEEP": 50
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 3000
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC"
+    },
+    {
+     "name": "Blown 808",
+     "description": "rage clipped",
+     "slots": [
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.7,
+        "LOW KEEP": 50
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW-CUT": 25
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 1.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Fuzz Tonka",
+     "description": "fuzz střed",
+     "slots": [
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FUZZ",
+        "DRIVE": 0.5,
+        "MIX": 0.5,
+        "LOW KEEP": 80
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH-MID": 4,
+        "HIGH-MID FREQ": 800
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.5,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Spinz Warm",
+     "description": "teplá dlouhá",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.35,
+        "BIAS": 0.2
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 3,
+        "THRESHOLD": -18,
+        "ATTACK": 30,
+        "RELEASE": 300,
+        "MAKEUP": 2
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW": 1.5
+       }
+      }
+     ]
+    },
+    {
+     "name": "Reese Motion",
+     "description": "pohyb v basu",
+     "slots": [
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.3,
+        "LOW KEEP": 150
+       }
+      },
+      {
+       "fx": "Swirl",
+       "params": {
+        "MIX": 0.2,
+        "RATE": 0.3
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.2,
+        "LOW KEEP": 80
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.0,
+        "MONO BELOW": 150
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Sub Only",
+     "description": "čistý sub",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 200
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 3,
+        "THRESHOLD": -18,
+        "ATTACK": 10,
+        "RELEASE": 150,
+        "MAKEUP": 2
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 0.0
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC",
+     "tags": [
+      "v1.1: Big Back"
+     ]
+    },
+    {
+     "name": "Mid Bite",
+     "description": "agresivní středy",
+     "slots": [
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.5
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FOLDBACK",
+        "DRIVE": 0.3,
+        "LOW KEEP": 100
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH-MID": 4,
+        "HIGH-MID FREQ": 1000
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    }
+   ]
+  },
+  {
+   "number": 4,
+   "name": "DRVM CVLT",
+   "description": "drumy",
+   "colour": "#FF6A00",
+   "source": "DRUMS",
+   "presets": [
+    {
+     "name": "Drvm Cvlt",
+     "description": "víc punch",
+     "slots": [
+      {
+       "fx": "Slap",
+       "params": {
+        "ATTACK": 0.4
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 8,
+        "THRESHOLD": -30,
+        "ATTACK": 3,
+        "RELEASE": 80,
+        "MAKEUP": 6,
+        "MIX": 0.4
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "KNOCK"
+    },
+    {
+     "name": "Knock Box",
+     "description": "tvrdý knock",
+     "slots": [
+      {
+       "fx": "Slap",
+       "params": {
+        "ATTACK": 0.6
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW": 3,
+        "HIGH-MID": 2,
+        "HIGH-MID FREQ": 4000
+       }
+      }
+     ],
+     "focusMacro": "KNOCK"
+    },
+    {
+     "name": "Lo-Fi Kit",
+     "description": "lo-fi drumy",
+     "slots": [
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 10
+       }
+      },
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.4
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 7000
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Room Smash",
+     "description": "smashed room",
+     "slots": [
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 10,
+        "THRESHOLD": -30,
+        "ATTACK": 0.5,
+        "RELEASE": 60,
+        "MAKEUP": 8,
+        "MIX": 0.4
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "ROOM",
+        "MIX": 0.2,
+        "SIZE": 0.2
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    },
+    {
+     "name": "Hat Shine",
+     "description": "lesklé hajtky",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH": 4
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.5
+       }
+      },
+      {
+       "fx": "Slap",
+       "params": {
+        "ATTACK": 0.3
+       }
+      }
+     ]
+    },
+    {
+     "name": "Snare Crack",
+     "description": "praskavý snare",
+     "slots": [
+      {
+       "fx": "Slap",
+       "params": {
+        "ATTACK": 0.5
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.25
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "PLATE",
+        "MIX": 0.15,
+        "DECAY": 0.8,
+        "SIZE": 0.3
+       }
+      }
+     ],
+     "focusMacro": "KNOCK"
+    },
+    {
+     "name": "Memphis Tape",
+     "description": "kazetové drumy",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.6,
+        "WOW": 0.3
+       }
+      },
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 12
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "BP",
+        "CUTOFF": 848.5281374238571,
+        "BP WIDTH": 6.814
+       }
+      }
+     ]
+    },
+    {
+     "name": "Clipper Cult",
+     "description": "hlasité drumy",
+     "slots": [
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.3
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 1.0,
+        "CEILING": -0.3,
+        "DRIVE": 4.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    }
+   ]
+  },
+  {
+   "number": 5,
+   "name": "RAGE ENGINE",
+   "description": "rage leady, synthy",
+   "colour": "#FF0000",
+   "source": "MELODY",
+   "presets": [
+    {
+     "name": "Rage Engine",
+     "description": "klasický rage lead",
+     "slots": [
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FUZZ",
+        "DRIVE": 0.5
+       }
+      },
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.5
+       }
+      },
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.3
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.7
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.2
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Hellfire Saw",
+     "description": "supersaw drive",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TUBE",
+        "DRIVE": 0.6
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.4
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH": 3
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/8",
+        "SYNC": "ON",
+        "MIX": 0.2
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Siren Lead",
+     "description": "pumpující",
+     "slots": [
+      {
+       "fx": "Chopped",
+       "params": {
+        "MODE": "PUMP",
+        "RATE": "1/4",
+        "DEPTH": 0.6
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.4
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.3
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Molten Pad",
+     "description": "rozžhavený pad",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.7
+       }
+      },
+      {
+       "fx": "Swirl",
+       "params": {
+        "MIX": 0.4,
+        "RATE": 0.25
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.5
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    },
+    {
+     "name": "Crushed Arp",
+     "description": "crushed arp",
+     "slots": [
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 8
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 3000,
+        "LFO RATE": "1/8",
+        "LFO DEPTH": 0.3
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/16",
+        "SYNC": "ON",
+        "MIX": 0.3
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Screamer",
+     "description": "foldback",
+     "slots": [
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FOLDBACK",
+        "DRIVE": 0.6
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "HP",
+        "CUTOFF": 300
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.6
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Stadium",
+     "description": "velký hall",
+     "slots": [
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.4
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.9
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.5,
+        "SIZE": 0.85,
+        "DECAY": 4.5
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    },
+    {
+     "name": "Burn It Down",
+     "description": "extrém",
+     "slots": [
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FUZZ",
+        "DRIVE": 0.8
+       }
+      },
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 10
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 1.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    }
+   ]
+  },
+  {
+   "number": 6,
+   "name": "DREAMCORE",
+   "description": "plugg, dreamy",
+   "colour": "#FFB6C1",
+   "source": "MELODY",
+   "presets": [
+    {
+     "name": "Dreamcore",
+     "description": "plugg dream",
+     "slots": [
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.35
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 7000
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/4D",
+        "SYNC": "ON",
+        "MIX": 0.2
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.45
+       }
+      }
+     ],
+     "focusMacro": "AURA",
+     "tags": [
+      "v1.1: Heaven Mode"
+     ]
+    },
+    {
+     "name": "Cloud Bells",
+     "description": "měkké bells",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "TILT": -1
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/8D",
+        "SYNC": "ON",
+        "MIX": 0.35,
+        "PING-PONG": "ON"
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.4
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    },
+    {
+     "name": "Pluggnb Glow",
+     "description": "teplá záře",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.3
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.35
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.5
+       }
+      }
+     ]
+    },
+    {
+     "name": "Heaven Gate",
+     "description": "andělský",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW-CUT": 200
+       }
+      },
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.3
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.6,
+        "DAMPING": 0.1,
+        "DECAY": 5.0
+       }
+      }
+     ],
+     "focusMacro": "AURA",
+     "tags": [
+      "v1.1: Heaven Mode"
+     ]
+    },
+    {
+     "name": "Soft Focus",
+     "description": "rozmazaný",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 3500
+       }
+      },
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.5
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.5
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC"
+    },
+    {
+     "name": "Pink Tape",
+     "description": "jemná páska",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.4,
+        "WOW": 0.4
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 8000
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.3
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Main Character",
+     "description": "široký",
+     "slots": [
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.9
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/4",
+        "SYNC": "ON",
+        "MIX": 0.3
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.4
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    },
+    {
+     "name": "Floating",
+     "description": "plovoucí",
+     "slots": [
+      {
+       "fx": "Swirl",
+       "params": {
+        "MIX": 0.3,
+        "RATE": 0.12
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/2",
+        "SYNC": "ON",
+        "MIX": 0.3
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.6,
+        "DECAY": 5.0
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    }
+   ]
+  },
+  {
+   "number": 7,
+   "name": "VHS",
+   "description": "lo-fi",
+   "colour": "#C8A165",
+   "source": "MELODY",
+   "presets": [
+    {
+     "name": "VHS",
+     "description": "kazeta",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.5,
+        "WOW": 0.5,
+        "HISS": 0.2
+       }
+      },
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 12
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 6000
+       }
+      }
+     ]
+    },
+    {
+     "name": "Basement",
+     "description": "sklep",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 1200
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "ROOM",
+        "MIX": 0.3
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC"
+    },
+    {
+     "name": "Payphone",
+     "description": "telefon",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "BP",
+        "CUTOFF": 1095.4451150103323,
+        "BP WIDTH": 2.907
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.3
+       }
+      }
+     ]
+    },
+    {
+     "name": "8-Bit Soul",
+     "description": "8-bit",
+     "slots": [
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 6,
+        "RATE": 11025
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Pirate Radio",
+     "description": "rádio",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "BP",
+        "CUTOFF": 1549.1933384829667,
+        "BP WIDTH": 2.737
+       }
+      },
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 10,
+        "NOISE": 0.4
+       }
+      }
+     ]
+    },
+    {
+     "name": "Warped Vinyl",
+     "description": "vinyl",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.3,
+        "WOW": 0.7,
+        "HISS": 0.3
+       }
+      },
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 16,
+        "CRACKLE": 0.3
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 7000
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Dusty",
+     "description": "prašný",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "TILT": -3
+       }
+      },
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 14,
+        "CRACKLE": 0.2
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 2.0,
+        "THRESHOLD": -14,
+        "ATTACK": 15,
+        "RELEASE": 150,
+        "MAKEUP": 1.0
+       }
+      }
+     ]
+    },
+    {
+     "name": "Memphis Mist",
+     "description": "Memphis",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.6
+       }
+      },
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 10,
+        "RATE": 22050
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 4000
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.2
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "number": 8,
+   "name": "MVTANT",
+   "description": "FX, sound design",
+   "colour": "#7CFC00",
+   "source": "FX",
+   "presets": [
+    {
+     "name": "Mvtant",
+     "description": "zmutovaný zvuk",
+     "slots": [
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FOLDBACK",
+        "DRIVE": 0.4
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "COMB",
+        "CUTOFF": 800,
+        "LFO DEPTH": 0.5,
+        "RESO": 0.5
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/16",
+        "SYNC": "ON",
+        "MIX": 0.4
+       }
+      }
+     ],
+     "focusMacro": "DRIP",
+     "tags": [
+      "v1.1: Jet Lag"
+     ]
+    },
+    {
+     "name": "Toxic Comb",
+     "description": "kovový comb",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "COMB",
+        "CUTOFF": 600,
+        "RESO": 0.6
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.3
+       }
+      }
+     ]
+    },
+    {
+     "name": "Radioactive",
+     "description": "vibrující",
+     "slots": [
+      {
+       "fx": "Swirl",
+       "params": {
+        "MIX": 0.6,
+        "RATE": 3.0
+       }
+      },
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 8
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.8
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Robot NPC",
+     "description": "robotický",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "COMB",
+        "CUTOFF": 220,
+        "RESO": 0.85
+       }
+      },
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 8
+       }
+      },
+      {
+       "fx": "Chopped",
+       "params": {
+        "MODE": "PATTERN",
+        "RATE": "1/16",
+        "DEPTH": 0.3
+       }
+      }
+     ],
+     "tags": [
+      "v1.1: Alter Ego formant, NPC Glitch"
+     ]
+    },
+    {
+     "name": "Underwater",
+     "description": "pod vodou",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 700,
+        "LFO DEPTH": 0.3,
+        "LFO RATE": "1 BAR"
+       }
+      },
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.5
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.5
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC"
+    },
+    {
+     "name": "Portal",
+     "description": "vír",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "COMB",
+        "CUTOFF": 500,
+        "LFO RATE": "4 BAR",
+        "LFO DEPTH": 0.7,
+        "RESO": 0.5
+       }
+      },
+      {
+       "fx": "Swirl",
+       "params": {
+        "MIX": 0.4,
+        "RATE": 0.2
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.6
+       }
+      }
+     ],
+     "focusMacro": "AURA",
+     "tags": [
+      "v1.1: Heaven Mode -12"
+     ]
+    },
+    {
+     "name": "Glitch Aura",
+     "description": "glitchový prostor",
+     "slots": [
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 12,
+        "JITTER": 0.5
+       }
+      },
+      {
+       "fx": "Chopped",
+       "params": {
+        "MODE": "PATTERN",
+        "RATE": "1/32",
+        "DEPTH": 0.4
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/32",
+        "SYNC": "ON",
+        "MIX": 0.3,
+        "FEEDBACK": 0.6
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.4
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Black Hole",
+     "description": "nekonečný",
+     "slots": [
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.7,
+        "SIZE": 1.0,
+        "DECAY": 20.0
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 2000
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 2.0
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    }
+   ]
+  },
+  {
+   "number": 9,
+   "name": "NO FILTER",
+   "description": "raw, suché, clipnuté",
+   "colour": "#F2F2F2",
+   "source": "VOX",
+   "presets": [
+    {
+     "name": "No Filter",
+     "description": "syrový suchý vokál",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW-CUT": 100
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 6,
+        "THRESHOLD": -24,
+        "ATTACK": 1,
+        "RELEASE": 60,
+        "MAKEUP": 4
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.2
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Crash Out",
+     "description": "totální přetížení",
+     "slots": [
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.7
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FUZZ",
+        "DRIVE": 0.4
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 1.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Opp Pack",
+     "description": "tmavý a tvrdý",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TUBE",
+        "DRIVE": 0.5
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 2000
+       }
+      },
+      {
+       "fx": "Slap",
+       "params": {
+        "ATTACK": 0.4
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.5,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC"
+    },
+    {
+     "name": "Lock In",
+     "description": "čistý suchý vokál vepředu",
+     "slots": [
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 4,
+        "THRESHOLD": -20,
+        "ATTACK": 8,
+        "RELEASE": 120,
+        "MAKEUP": 3
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH": 2
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "KNOCK"
+    },
+    {
+     "name": "Red Line Rage",
+     "description": "hlasitý rage",
+     "slots": [
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.6
+       }
+      },
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.4
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 1.0,
+        "CEILING": -0.1,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Dry Menace",
+     "description": "suchá distorze",
+     "slots": [
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FOLDBACK",
+        "DRIVE": 0.4,
+        "LOW KEEP": 120
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH-MID": 3,
+        "HIGH-MID FREQ": 1500
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Big Back 808",
+     "description": "tlustá syrová 808",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.6,
+        "LOW KEEP": 70
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.3,
+        "LOW KEEP": 90
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.0,
+        "MONO BELOW": 150
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.5,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT",
+     "source": "808"
+    },
+    {
+     "name": "3AM Studio",
+     "description": "suchý, intimní",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 3,
+        "THRESHOLD": -18,
+        "ATTACK": 10,
+        "RELEASE": 150,
+        "MAKEUP": 2
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "TILT": -1
+       }
+      },
+      {
+       "fx": "Chopped",
+       "params": {
+        "MODE": "NOISE GATE",
+        "RATE": "1/16",
+        "DEPTH": 1.0,
+        "THRESHOLD": -50,
+        "SMOOTH": 0.3
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC"
+    }
+   ]
+  },
+  {
+   "number": 10,
+   "name": "DRIFT",
+   "description": "phonk, cowbell, Memphis",
+   "colour": "#6A5ACD",
+   "source": "MELODY",
+   "presets": [
+    {
+     "name": "Drift",
+     "description": "phonk cowbell",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.4
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.5
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 6000
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.5,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Cowbell Curse",
+     "description": "přetížený zvon",
+     "slots": [
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FUZZ",
+        "DRIVE": 0.6
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH-MID": 5,
+        "HIGH-MID FREQ": 900
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 1.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Night Drive",
+     "description": "noční jízda",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.4,
+        "WOW": 0.2
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 4000
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/4D",
+        "SYNC": "ON",
+        "MIX": 0.25
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.3
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    },
+    {
+     "name": "Smoke Tape",
+     "description": "zakouřená kazeta",
+     "slots": [
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 12
+       }
+      },
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.5,
+        "HISS": 0.3
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "BP",
+        "CUTOFF": 774.5966692414834,
+        "BP WIDTH": 5.907
+       }
+      }
+     ],
+     "focusMacro": "VILLAIN ARC"
+    },
+    {
+     "name": "Tokyo Ghost",
+     "description": "éterický pohyb",
+     "slots": [
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.4
+       }
+      },
+      {
+       "fx": "Swirl",
+       "params": {
+        "MIX": 0.3,
+        "RATE": 0.3
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.4
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.6
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Burnout",
+     "description": "sekaný drive",
+     "slots": [
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.6
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.5
+       }
+      },
+      {
+       "fx": "Chopped",
+       "params": {
+        "MODE": "PATTERN",
+        "RATE": "1/8",
+        "DEPTH": 0.3
+       }
+      }
+     ],
+     "focusMacro": "KNOCK"
+    },
+    {
+     "name": "Low Rider",
+     "description": "phonk bas",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TUBE",
+        "DRIVE": 0.5,
+        "LOW KEEP": 60
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW": 3
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 3,
+        "THRESHOLD": -18,
+        "ATTACK": 20,
+        "RELEASE": 200,
+        "MAKEUP": 2
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT",
+     "source": "808"
+    },
+    {
+     "name": "Midnight Pressure",
+     "description": "pumpující temnota",
+     "slots": [
+      {
+       "fx": "Chopped",
+       "params": {
+        "MODE": "PUMP",
+        "RATE": "1/4",
+        "DEPTH": 0.5
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.4
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "LP24",
+        "CUTOFF": 3000
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.25
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    }
+   ]
+  },
+  {
+   "number": 11,
+   "name": "HYPER",
+   "description": "hyperpop, glitch",
+   "colour": "#00E5FF",
+   "source": "VOX",
+   "presets": [
+    {
+     "name": "Hyper",
+     "description": "hyperpop vokál",
+     "slots": [
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 6,
+        "THRESHOLD": -24,
+        "ATTACK": 3,
+        "RELEASE": 80,
+        "MAKEUP": 4
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH": 5
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.3
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.6
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Brain Melt",
+     "description": "rozpadlý glitch",
+     "slots": [
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 8,
+        "JITTER": 0.4
+       }
+      },
+      {
+       "fx": "Chopped",
+       "params": {
+        "MODE": "PATTERN",
+        "RATE": "1/16",
+        "DEPTH": 0.4
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/16",
+        "SYNC": "ON",
+        "MIX": 0.3
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Delulu",
+     "description": "snový, přeslazený",
+     "slots": [
+      {
+       "fx": "Doubles",
+       "params": {
+        "MIX": 0.5
+       }
+      },
+      {
+       "fx": "Swirl",
+       "params": {
+        "MIX": 0.4,
+        "RATE": 0.3
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.4,
+        "DAMPING": 0.1
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.8
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    },
+    {
+     "name": "Screen Time",
+     "description": "digitální drť",
+     "slots": [
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 10
+       }
+      },
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "HP",
+        "CUTOFF": 400
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.5,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Glitch Princess",
+     "description": "sekaný lesk",
+     "slots": [
+      {
+       "fx": "Chopped",
+       "params": {
+        "MODE": "PATTERN",
+        "RATE": "1/32",
+        "DEPTH": 0.5
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH": 4
+       }
+      },
+      {
+       "fx": "Ad-Lib Throw",
+       "params": {
+        "TIME": "1/8",
+        "SYNC": "ON",
+        "MIX": 0.3,
+        "PING-PONG": "ON"
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Sugar Rush",
+     "description": "přesycený, jasný",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW-CUT": 250,
+        "HIGH": 6
+       }
+      },
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.5
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "FUZZ",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.5,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT",
+     "tags": [
+      "v1.1: Alter Ego +12"
+     ]
+    },
+    {
+     "name": "Plot Twist",
+     "description": "pohyblivý filtr",
+     "slots": [
+      {
+       "fx": "Through The Wall",
+       "params": {
+        "TYPE": "HP",
+        "CUTOFF": 400,
+        "LFO RATE": "1/2",
+        "LFO DEPTH": 0.6
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.3
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.35
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    },
+    {
+     "name": "Lore Drop",
+     "description": "velký glitch prostor",
+     "slots": [
+      {
+       "fx": "Chopped",
+       "params": {
+        "MODE": "PATTERN",
+        "RATE": "1/16",
+        "DEPTH": 0.5
+       }
+      },
+      {
+       "fx": "Brainrot",
+       "params": {
+        "BITS": 12
+       }
+      },
+      {
+       "fx": "Aura Room",
+       "params": {
+        "TYPE": "HALL",
+        "MIX": 0.5
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.7
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    }
+   ]
+  },
+  {
+   "number": 12,
+   "name": "FINAL BOSS",
+   "description": "bus, master",
+   "colour": "#C0C0C0",
+   "source": "BUS",
+   "presets": [
+    {
+     "name": "Final Boss",
+     "description": "master glue + hlasitost",
+     "slots": [
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 2,
+        "THRESHOLD": -16,
+        "ATTACK": 30,
+        "RELEASE": 300,
+        "MAKEUP": 1
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "TILT": 0.5
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.15,
+        "MONO BELOW": 120
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.0,
+        "CEILING": -1.0,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "KNOCK"
+    },
+    {
+     "name": "No Cap Master",
+     "description": "čistý master",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW-CUT": 25
+       }
+      },
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 1.5,
+        "THRESHOLD": -14,
+        "ATTACK": 20,
+        "RELEASE": 200,
+        "MAKEUP": 1
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.0,
+        "CEILING": -1.0,
+        "DRIVE": 2.0
+       }
+      }
+     ]
+    },
+    {
+     "name": "Glue Gang",
+     "description": "lepidlo na bus",
+     "slots": [
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 4,
+        "THRESHOLD": -22,
+        "ATTACK": 30,
+        "RELEASE": 150,
+        "MAKEUP": 3,
+        "MIX": 0.5
+       }
+      },
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.15
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "KNOCK"
+    },
+    {
+     "name": "Car Test",
+     "description": "basy do auta",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "LOW": 2,
+        "LOW-MID": -2,
+        "LOW-MID FREQ": 300
+       }
+      },
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.2
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.5,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "KNOCK"
+    },
+    {
+     "name": "Phone Speaker",
+     "description": "slyšitelné z mobilu",
+     "slots": [
+      {
+       "fx": "Cassette Plug",
+       "params": {
+        "MODE": "TAPE",
+        "DRIVE": 0.3,
+        "LOW KEEP": 80
+       }
+      },
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH-MID": 3,
+        "HIGH-MID FREQ": 1000
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.0,
+        "MONO BELOW": 150
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.5,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ]
+    },
+    {
+     "name": "Big Stage",
+     "description": "široký bus",
+     "slots": [
+      {
+       "fx": "Tone Up",
+       "params": {
+        "HIGH": 1.5
+       }
+      },
+      {
+       "fx": "Wide Body",
+       "params": {
+        "WIDTH": 1.4,
+        "MONO BELOW": 150
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "AURA"
+    },
+    {
+     "name": "Loud Money",
+     "description": "maximální hlasitost",
+     "slots": [
+      {
+       "fx": "Overcooked",
+       "params": {
+        "DEPTH": 0.3
+       }
+      },
+      {
+       "fx": "Menace",
+       "params": {
+        "TYPE": "CLIP",
+        "DRIVE": 0.1,
+        "MIX": 0.3,
+        "LOW KEEP": 150
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 1.0,
+        "CEILING": -0.3,
+        "DRIVE": 4.0
+       }
+      }
+     ],
+     "focusMacro": "CRASH OUT"
+    },
+    {
+     "name": "Side Quest",
+     "description": "jemné pumpování busu",
+     "slots": [
+      {
+       "fx": "Squeeze",
+       "params": {
+        "RATIO": 8,
+        "THRESHOLD": -30,
+        "ATTACK": 3,
+        "RELEASE": 80,
+        "MAKEUP": 6,
+        "MIX": 0.3
+       }
+      },
+      {
+       "fx": "Chopped",
+       "params": {
+        "MODE": "PUMP",
+        "RATE": "1/4",
+        "DEPTH": 0.2
+       }
+      },
+      {
+       "fx": "Red Line",
+       "params": {
+        "CHARACTER": 0.0,
+        "CEILING": -0.3,
+        "DRIVE": 2.0
+       }
+      }
+     ],
+     "focusMacro": "DRIP"
+    }
+   ]
+  }
+ ]
+}
