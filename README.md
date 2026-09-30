@@ -40,6 +40,19 @@ Volby CMake: `-DEK_BUILD_TESTS=ON` (výchozí) – unit testy, `-DEK_BUILD_TOOLS
 GitHub Actions (`.github/workflows/build.yml`) staví Windows / macOS / Linux, pouští testy a pluginval
 a nahrává hotové VST3 jako artefakty.
 
+## Prodejní balíček
+
+- **Instalátor Windows:** CI vytváří `EffectorKilla-1.0.0-Windows-Setup.exe` (Inno Setup, `installer/EffectorKilla.iss`) –
+  artefakt *EffectorKilla-Windows-Installer*. Instaluje VST3 do `C:\Program Files\Common Files\VST3`, Standalone,
+  manuál a EULA. Instalátor zatím není podepsaný (Windows SmartScreen ukáže varování) – pro podpis je potřeba
+  code-signing certifikát.
+- **macOS podpis + notarizace:** v CI se spustí automaticky, jakmile v GitHubu (*Settings → Secrets and variables →
+  Actions*) doplníš `MACOS_CERT_P12` (base64 .p12 „Developer ID Application“), `MACOS_CERT_PASSWORD`,
+  `MACOS_SIGN_IDENTITY`, `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD`. Výsledek: artefakt *EffectorKilla-macOS-signed*.
+- **`EULA.txt`** – koncept licenční smlouvy (doplnit údaje, nechat zkontrolovat právníkem).
+- **`MANUAL.md`** – uživatelský manuál (anglicky, pro zákazníky).
+- Hlasitost: factory presety i KILL jsou srovnané na hlasitost vstupu; výjimkou jsou BUS/master presety (CH 12).
+
 ## Testy
 
 ```bash

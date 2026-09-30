@@ -74,3 +74,64 @@ jobs:
         with:
           name: EffectorKilla-${{ matrix.name }}
           path: dist
+
+      # ---- Windows installer (Inno Setup) ---------------------------------------------------
+      - name: Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          $dist = (Resolve-Path dist).Path
+          & $iscc "/DAppVersion=1.0.0" "/DSourceDir=$dist" installer\EffectorKilla.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: EffectorKilla-Windows-Installer
+          path: installer-out/*.exe
+
+      # ---- macOS code signing + notarisation (runs only when the secrets exist) -----------------
+      # Secrets: MACOS_CERT_P12 (base64 Developer ID Application .p12), MACOS_CERT_PASSWORD,
+      #          MACOS_SIGN_IDENTITY ("Developer ID Application: Name (TEAMID)"),
+      #          APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD (app-specific password)
+      - name: macOS sign & notarise
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_CERT_P12" ]; then echo "No signing secrets - skipping (unsigned build)."; exit 0; fi
+          KC=build.keychain
+          echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p ci "$KC"
+          security default-keychain -s "$KC"
+          security unlock-keychain -p ci "$KC"
+          security import cert.p12 -k "$KC" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KC"
+          mkdir -p signed
+          AU=$(find build -type d -name "Effector Killa.component" | head -n 1)
+          APP=$(find build -type d -name "Effector Killa.app" | head -n 1)
+          for b in "dist/Effector Killa.vst3" "$AU" "$APP"; do
+            [ -n "$b" ] && [ -d "$b" ] || continue
+            codesign --force --deep --options runtime --timestamp -s "$MACOS_SIGN_IDENTITY" "$b"
+            cp -R "$b" signed/
+          done
+          ditto -c -k --keepParent signed EffectorKilla-macOS-signed.zip
+          xcrun notarytool submit EffectorKilla-macOS-signed.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" --wait
+          for b in signed/*; do xcrun stapler staple "$b"; done
+          ditto -c -k --keepParent signed EffectorKilla-macOS-signed.zip
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: EffectorKilla-macOS-signed
+          path: EffectorKilla-macOS-signed.zip
+          if-no-files-found: ignore

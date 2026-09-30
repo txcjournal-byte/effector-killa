@@ -98,6 +98,27 @@ public:
             for (int i = 0; i < 20; ++i) { p.kill(); expectEquals (p.getLatencySamples(), lat); }
         }
 
+        beginTest ("factory presets are loudness matched (except BUS)");
+        {
+            EffectorKillaAudioProcessor p;
+            p.prepareToPlay (44100.0, 256);
+            int worst = 0; float worstDiff = 0.0f;
+            for (int c = 0; c < 12; ++c)
+                for (int i = 0; i < 8; ++i)
+                {
+                    p.loadFactory (c, i, false);
+                    const auto prog = p.captureProgram();
+                    if (prog.source == Source::Bus) { expectEquals (prog.trimDb, 0.0f); continue; }
+                    float inDb = 0, outDb = 0;
+                    measureProgramLoudness (prog, 44100.0, 1.5f, inDb, outDb, true);
+                    const float d = std::abs (inDb - outDb);
+                    // presets needing more than the trim range may stay outside +-1 dB
+                    if (std::abs (prog.trimDb) < 5.9f && d > worstDiff) { worstDiff = d; worst = c * 8 + i; }
+                }
+            logMessage ("worst factory loudness difference " + juce::String (worstDiff, 2) + " dB (preset " + juce::String (worst) + ")");
+            expect (worstDiff <= 1.0f);
+        }
+
         beginTest ("undo / redo (30+ steps) and A/B");
         {
             EffectorKillaAudioProcessor p;

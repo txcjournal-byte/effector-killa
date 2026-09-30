@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "engine/Engine.h"
 #include "engine/Randomizer.h"
+#include <map>
 
 namespace ek
 {
@@ -67,6 +68,7 @@ public:
     // presets / channels
     void loadFactory (int channel, int index, bool undoable = true);
     void stepPreset (int delta);
+    float factoryTrimDb (int channel, int index); // loudness match of a factory preset (cached)
     void stepChannel (int delta);
     int getCurrentChannel() const noexcept { return meta.channel >= 0 ? meta.channel : lastChannel; }
     bool saveUserPreset (const juce::String& name);
@@ -138,6 +140,7 @@ private:
 
     ek::ProgramState meta;             // non-parameter program data (types, names, maps, mod ...)
     int lastChannel = 0;
+    std::map<int, float> factoryTrims;
     int screening = -1;
     int oversampling = 1;
     double currentSampleRate = 44100.0;

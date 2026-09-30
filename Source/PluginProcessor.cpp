@@ -244,9 +244,22 @@ void EffectorKillaAudioProcessor::loadFactory (int channel, int index, bool undo
     if (auto* p = bank.getFactory (channel, index))
     {
         auto copy = *p;
-        // write-protected slots survive preset changes only for KILL; a preset replaces everything
+        copy.trimDb = factoryTrimDb (channel, index);
         applyProgram (copy, undoable);
     }
+}
+
+float EffectorKillaAudioProcessor::factoryTrimDb (int channel, int index)
+{
+    // Factory presets are loudness matched to the input (like KILL) so switching presets compares sound,
+    // not level. BUS / master presets keep their designed loudness (making things loud is their job).
+    const auto* p = bank.getFactory (channel, index);
+    if (p == nullptr || p->source == Source::Bus) return 0.0f;
+    const int key = channel * 100 + index;
+    if (auto it = factoryTrims.find (key); it != factoryTrims.end()) return it->second;
+    const float trim = juce::jlimit (-12.0f, 6.0f, estimateProgramTrimDb (*p, 44100.0));
+    factoryTrims[key] = trim;
+    return trim;
 }
 
 void EffectorKillaAudioProcessor::stepPreset (int delta)
