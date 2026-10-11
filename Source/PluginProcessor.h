@@ -138,6 +138,17 @@ public:
     bool showGear = true;       // gear list visible
     bool softwareTv = false;    // force the software TV renderer
 
+    // SPECTRAL VIEW: analyse the signal before / after this rack slot (-1 = off, zero cost).
+    // Typically the hovered unit; the UI side is ui/rack/SpectrumOverlay.
+    void setAnalyzedSlot (int slot) noexcept { engine.getRack().getSlotTap().setAnalyzedSlot (slot); }
+    int getAnalyzedSlot() const noexcept { return engine.getRack().getSlotTap().getAnalyzedSlot(); }
+    // LEVEL-MATCHED POWER: while held, hear the rack without this unit, matched to the with-unit
+    // loudness (+-12 dB, 20 ms crossfade). -1 = off. Latency and default output are unchanged.
+    void setLevelMatchedAudition (int slot) noexcept { engine.getRack().getSlotTap().setAuditionSlot (slot); }
+    int getLevelMatchedAudition() const noexcept { return engine.getRack().getSlotTap().getAuditionSlot(); }
+    float getAuditionGainDb() const noexcept { return engine.getRack().getSlotTap().getAuditionGainDb(); }
+    ek::SlotTap& getSlotTap() noexcept { return engine.getRack().getSlotTap(); }
+
     // macro gestures from the UI (host automation of macros disconnects AV modulation)
     void beginUiGesture (int macro);
     void endUiGesture (int macro);

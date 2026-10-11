@@ -1,16 +1,88 @@
 // Renders the editor to PNG files - checks the UI without a DAW.
 //   EffectorKillaSnapshot <outDir>
+//   EffectorKillaSnapshot --analyzer <outDir>   SPECTRAL VIEW only (analyzer.png)
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "engine/TestSignals.h"
+#include "ui/rack/SpectrumOverlay.h"
+
+// SPECTRAL VIEW: pink noise through Tone Up, BEFORE / AFTER overlay over a dark unit-sized rect.
+static void renderAnalyzer (EffectorKillaAudioProcessor& proc, const juce::File& outDir)
+{
+    for (int s = ek::kNumSlots - 1; s >= 0; --s) proc.removeEffect (s);
+    proc.insertEffect (0, ek::EffectType::ToneUp);
+    const auto& info = ek::effectInfo (ek::EffectType::ToneUp);
+    proc.setSlotParam (0, 0, info.params[0].fromReal (120.0f));   // low-cut 120 Hz
+    proc.setSlotParam (0, 2, info.params[2].fromReal (-6.0f));    // low-mid -6 dB
+    proc.setSlotParam (0, 3, info.params[3].fromReal (400.0f));   //   @ 400 Hz
+    proc.setSlotParam (0, 4, info.params[4].fromReal (5.0f));     // high-mid +5 dB
+    proc.setSlotParam (0, 5, info.params[5].fromReal (3000.0f));  //   @ 3 kHz
+    proc.setSlotParam (0, 6, info.params[6].fromReal (6.0f));     // high +6 dB
+
+    ek::SpectrumOverlay overlay (proc.getSlotTap());
+    overlay.setSlot (0);
+
+    const double sr = 48000.0;
+    const int block = 512, blocks = 300;
+    std::vector<float> L ((size_t) (block * blocks)), R ((size_t) (block * blocks));
+    ek::TestSignals::generate (ek::TestSignals::Kind::PinkNoise, sr, L.data(), R.data(), (int) L.size(), 3);
+    juce::AudioBuffer<float> buf (2, block);
+    juce::MidiBuffer midi;
+    for (int b = 0; b < blocks; ++b)
+    {
+        buf.copyFrom (0, 0, L.data() + b * block, block, 2.0f);
+        buf.copyFrom (1, 0, R.data() + b * block, block, 2.0f);
+        proc.processBlock (buf, midi);
+        overlay.update();
+    }
+
+    const int w = 932, h = 140, scale = 2;
+    juce::Image img (juce::Image::ARGB, w * scale, h * scale, true);
+    {
+        juce::Graphics g (img);
+        g.addTransform (juce::AffineTransform::scale ((float) scale));
+        g.fillAll (juce::Colour (0xff07090d));
+        const auto unit = juce::Rectangle<float> (0, 0, (float) w, (float) h).reduced (6.0f);
+        g.setColour (juce::Colour (0xff0e131c));
+        g.fillRoundedRectangle (unit, 6.0f);
+        g.setColour (juce::Colour (0x2e9fc3ff));
+        g.drawRoundedRectangle (unit, 6.0f, 1.0f);
+        overlay.paint (g, unit.reduced (10.0f, 12.0f));
+        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+        g.setColour (ek::SpectrumOverlay::beforeColour().withAlpha (0.7f));
+        g.drawText ("BEFORE", unit.reduced (14.0f, 10.0f), juce::Justification::topRight);
+        g.setColour (ek::SpectrumOverlay::afterColour());
+        g.drawText ("AFTER  TONE UP", unit.reduced (14.0f, 10.0f).withTrimmedRight (64.0f), juce::Justification::topRight);
+    }
+    juce::PNGImageFormat png;
+    auto f = outDir.getChildFile ("analyzer.png");
+    f.deleteFile();
+    juce::FileOutputStream os (f);
+    png.writeImageToStream (img, os);
+    std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
+}
 
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
-    const juce::File outDir (argc > 1 ? juce::String (argv[1]) : juce::File::getCurrentWorkingDirectory().getFullPathName());
+    bool analyzerOnly = false;
+    juce::String dir;
+    for (int i = 1; i < argc; ++i)
+    {
+        const juce::String a (argv[i]);
+        if (a == "--analyzer") analyzerOnly = true;
+        else dir = a;
+    }
+    const juce::File outDir (dir.isNotEmpty() ? dir : juce::File::getCurrentWorkingDirectory().getFullPathName());
     outDir.createDirectory();
 
     EffectorKillaAudioProcessor proc;
     proc.prepareToPlay (48000.0, 512);
+    if (analyzerOnly)
+    {
+        renderAnalyzer (proc, outDir);
+        return 0;
+    }
     juce::AudioBuffer<float> buf (2, 512);
     juce::MidiBuffer midi;
     auto render = [&] (int blocks)
