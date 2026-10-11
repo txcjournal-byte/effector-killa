@@ -1,36 +1,36 @@
 #include "PresetBrowser.h"
-#include "PerformerDraw.h"
+#include "CardStyle.h"
 
 namespace ek::ui
 {
 using namespace juce;
 
 PresetBrowser::PresetBrowser (EffectorKillaAudioProcessor& p)
-    : proc (p), list ("presets", this), closeBtn (String::fromUTF8 ("CLOSE \xe2\x9c\x95"), theme::accent)
+    : proc (p), list ("presets", this)
 {
-    search.setTextToShowWhenEmpty ("SEARCH NAME, DESCRIPTION OR CHANNEL...", performer::iceText.withAlpha (0.35f));
-    search.setFont (theme::monoLabel (13.0f));
-    search.setIndents (12, 8);
-    search.setColour (TextEditor::backgroundColourId, Colour (0xff020306));
-    search.setColour (TextEditor::textColourId, performer::iceText);
-    search.setColour (TextEditor::highlightColourId, performer::iceLine.withAlpha (0.3f));
+    // the search field is drawn as a pill in paint(); the editor itself is transparent
+    search.setTextToShowWhenEmpty ("SEARCH NAME, DESCRIPTION OR CHANNEL", card::muted.withAlpha (0.85f));
+    search.setFont (card::monoFont (11.5f));
+    search.setIndents (34, 7);
+    search.setJustification (Justification::centredLeft);
+    search.setColour (TextEditor::backgroundColourId, Colours::transparentBlack);
+    search.setColour (TextEditor::textColourId, card::text);
+    search.setColour (TextEditor::highlightColourId, card::ice.withAlpha (0.25f));
     search.setColour (TextEditor::highlightedTextColourId, Colours::white);
-    search.setColour (CaretComponent::caretColourId, performer::iceText);
-    search.setColour (TextEditor::outlineColourId, performer::iceLine.withAlpha (0.25f));
-    search.setColour (TextEditor::focusedOutlineColourId, performer::iceLine.withAlpha (0.8f));
+    search.setColour (CaretComponent::caretColourId, card::ice);
+    search.setColour (TextEditor::outlineColourId, Colours::transparentBlack);
+    search.setColour (TextEditor::focusedOutlineColourId, Colours::transparentBlack);
     search.onTextChange = [this] { rebuild(); };
     search.onReturnKey = [this] { if (! shown.empty()) { load (jmax (0, list.getSelectedRow())); if (onClose) onClose(); } };
     search.onEscapeKey = [this] { if (onClose) onClose(); };
     addAndMakeVisible (search);
 
-    list.setRowHeight (34);
-    list.getVerticalScrollBar().setColour (ScrollBar::thumbColourId, performer::iceLine.withAlpha (0.35f));
+    list.setRowHeight (36);
+    list.getVerticalScrollBar().setColour (ScrollBar::thumbColourId, card::ice.withAlpha (0.25f));
     list.setColour (ListBox::backgroundColourId, Colours::transparentBlack);
     list.setOutlineThickness (0);
     addAndMakeVisible (list);
-
-    closeBtn.onClick = [this] { if (onClose) onClose(); };
-    addAndMakeVisible (closeBtn);
+    setRepaintsOnMouseActivity (false);
 }
 
 void PresetBrowser::open()
@@ -99,13 +99,14 @@ void PresetBrowser::rebuild()
     repaint();
 }
 
-Rectangle<int> PresetBrowser::categoryArea() const { return { 16, 60, 214, getHeight() - 76 }; }
+Rectangle<int> PresetBrowser::categoryArea() const { return { 22, 68, 196, getHeight() - 88 }; }
+Rectangle<int> PresetBrowser::closeArea() const { return { getWidth() - 116, 20, 94, 28 }; }
 
 int PresetBrowser::categoryRowHeight() const
 {
     // 26 px per tab, squeezed when the browser is short
     const int n = jmax (1, categories.size());
-    return jlimit (16, 26, (categoryArea().getHeight() - 8) / n);
+    return jlimit (16, 28, (categoryArea().getHeight() - 10) / n);
 }
 
 int PresetBrowser::categoryAt (Point<int> p) const
@@ -114,16 +115,16 @@ int PresetBrowser::categoryAt (Point<int> p) const
     if (! a.contains (p)) return -1;
     const int rh = categoryRowHeight();
     int y = p.y - a.getY();
-    if (y > 3 * rh) y -= 8;   // gap after MY PRESETS
+    if (y > 3 * rh) y -= 10;  // gap after MY PRESETS
     const int row = y / rh;
     return row >= 0 && row < categories.size() ? row : -1;
 }
 
 Colour PresetBrowser::categoryLed (int i) const
 {
-    if (i == 0) return performer::iceLine;
-    if (i == 1) return performer::amber;
-    if (i == 2) return theme::ledGreen;
+    if (i == 0) return card::ice;
+    if (i == 1) return Colour (0xffffd23f);
+    if (i == 2) return Colour (0xff5fe0b0);
     const auto& chans = proc.bank.getChannels();
     if (i - 3 < (int) chans.size())
     {
@@ -131,54 +132,172 @@ Colour PresetBrowser::categoryLed (int i) const
         auto c = chans[(size_t) (i - 3)].colour;
         return c.getBrightness() < 0.75f ? c.withBrightness (jmax (0.75f, c.getBrightness())) : c;
     }
-    return performer::iceLine;
+    return card::ice;
+}
+
+Colour PresetBrowser::entryColour (const Entry& e) const
+{
+    if (e.channel >= 0) return categoryLed (3 + e.channel);
+    return categoryLed (2);
 }
 
 void PresetBrowser::paint (Graphics& g)
 {
-    g.fillAll (Colour (0xff010203));
     const auto outer = getLocalBounds().toFloat().reduced (4.0f);
-    performer::drawBlackGlass (g, outer, 8.0f);
+    // soft shadow + ice glow around the glass card
+    for (int k = 5; k >= 1; --k)
+    {
+        g.setColour (card::iceDeep.withAlpha (0.035f * (float) (6 - k)));
+        g.fillRoundedRectangle (outer.expanded ((float) k * 0.8f), card::radius + (float) k * 0.8f);
+    }
+    {
+        Path shape;
+        shape.addRoundedRectangle (outer, card::radius);
+        g.setColour (card::card.withAlpha (0.96f));
+        g.fillPath (shape);
+        g.saveState();
+        g.reduceClipRegion (shape);
+        ColourGradient haze (card::iceDeep.withAlpha (0.10f), outer.getRight(), outer.getY(), card::iceDeep.withAlpha (0.0f),
+                             outer.getRight() - outer.getWidth() * 0.5f, outer.getBottom(), true);
+        g.setGradientFill (haze);
+        g.fillRect (outer);
+        ColourGradient sheen (Colours::white.withAlpha (0.04f), 0.0f, outer.getY(), Colours::white.withAlpha (0.0f), 0.0f, outer.getY() + 60.0f, false);
+        g.setGradientFill (sheen);
+        g.fillRect (outer);
+        g.restoreState();
+        g.setColour (card::line);
+        g.drawRoundedRectangle (outer.reduced (0.5f), card::radius - 0.5f, 1.0f);
+        ColourGradient top (card::ice.withAlpha (0.0f), outer.getX() + 30.0f, 0.0f, card::ice.withAlpha (0.0f), outer.getRight() - 30.0f, 0.0f, false);
+        top.addColour (0.3, card::ice.withAlpha (0.22f));
+        top.addColour (0.7, card::ice.withAlpha (0.12f));
+        g.setGradientFill (top);
+        g.fillRect (outer.getX() + 30.0f, outer.getY() + 0.5f, outer.getWidth() - 60.0f, 0.8f);
+    }
 
-    // title bar: VFD title, preset count, thin ice line under it
-    theme::drawGlowText (g, "PRESET BROWSER", { 22.0f, 14.0f, 260.0f, 30.0f }, theme::vfdFont (20.0f), performer::iceText,
-                         Justification::centredLeft, 0.9f);
-    const String count = String ((int) shown.size()) + ((int) shown.size() == 1 ? " PRESET" : " PRESETS");
-    performer::drawSilkscreen (g, count, { 22.0f + 230.0f, 16.0f, 160.0f, 26.0f }, performer::iceText.withAlpha (0.62f), 10.0f,
-                               Justification::centredLeft);
-    g.setColour (performer::iceLine.withAlpha (0.18f));
-    g.drawHorizontalLine (50, outer.getX() + 10.0f, outer.getRight() - 10.0f);
+    // title: chrome italic + count pill
+    const auto tb = card::paintChromeTitle (g, "PRESETS", { 26.0f, 18.0f, 220.0f, 32.0f }, 26.0f, 1.0f);
+    card::paintSparkle (g, { tb.getRight() + 12.0f, tb.getY() + 4.0f }, 5.0f, card::ice, 1.0f);
+    {
+        const String count = String ((int) shown.size()) + ((int) shown.size() == 1 ? " PRESET" : " PRESETS");
+        const auto f = card::monoFont (8.5f);
+        const float w = GlyphArrangement::getStringWidth (f, count) + 20.0f;
+        const auto badge = Rectangle<float> (tb.getRight() + 28.0f, 24.0f, w, 20.0f);
+        g.setColour (card::bg);
+        g.fillRoundedRectangle (badge, 10.0f);
+        g.setColour (card::text.withAlpha (0.55f));
+        g.drawRoundedRectangle (badge.reduced (0.5f), 9.5f, 1.0f);
+        g.setFont (f);
+        g.setColour (card::text);
+        g.drawText (count, badge, Justification::centred, false);
+    }
 
-    // category tabs
+    // close pill (secondary: outline)
+    {
+        const auto cr = closeArea().toFloat();
+        if (closeHover)
+            for (int k = 3; k >= 1; --k)
+            {
+                g.setColour (card::iceDeep.withAlpha (0.12f * (float) (4 - k)));
+                g.fillRoundedRectangle (cr.expanded ((float) k * 1.5f), cr.getHeight() * 0.5f + (float) k * 1.5f);
+            }
+        g.setColour (card::bg);
+        g.fillRoundedRectangle (cr, cr.getHeight() * 0.5f);
+        g.setColour (closeHover ? card::ice : card::text.withAlpha (0.45f));
+        g.drawRoundedRectangle (cr.reduced (0.5f), cr.getHeight() * 0.5f - 0.5f, 1.0f);
+        g.setFont (card::monoFont (9.5f));
+        g.setColour (card::text);
+        g.drawText (String::fromUTF8 ("CLOSE  \xe2\x9c\x95"), cr, Justification::centred, false);
+    }
+
+    // hairline under the header
+    {
+        ColourGradient hl (card::ice.withAlpha (0.0f), outer.getX() + 16.0f, 0.0f, card::ice.withAlpha (0.0f), outer.getRight() - 16.0f, 0.0f, false);
+        hl.addColour (0.2, card::ice.withAlpha (0.16f));
+        hl.addColour (0.8, card::ice.withAlpha (0.16f));
+        g.setGradientFill (hl);
+        g.fillRect (outer.getX() + 16.0f, 58.0f, outer.getWidth() - 32.0f, 1.0f);
+    }
+
+    // category pills
     const auto a = categoryArea();
     const int rh = categoryRowHeight();
     int y = a.getY();
     for (int i = 0; i < categories.size(); ++i)
     {
-        const auto r = Rectangle<int> (a.getX(), y, a.getWidth(), rh - 3).toFloat();
-        performer::drawLedTab (g, r, categories[i], categoryLed (i), i == category, i == hoverCategory);
-        y += rh;
-        if (i == 2)
+        const auto r = Rectangle<int> (a.getX(), y, a.getWidth(), rh - 4).toFloat();
+        const bool active = i == category, hot = i == hoverCategory;
+        const float rad = r.getHeight() * 0.5f;
+        const auto led = categoryLed (i);
+        if (active)
         {
-            g.setColour (performer::iceLine.withAlpha (0.14f));
-            g.drawHorizontalLine (y + 2, r.getX() + 6.0f, r.getRight() - 6.0f);
-            y += 8;
+            for (int k = 3; k >= 1; --k)
+            {
+                g.setColour (card::iceDeep.withAlpha (0.13f * (float) (4 - k)));
+                g.fillRoundedRectangle (r.expanded ((float) k * 1.2f), rad + (float) k * 1.2f);
+            }
+            ColourGradient fill (card::ice.withAlpha (0.30f), 0.0f, r.getY(), card::iceDeep.withAlpha (0.30f), 0.0f, r.getBottom(), false);
+            g.setGradientFill (fill);
+            g.fillRoundedRectangle (r, rad);
+            g.setColour (card::ice.withAlpha (0.85f));
+            g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
         }
+        else
+        {
+            g.setColour (hot ? card::card2.brighter (0.15f) : card::bg.withAlpha (0.7f));
+            g.fillRoundedRectangle (r, rad);
+            g.setColour (hot ? card::ice.withAlpha (0.45f) : card::line);
+            g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
+        }
+        if (i == 1)
+            card::paintSparkle (g, { r.getX() + rad + 1.0f, r.getCentreY() }, 4.0f, led, active ? 1.0f : 0.5f);
+        else
+            card::dotGlow (g, { r.getX() + rad + 1.0f, r.getCentreY() }, 2.2f, led, active || hot ? 1.0f : 0.7f);
+        String label = categories[i];
+        if (i == 1) label = "FAVOURITES";
+        g.setFont (card::monoFont (8.5f, active));
+        g.setColour (active ? Colours::white : (hot ? card::text : card::text2));
+        g.drawFittedText (label, r.withTrimmedLeft (rad + 10.0f).withTrimmedRight (8.0f).toNearestInt(), Justification::centredLeft, 1, 0.7f);
+        y += rh;
+        if (i == 2) y += 10;
     }
-    g.setColour (performer::iceLine.withAlpha (0.14f));
-    g.drawVerticalLine (a.getRight() + 10, (float) a.getY(), (float) a.getBottom());
+    {
+        ColourGradient div (card::ice.withAlpha (0.0f), 0.0f, (float) a.getY(), card::ice.withAlpha (0.0f), 0.0f, (float) a.getBottom(), false);
+        div.addColour (0.5, card::ice.withAlpha (0.14f));
+        g.setGradientFill (div);
+        g.fillRect ((float) a.getRight() + 12.0f, (float) a.getY(), 1.0f, (float) a.getHeight());
+    }
+
+    // search pill
+    {
+        const auto sb = search.getBounds().toFloat();
+        const bool focus = search.hasKeyboardFocus (true);
+        if (focus)
+            for (int k = 3; k >= 1; --k)
+            {
+                g.setColour (card::iceDeep.withAlpha (0.10f * (float) (4 - k)));
+                g.fillRoundedRectangle (sb.expanded ((float) k * 1.5f), sb.getHeight() * 0.5f + (float) k * 1.5f);
+            }
+        g.setColour (card::bg);
+        g.fillRoundedRectangle (sb, sb.getHeight() * 0.5f);
+        g.setColour (focus ? card::ice.withAlpha (0.6f) : card::line.withMultipliedAlpha (1.4f));
+        g.drawRoundedRectangle (sb.reduced (0.5f), sb.getHeight() * 0.5f - 0.5f, 1.0f);
+        const auto c = Point<float> (sb.getX() + 18.0f, sb.getCentreY() - 0.5f);
+        g.setColour (card::text2);
+        g.drawEllipse (Rectangle<float> (9.0f, 9.0f).withCentre (c), 1.3f);
+        g.drawLine (c.x + 3.4f, c.y + 3.4f, c.x + 6.6f, c.y + 6.6f, 1.5f);
+    }
 }
 
 void PresetBrowser::resized()
 {
-    const int x0 = categoryArea().getRight() + 22;
-    closeBtn.setBounds (getWidth() - 114, 15, 96, 28);
-    search.setBounds (x0, 60, getWidth() - x0 - 18, 30);
-    list.setBounds (x0, 100, getWidth() - x0 - 16, getHeight() - 116);
+    const int x0 = categoryArea().getRight() + 26;
+    search.setBounds (x0, 68, getWidth() - x0 - 22, 32);
+    list.setBounds (x0, 110, getWidth() - x0 - 18, getHeight() - 128);
 }
 
 void PresetBrowser::mouseUp (const MouseEvent& e)
 {
+    if (closeArea().contains (e.getPosition())) { if (onClose) onClose(); return; }
     const int c = categoryAt (e.getPosition());
     if (c >= 0 && c != category) { category = c; rebuild(); }
 }
@@ -186,12 +305,15 @@ void PresetBrowser::mouseUp (const MouseEvent& e)
 void PresetBrowser::mouseMove (const MouseEvent& e)
 {
     const int c = categoryAt (e.getPosition());
-    if (c != hoverCategory) { hoverCategory = c; repaint (categoryArea()); }
+    if (c != hoverCategory) { hoverCategory = c; repaint (categoryArea().expanded (6)); }
+    const bool ch = closeArea().contains (e.getPosition());
+    if (ch != closeHover) { closeHover = ch; repaint (closeArea().expanded (8)); }
+    setMouseCursor (c >= 0 || ch ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
 }
 
 void PresetBrowser::mouseExit (const MouseEvent&)
 {
-    if (hoverCategory >= 0) { hoverCategory = -1; repaint (categoryArea()); }
+    if (hoverCategory >= 0 || closeHover) { hoverCategory = -1; closeHover = false; repaint(); }
 }
 
 bool PresetBrowser::keyPressed (const KeyPress& k)
@@ -204,48 +326,60 @@ void PresetBrowser::paintListBoxItem (int row, Graphics& g, int w, int h, bool s
 {
     if (row < 0 || row >= (int) shown.size()) return;
     const auto& e = shown[(size_t) row];
-    auto r = Rectangle<float> (0.0f, 0.0f, (float) w, (float) h).reduced (2.0f, 1.5f);
+    auto r = Rectangle<float> (0.0f, 0.0f, (float) w, (float) h).reduced (4.0f, 2.5f);
+    const float rad = 12.0f;
+    const auto col = entryColour (e);
 
-    // rows are etched into the glass: very dark, alternating; the selected one is backlit
     if (selected)
     {
-        ColourGradient lit (Colour (0xff12213a), r.getX(), r.getY(), Colour (0xff0a1322), r.getX(), r.getBottom(), false);
+        g.setColour (card::iceDeep.withAlpha (0.18f));
+        g.fillRoundedRectangle (r.expanded (2.0f, 1.5f), rad + 2.0f);
+        ColourGradient lit (Colour (0xff13203a), r.getX(), r.getY(), Colour (0xff0c1424), r.getX(), r.getBottom(), false);
         g.setGradientFill (lit);
-        g.fillRoundedRectangle (r, 3.0f);
-        g.setColour (performer::iceLine.withAlpha (0.65f));
-        g.drawRoundedRectangle (r.reduced (0.5f), 3.0f, 1.0f);
-        g.setColour (performer::iceLine);
-        g.fillRect (r.withWidth (2.5f).reduced (0.0f, 5.0f).translated (1.0f, 0.0f));
+        g.fillRoundedRectangle (r, rad);
+        ColourGradient side (col.withAlpha (0.16f), r.getX(), r.getCentreY(), col.withAlpha (0.0f), r.getX() + r.getWidth() * 0.35f, r.getCentreY(), false);
+        g.setGradientFill (side);
+        g.fillRoundedRectangle (r, rad);
+        g.setColour (card::ice.withAlpha (0.6f));
+        g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
     }
     else
     {
-        g.setColour (row % 2 == 0 ? Colour (0xff070a10) : Colour (0xff04060a));
-        g.fillRoundedRectangle (r, 3.0f);
+        g.setColour (row % 2 == 0 ? card::card2 : card::card.withAlpha (0.6f));
+        g.fillRoundedRectangle (r, rad);
+        g.setColour (card::line.withMultipliedAlpha (0.5f));
+        g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
     }
 
     auto t = r.reduced (14.0f, 0.0f);
-    // name: VFD-style ice blue, favourites get an amber star
-    auto nameR = t.removeFromLeft (240.0f);
-    if (e.favourite)
-    {
-        theme::drawGlowText (g, String::fromUTF8 ("\xe2\x98\x85"), nameR.removeFromLeft (18.0f), theme::monoLabel (13.0f), performer::amber,
-                             Justification::centredLeft, selected ? 0.8f : 0.3f);
-    }
-    if (selected)
-        theme::drawGlowText (g, e.name.toUpperCase(), nameR, theme::monoLabel (13.0f).boldened(), Colour (0xffd8f1ff), Justification::centredLeft, 0.7f);
+    // channel colour dot
+    card::dotGlow (g, { t.getX() + 3.0f, t.getCentreY() }, 2.6f, col, selected ? 1.0f : 0.75f);
+    t.removeFromLeft (16.0f);
+    // name in Plex Mono, favourite sparkle after it
+    const auto nf = card::monoFont (12.0f, true);
+    auto nameR = t.removeFromLeft (jmin (230.0f, t.getWidth() * 0.42f));
+    const String name = e.name.toUpperCase();
+    if (selected) card::glowText (g, name, nameR, nf, Colours::white, Justification::centredLeft, 0.35f);
     else
     {
-        g.setFont (theme::monoLabel (13.0f).boldened());
-        g.setColour (performer::iceText.withAlpha (0.85f));
-        g.drawText (e.name.toUpperCase(), nameR, Justification::centredLeft, true);
+        g.setFont (nf);
+        g.setColour (card::text);
+        g.drawText (name, nameR, Justification::centredLeft, true);
     }
-    // description and location
-    g.setFont (theme::monoLabel (10.5f));
-    g.setColour (performer::iceText.withAlpha (selected ? 0.75f : 0.45f));
-    g.drawText (e.description, t.removeFromLeft (jmax (60.0f, t.getWidth() - 190.0f)), Justification::centredLeft, true);
-    g.setFont (theme::monoLabel (9.5f));
-    g.setColour (performer::iceLine.withAlpha (selected ? 0.9f : 0.5f));
-    g.drawText (e.where, t, Justification::centredRight, true);
+    if (e.favourite)
+    {
+        const float nw = jmin (nameR.getWidth() - 10.0f, GlyphArrangement::getStringWidth (nf, name));
+        card::paintSparkle (g, { nameR.getX() + nw + 10.0f, nameR.getCentreY() }, 4.6f, Colour (0xffffd23f), selected ? 1.0f : 0.6f);
+    }
+    // where (right) and description (middle)
+    const auto wf = card::monoFont (8.0f);
+    const float ww = jmin (t.getWidth() * 0.45f, GlyphArrangement::getStringWidth (wf, e.where) + 8.0f);
+    g.setFont (wf);
+    g.setColour (selected ? card::ice : card::muted);
+    g.drawText (e.where, t.removeFromRight (ww), Justification::centredRight, true);
+    g.setFont (card::monoFont (9.5f));
+    g.setColour (selected ? card::text2 : card::muted);
+    g.drawText (e.description, t.withTrimmedRight (12.0f), Justification::centredLeft, true);
 }
 
 void PresetBrowser::load (int row)

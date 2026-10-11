@@ -1,8 +1,8 @@
 #pragma once
 
-// MOD unit (932 x 96): the fixed hardware unit under the performer strip with the four modulation
-// sources of the engine (LFO 1, LFO 2, ENV follower, 16-step SEQ). Each section has small knobs,
-// a mini display and a patch-jack "handle".
+// MOD card (TrapWin style, Docs/TRAPWIN-STYLE.md): any width >= kMinWidth (designed for 852), height 96.
+// The four modulation sources of the engine (LFO 1, LFO 2, ENV follower, 16-step SEQ), each with a small
+// glowing glass screen, flat knobs and a glowing round "jack" handle in the source colour.
 //
 // Patching: grab a jack and drag it onto any knob in the rack. ModUnit does not know the rack, it only
 // reports the gesture; the editor / RackView hit-tests the knob and calls
@@ -20,7 +20,7 @@
 
 namespace ek::ui
 {
-// Colour of a modulation source (LFO 1 ice blue, LFO 2 violet, ENV amber, SEQ green).
+// Colour of a modulation source (LFO 1 #9FC3FF, LFO 2 #B07CFF, ENV #5FE0B0, SEQ #FFD23F).
 juce::Colour modSourceColour (int source);
 
 // Depth ring around a rotary knob. knobBounds = the knob's square, baseNorm = the knob value (0..1),
@@ -30,7 +30,7 @@ juce::Colour modSourceColour (int source);
 void paintModRing (juce::Graphics& g, juce::Rectangle<float> knobBounds, float baseNorm, float depth, juce::Colour colour,
                    bool bipolar = true, float currentNorm = -1.0f, int ringIndex = 0);
 
-// Patch cable between two points (sagging, with plugs), e.g. while a handle is dragged.
+// Patch cable between two points: a thin glowing bezier in the source colour with glowing end dots.
 void paintPatchCable (juce::Graphics& g, juce::Point<float> from, juce::Point<float> to, juce::Colour colour);
 
 class ModUnit : public juce::Component, public juce::SettableTooltipClient
@@ -39,7 +39,7 @@ public:
     explicit ModUnit (EffectorKillaAudioProcessor& p);
     ~ModUnit() override;
 
-    static constexpr int kWidth = 932, kHeight = 96;
+    static constexpr int kWidth = 852, kMinWidth = 700, kHeight = 96;
 
     std::function<void (int source, juce::Point<int> screenPos)> onHandleDrag;
     std::function<void (int source, juce::Point<int> screenPos)> onHandleDrop;
@@ -64,7 +64,7 @@ public:
 private:
     struct Section { int source; juce::Rectangle<int> area, display, jack; juce::String title; };
 
-    void paintChassis (juce::Graphics&);
+    void paintTitle (juce::Graphics&);
     void paintSection (juce::Graphics&, const Section&);
     void paintDisplay (juce::Graphics&, const Section&);
     void paintJack (juce::Graphics&, const Section&);
@@ -73,10 +73,12 @@ private:
     void setSeqFromMouse (juce::Point<int> p);
     void showAssignmentMenu (int source);
     juce::String countText (int source) const;
+    juce::Rectangle<float> seqPlot() const;
 
     EffectorKillaAudioProcessor& proc;
     std::array<Section, kNumModSources> sections;
     juce::Rectangle<int> syncButtons[2];
+    juce::Rectangle<int> titleArea;
     std::vector<std::unique_ptr<MiniKnob>> knobs;
     std::array<float, 64> envHistory {};
     int envPos = 0;

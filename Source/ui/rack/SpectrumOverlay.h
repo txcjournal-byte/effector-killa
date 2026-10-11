@@ -96,8 +96,8 @@ public:
     SpectrumAnalyzer& getAnalyzer() noexcept { return analyzer; }
 
     static constexpr float topDb = -12.0f, bottomDb = -78.0f; // display range (after the +3 dB/oct tilt)
-    static juce::Colour beforeColour() { return juce::Colour (0xffb4b8c0); }
-    static juce::Colour afterColour() { return juce::Colour (0xff9fc3ff); }
+    static juce::Colour beforeColour() { return juce::Colour (0xff8794ab); }   // TrapWin muted
+    static juce::Colour afterColour() { return juce::Colour (0xff9fc3ff); }    // TrapWin accent-light
 
 private:
     SlotTap& tap;

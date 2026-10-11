@@ -1,12 +1,13 @@
 #pragma once
 
-// Gear (DESIGN-RACK.md section 7): the right-hand column (280 px) with a miniature of every effect's
-// faceplate (rendered by faceplate::paintFaceplate (..., miniature = true), ~264 x 41), grouped
-// COLOR / FILTER & EQ / DYNAMICS / MODULATION / SPACE / STEREO, with a search field.
+// FX LIBRARY (Docs/TRAPWIN-STYLE.md): the left sidebar (220 px) - one TrapWin card with the chrome title,
+// a search pill and a miniature chip of every effect card (faceplate::paintFaceplate (..., miniature = true),
+// designed at 264 x 41 and scaled to the column, aspect kept), grouped
+// COLOR / FILTER & EQ / DYNAMICS / MODULATION / SPACE / STEREO.
 //   hover        = the miniature lights up + tooltip with the effect description
 //   double-click = add at the end of the rack
 //   drag         = into the rack (edge = insert, centre = replace, under the last unit = add)
-//   a unit dragged back here = remove (the column turns red: "DROP TO REMOVE")
+//   a unit dragged back here = remove (the card glows red: "DROP TO REMOVE")
 
 #include "RackView.h"
 
@@ -33,7 +34,7 @@ public:
     explicit GearList (EffectorKillaAudioProcessor& p);
     ~GearList() override;
 
-    static constexpr int preferredWidth = 280;
+    static constexpr int preferredWidth = 220;
 
     void paint (juce::Graphics&) override;
     void paintOverChildren (juce::Graphics&) override;
@@ -46,6 +47,9 @@ public:
 
     void setFilter (const juce::String& text);   // same as typing into the search field
     std::function<void (const juce::String&)> onMessage;
+
+    // Snapshot tool only: force the drop-to-remove look / a hovered chip.
+    void setSnapshotState (bool showRemove, ek::EffectType hoverType);
 
     class Content;
 
