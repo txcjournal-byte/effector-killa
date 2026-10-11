@@ -147,6 +147,45 @@ public:
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout (std::shared_ptr<ek::HostInfo> info = {});
 
+    // ---- MOD SOURCES (message thread) -------------------------------------------------------
+    // The MOD unit: LFO 1, LFO 2, ENV (envelope follower on the input) and SEQ (16-step sequencer).
+    // Source ids: ek::ModSourceId (0 = LFO 1, 1 = LFO 2, 2 = ENV, 3 = SEQ).
+    // A target is a slot parameter (slot 0..7, param 0..7 = P1..P8, 8 = slot MIX) or a macro (0..4).
+    // Depth is bipolar -1..+1 in normalised units: the LFOs swing the value by +-depth, ENV and SEQ
+    // (0..1 sources) push it from the knob value towards +depth. Max 16 assignments (ek::kMaxModAssignments).
+    // Everything is part of the program: saved in presets, A/B, undo and the DAW project.
+    // Default (no assignment) = no modulation, the audio path is bit-identical to a build without it.
+    int addModAssignment (int source, int slot, int param, float depth);  // returns index, -1 = full / invalid;
+                                                                          // an existing source+target only gets the new depth
+    int addMacroModAssignment (int source, int macro, float depth);       // modulate a macro knob instead
+    void removeModAssignment (int index);
+    void removeModAssignmentsFor (int slot, int param);                  // slot = -1: param is a macro index
+    void clearModAssignments();
+    void setModDepth (int index, float depth);                           // no undo step (call pushUndo() at gesture start)
+    std::vector<ek::ModAssignment> getModAssignments() const;            // in table order (index = position)
+    std::vector<int> findModAssignments (int slot, int param) const;     // indices of all assignments of a target
+    const ek::ModSourceState& getModSources() const noexcept { return meta.modSources; }
+    void setModSources (const ek::ModSourceState& s, bool undoable = false); // replace everything (settings + table)
+    void setLfo (int lfo, const ek::LfoSettings& s);                     // lfo 0 / 1
+    void setEnvFollower (const ek::EnvSettings& s);
+    void setStepSeq (const ek::SeqSettings& s);
+    void setSeqStep (int step, float value01);
+    // live values for the UI (audio thread atomics): LFO -1..1, ENV / SEQ 0..1
+    float getModSourceValue (int source) const noexcept;
+    float getLfoPhase (int lfo) const noexcept;                          // 0..1 (incl. phase offset)
+    int getSeqStep() const noexcept { return engine.modMeters.seqStep.load (std::memory_order_relaxed); }
+    float getModOffset (int slot, int param) const noexcept;             // current smoothed offset (slot = -1: macro)
+    float getEffectiveSlotParam (int slot, int param) const noexcept;    // value the rack hears (macros + modulation)
+
+    // ---- MACRO LEARN (message thread) ----------------------------------------------------------
+    // Assign any slot parameter (0..7, 8 = slot MIX) to a macro: macro at 0 -> minNorm, macro at 0.5 ->
+    // the knob value, macro at 1 -> maxNorm. Learned mappings add to the macro's built-in behaviour
+    // (ek::MacroMapping::learned). Stored in ProgramState::maps -> saved in presets and the project.
+    bool assignMacro (int macro, int slot, int param, float minNorm, float maxNorm); // replaces an existing one
+    void removeMacroAssignment (int macro, int slot, int param);
+    std::vector<ek::MacroMapping> getMacroAssignments() const;           // all mappings (preset + learned, see .learned)
+    std::vector<ek::MacroMapping> getMacroAssignmentsFor (int slot, int param) const; // all mappings of a target
+
     // tempo: HOST follows the DAW, MANUAL uses tempo_bpm (TAP sets it)
     void tapTempo();
     double getEffectiveBpm() const noexcept { return engine.meters.bpm.load(); }
@@ -156,6 +195,7 @@ private:
     void parameterChanged (const juce::String& id, float newValue) override;
     void pushConfigToEngine();
     void pushExtrasToEngine();
+    void modChanged();   // after a meta.modSources / meta.maps edit: push to the engine, tell the UI
     void notifyUi() { sendChangeMessage(); }
     ek::ProgramState stateForSide() const { return captureProgram(); }
 

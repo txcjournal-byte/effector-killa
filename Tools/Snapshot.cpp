@@ -1,13 +1,85 @@
 // Renders the editor to PNG files - checks the UI without a DAW.
-//   EffectorKillaSnapshot <outDir>
+//   EffectorKillaSnapshot <outDir>          the editor shots
+//   EffectorKillaSnapshot <outDir> --mod    only the MOD unit (mod_unit.png, mod_unit_2x.png, mod_ring_demo.png)
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ui/rack/ModUnit.h"
+
+static void writePng (const juce::Image& img, const juce::File& f)
+{
+    f.deleteFile();
+    juce::FileOutputStream os (f);
+    juce::PNGImageFormat().writeImageToStream (img, os);
+    std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
+}
+
+// MOD unit on its own: a few patched sources, the sources running, plus knobs with modulation rings.
+static int snapshotModUnit (const juce::File& outDir)
+{
+    EffectorKillaAudioProcessor proc;
+    proc.prepareToPlay (48000.0, 512);
+    proc.loadFactory (9, 2, false);
+    proc.addModAssignment (0, 1, 1, 0.35f);      // LFO 1 -> filter cutoff
+    proc.addModAssignment (0, 3, 8, -0.2f);      // LFO 1 -> reverb MIX
+    proc.addMacroModAssignment (1, ek::Drip, 0.3f);
+    proc.addModAssignment (2, 0, 1, 0.5f);       // ENV -> drive
+    proc.addModAssignment (3, 2, 8, 0.4f);       // SEQ -> delay MIX
+    proc.addModAssignment (3, 1, 2, 0.25f);
+    auto lfo = proc.getModSources().lfo[0];
+    lfo.rateHz = 0.8f; lfo.phase = 0.1f;
+    proc.setLfo (0, lfo);
+    proc.setParamNorm (ek::ParamIDs::tempoMode, 1.0f);
+
+    juce::AudioBuffer<float> buf (2, 512);
+    juce::MidiBuffer midi;
+    ek::ui::ModUnit unit (proc);
+    unit.setBounds (0, 0, ek::ui::ModUnit::kWidth, ek::ui::ModUnit::kHeight);
+    for (int b = 0; b < 120; ++b)
+    {
+        for (int i = 0; i < 512; ++i)
+        {
+            const float t = (float) (b * 512 + i);
+            const float env = std::exp (-std::fmod (t, 12000.0f) / 3000.0f); // plucks for the ENV display
+            buf.setSample (0, i, 0.5f * env * std::sin (t * 0.05f));
+            buf.setSample (1, i, 0.5f * env * std::sin (t * 0.051f));
+        }
+        proc.processBlock (buf, midi);
+        if (b % 2 == 0) unit.tick();
+    }
+    unit.refresh();
+    writePng (unit.createComponentSnapshot (unit.getLocalBounds(), true, 1.0f), outDir.getChildFile ("mod_unit.png"));
+    writePng (unit.createComponentSnapshot (unit.getLocalBounds(), true, 2.0f), outDir.getChildFile ("mod_unit_2x.png"));
+
+    // knob rings (what RackView draws with paintModRing) + a patch cable
+    juce::Image demo (juce::Image::ARGB, 420, 110, true);
+    {
+        juce::Graphics g (demo);
+        g.fillAll (juce::Colour (0xff12151b));
+        const float bases[] = { 0.5f, 0.3f, 0.7f, 0.2f };
+        const float depths[] = { 0.35f, 0.5f, -0.4f, 0.6f };
+        for (int s = 0; s < 4; ++s)
+        {
+            const auto kb = juce::Rectangle<float> (40.0f, 40.0f).withCentre ({ 50.0f + 85.0f * (float) s, 50.0f });
+            ek::ui::paintModRing (g, kb, bases[s], depths[s], ek::ui::modSourceColour (s), ek::modSourceIsBipolar (s),
+                                  juce::jlimit (0.0f, 1.0f, bases[s] + depths[s] * 0.6f));
+            ek::theme::drawKnob (g, kb.getCentre(), 20.0f, ek::theme::knobStart + (ek::theme::knobEnd - ek::theme::knobStart) * bases[s]);
+        }
+        ek::ui::paintPatchCable (g, { 360.0f, 20.0f }, { 400.0f, 90.0f }, ek::ui::modSourceColour (1));
+    }
+    writePng (demo, outDir.getChildFile ("mod_ring_demo.png"));
+    return 0;
+}
 
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
-    const juce::File outDir (argc > 1 ? juce::String (argv[1]) : juce::File::getCurrentWorkingDirectory().getFullPathName());
+    juce::StringArray args;
+    for (int i = 1; i < argc; ++i) args.add (argv[i]);
+    const bool modOnly = args.contains ("--mod");
+    args.removeString ("--mod");
+    const juce::File outDir (args.size() > 0 ? args[0] : juce::File::getCurrentWorkingDirectory().getFullPathName());
     outDir.createDirectory();
+    if (modOnly) return snapshotModUnit (outDir);
 
     EffectorKillaAudioProcessor proc;
     proc.prepareToPlay (48000.0, 512);

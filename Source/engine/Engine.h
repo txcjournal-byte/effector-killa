@@ -8,6 +8,7 @@
 #include "Rack.h"
 #include "Macro.h"
 #include "Modulation.h"
+#include "ModSources.h"
 #include "LoudnessMatch.h"
 
 namespace ek
@@ -72,6 +73,7 @@ struct ProgramExtras
     float trimDb = 0.0f;
     std::vector<MacroMapping> maps;
     ModState mod;
+    ModSourceState modSources; // MOD unit (LFO / ENV / SEQ assignments)
     juce::Point<float> pathMean { 0.5f, 0.5f };
 };
 
@@ -124,6 +126,10 @@ public:
 
     // Last effective rack parameters (for the UI, written on the audio thread).
     std::array<std::array<std::atomic<float>, kNumParams>, kNumSlots> effectiveParams {};
+    std::array<std::atomic<float>, kNumSlots> effectiveMix {}; // effective slot MIX (incl. modulation)
+
+    // MOD unit: current source values / offsets for the UI.
+    ModSourceMeters modMeters;
 
     static constexpr float offAirFadeMs = 20.0f;
 
@@ -134,6 +140,7 @@ private:
     SnapshotExchange<ProgramExtras> extras;
     ProgramExtras defaultExtras;
     ModulationEngine modulation;
+    ModSourceEngine modSources;
     LoudnessMeter inMeter, rackMeter, origMeter, finalMeter;
     AutoGain autoGain;
     double sampleRate = 44100.0;
