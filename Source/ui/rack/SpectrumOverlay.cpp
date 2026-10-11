@@ -119,9 +119,13 @@ void SpectrumAnalyzer::computePoints() noexcept
             }
             else
             {
+                // several bins per point (high frequencies): power average – a calm curve without
+                // the upward bias of taking the maximum of noisy bins
                 const int b0 = juce::jlimit (0, numBins - 1, (int) std::ceil (lo));
-                const int b1 = juce::jlimit (0, numBins - 1, (int) std::floor (hi));
-                for (int b = b0; b <= b1; ++b) v = std::max (v, bins[(size_t) b]);
+                const int b1 = juce::jlimit (b0, numBins - 1, (int) std::floor (hi));
+                double sum = 0.0;
+                for (int b = b0; b <= b1; ++b) sum += std::pow (10.0, 0.1 * (double) bins[(size_t) b]);
+                v = std::max (floorDb, (float) (10.0 * std::log10 (sum / (double) (b1 - b0 + 1) + 1.0e-30)));
             }
             pointDb[(size_t) s][(size_t) p] = v;
         }

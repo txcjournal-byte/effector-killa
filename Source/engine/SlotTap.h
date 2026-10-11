@@ -45,25 +45,28 @@ private:
     std::vector<float> before, after;
 };
 
-// Approximate K-weighted (60 Hz high-pass + 1.5 kHz +4 dB shelf, same as LoudnessMeter) mean-square
-// meter with a ~400 ms exponential window. It starts as an exact running mean, so a usable
-// estimate exists from the very first block.
+// Short-term loudness for LEVEL-MATCHED POWER: the same measurement as COMPARE / OFF AIR
+// (LoudnessMeter): approximate K-weighting (60 Hz high-pass + 1.5 kHz +4 dB shelf), 3 s window of
+// 100 ms blocks, blocks 20 dB below the loudest are ignored (silence gaps between hits). Until the
+// first 100 ms block is complete, the running mean of the partial block is used, so a usable
+// estimate exists from the very first audio block.
 class ShortTermLoudness
 {
 public:
     void prepare (double sampleRate) noexcept;
     void reset() noexcept;
     void process (const float* L, const float* R, int n) noexcept;
-    double getMeanSquare() const noexcept { return ms; }
-    float getDb() const noexcept { return (float) (10.0 * std::log10 (ms + 1.0e-12)); }
-    bool hasSignal() const noexcept { return ms > 1.0e-7; } // > -70 dB
+    float getDb() const noexcept { return loudnessDb; }
+    bool hasSignal() const noexcept { return loudnessDb > -70.0f; }
 
-    static constexpr float windowMs = 400.0f;
+    static constexpr int kBlocks = 30; // 30 x 100 ms = 3 s
 
 private:
     std::array<Biquad, 2> shelf, hp;
-    double ms = 0.0, coeff = 0.0;
-    double count = 0.0;
+    std::array<double, kBlocks> blocks {};
+    int blockLen = 4410, blockPos = 0, blockIndex = 0, filled = 0;
+    double acc = 0.0;
+    float loudnessDb = -120.0f;
 };
 
 class SlotTap
@@ -88,7 +91,7 @@ public:
     float getAuditionAmount() const noexcept { return auditionAmount.load (std::memory_order_relaxed); }
 
     SpectrumFifo& getFifo() noexcept { return fifo; }
-    double getSampleRate() const noexcept { return sampleRate; }
+    double getSampleRate() const noexcept { return sampleRateOut.load (std::memory_order_relaxed); } // any thread
 
     // ---- audio thread (called by Chain) -------------------------------------------------
     // Cheap test whether the slot needs afterSlot() at all.
@@ -127,7 +130,8 @@ private:
         Smoothed gain;         // linear gain applied to the bypass
     };
 
-    double sampleRate = 44100.0;
+    double sampleRate = 44100.0;                 // audio side
+    std::atomic<double> sampleRateOut { 44100.0 }; // published for the UI analyzer
     std::atomic<int> analyzedSlot { -1 }, auditionSlot { -1 };
     std::atomic<float> appliedGainDb { 0.0f }, matchDbOut { 0.0f }, auditionAmount { 0.0f };
     std::array<Lane, 2> lanes;

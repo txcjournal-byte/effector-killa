@@ -95,7 +95,7 @@ public:
 
     SpectrumAnalyzer& getAnalyzer() noexcept { return analyzer; }
 
-    static constexpr float topDb = -6.0f, bottomDb = -90.0f;
+    static constexpr float topDb = -12.0f, bottomDb = -78.0f; // display range (after the +3 dB/oct tilt)
     static juce::Colour beforeColour() { return juce::Colour (0xffb4b8c0); }
     static juce::Colour afterColour() { return juce::Colour (0xff9fc3ff); }
 

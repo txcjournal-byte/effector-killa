@@ -49,10 +49,10 @@ static void renderAnalyzer (EffectorKillaAudioProcessor& proc, const juce::File&
         g.drawRoundedRectangle (unit, 6.0f, 1.0f);
         overlay.paint (g, unit.reduced (10.0f, 12.0f));
         g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-        g.setColour (ek::SpectrumOverlay::beforeColour().withAlpha (0.7f));
-        g.drawText ("BEFORE", unit.reduced (14.0f, 10.0f), juce::Justification::topRight);
         g.setColour (ek::SpectrumOverlay::afterColour());
-        g.drawText ("AFTER  TONE UP", unit.reduced (14.0f, 10.0f).withTrimmedRight (64.0f), juce::Justification::topRight);
+        g.drawText (juce::String::fromUTF8 ("AFTER \xc2\xb7 TONE UP"), unit.reduced (14.0f, 10.0f), juce::Justification::topRight);
+        g.setColour (ek::SpectrumOverlay::beforeColour().withAlpha (0.7f));
+        g.drawText ("BEFORE", unit.reduced (14.0f, 10.0f).withTrimmedRight (110.0f), juce::Justification::topRight);
     }
     juce::PNGImageFormat png;
     auto f = outDir.getChildFile ("analyzer.png");

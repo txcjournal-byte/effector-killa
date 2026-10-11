@@ -244,8 +244,10 @@ public:
         std::vector<float> inL ((size_t) total), inR ((size_t) total);
         TestSignals::generate (kind, sr, inL.data(), inR.data(), total, 11);
 
+        // All three renders are measured over the same window (4.5 .. 7 s), so the program material
+        // is identical and only the with / without / auditioned difference remains.
         auto cfg = config ({ EffectType::ToneUp });
-        auto render = [&] (bool paused, bool audition, LoudnessMeter& m1, LoudnessMeter& m2)
+        auto render = [&] (bool paused, bool audition, LoudnessMeter& meter)
         {
             Rack rack;
             rack.setConfig (cfg);
@@ -264,17 +266,15 @@ public:
                 std::copy (inR.begin() + pos, inR.begin() + pos + n, R.begin());
                 rack.process (L.data(), R.data(), n, params, ctx);
                 if (! allFinite (L.data(), n) || ! allFinite (R.data(), n)) r.finite = false;
-                if (pos >= (int) (1.0 * sr) && pos < (int) (3.4 * sr)) m1.process (L.data(), R.data(), n);
-                if (pos >= (int) (4.5 * sr)) m2.process (L.data(), R.data(), n);
+                if (pos >= (int) (4.5 * sr)) meter.process (L.data(), R.data(), n);
             }
-            r.gainDb = rack.getSlotTap().getAuditionGainDb();
+            if (audition) r.gainDb = rack.getSlotTap().getAuditionGainDb();
         };
-        LoudnessMeter withM, audM, bypM, dummy;
-        for (auto* m : { &withM, &audM, &bypM, &dummy }) m->prepare (sr);
-        render (false, true, withM, audM);
-        const float g = r.gainDb;
-        render (true, false, dummy, bypM);
-        r.gainDb = g;
+        LoudnessMeter withM, audM, bypM;
+        for (auto* m : { &withM, &audM, &bypM }) m->prepare (sr);
+        render (false, false, withM);
+        render (false, true, audM);
+        render (true, false, bypM);
         r.withDb = withM.getLoudnessDb();
         r.auditionDb = audM.getLoudnessDb();
         r.bypassDb = bypM.getLoudnessDb();
@@ -331,33 +331,50 @@ public:
     void testAuditionLatency()
     {
         beginTest ("LEVEL-MATCHED POWER: timing does not jump (latency-compensated bypass)");
-        for (int os = 0; os <= 2; ++os)
+        // The auditioned bypass is the slot's own latency-aligned dry path, i.e. exactly what is heard
+        // when the unit is powered off. So the impulse response while auditioning must sit at exactly
+        // the same sample as with the unit paused, and near the fixed latency (peak picking through
+        // the oversampling filters of the other units is only accurate to a few samples).
+        auto impulse = [] (const RackConfig& cfg, int os, int pausedSlot, int auditionSlot, int& latency)
         {
             const double sr = 48000.0;
-            auto cfg = config ({ EffectType::CassettePlug, EffectType::ToneUp, EffectType::RedLine });
-            const int fixed = Rack::computeFixedLatency (sr, os);
-            for (int slot : { -1, 0, 2 })
+            Rack rack;
+            rack.setConfig (cfg);
+            rack.prepare (sr, os);
+            auto params = defaults (cfg);
+            params.slots[0].p[1] = 0.0f; // Cassette Plug: no drive
+            params.slots[2].p[0] = 1.0f; // Red Line: ceiling 0 dB
+            if (pausedSlot >= 0) params.slots[(size_t) pausedSlot].pause = true;
+            rack.getSlotTap().setAuditionSlot (auditionSlot);
+            ProcessContext ctx; ctx.sampleRate = sr;
+            const int n = 8192, at = 4000; // well after the 20 ms fade-in
+            std::vector<float> L ((size_t) n, 0.0f), R ((size_t) n, 0.0f);
+            // a little constant hum so the meters have signal
+            for (int i = 0; i < n; ++i) L[(size_t) i] = R[(size_t) i] = 0.001f * (float) std::sin (0.01 * i);
+            L[at] += 0.05f; R[at] += 0.05f;
+            for (int pos = 0; pos < n; pos += 256) rack.process (L.data() + pos, R.data() + pos, 256, params, ctx);
+            int peak = at;
+            for (int i = at; i < n; ++i) if (std::abs (L[(size_t) i]) > std::abs (L[(size_t) peak])) peak = i;
+            latency = rack.getActiveLatency();
+            return peak - at;
+        };
+
+        const auto cfg = config ({ EffectType::CassettePlug, EffectType::ToneUp, EffectType::RedLine });
+        for (int os = 0; os <= 2; ++os)
+        {
+            const int fixed = Rack::computeFixedLatency (48000.0, os);
+            int lat = 0;
+            const int ref = impulse (cfg, os, -1, -1, lat);
+            expectEquals (lat, fixed);
+            expect (std::abs (ref - fixed) <= 4, "os " + juce::String (os) + ": reference impulse at " + juce::String (ref));
+            for (int slot : { 0, 1, 2 })
             {
-                Rack rack;
-                rack.setConfig (cfg);
-                rack.prepare (sr, os);
-                expectEquals (rack.getFixedLatency(), fixed);
-                auto params = defaults (cfg);
-                params.slots[0].p[1] = 0.0f; // no drive
-                params.slots[2].p[0] = 1.0f; // ceiling 0 dB
-                rack.getSlotTap().setAuditionSlot (slot);
-                ProcessContext ctx; ctx.sampleRate = sr;
-                const int n = 8192, at = 4000; // well after the 20 ms fade-in
-                std::vector<float> L ((size_t) n, 0.0f), R ((size_t) n, 0.0f);
-                L[at] = R[at] = 0.05f;
-                // a little constant hum so the meters have signal
-                for (int i = 0; i < n; ++i) { L[(size_t) i] += 0.001f * (float) std::sin (0.01 * i); R[(size_t) i] = L[(size_t) i]; }
-                for (int pos = 0; pos < n; pos += 256) rack.process (L.data() + pos, R.data() + pos, 256, params, ctx);
-                int peak = at;
-                for (int i = at; i < n; ++i) if (std::abs (L[(size_t) i]) > std::abs (L[(size_t) peak])) peak = i;
-                expect (std::abs (peak - at - fixed) <= 2, "os " + juce::String (os) + " slot " + juce::String (slot)
-                        + ": impulse at " + juce::String (peak - at) + ", expected " + juce::String (fixed));
-                expectEquals (rack.getActiveLatency(), fixed);
+                const int paused = impulse (cfg, os, slot, -1, lat);
+                const int aud = impulse (cfg, os, -1, slot, lat);
+                expectEquals (lat, fixed);
+                expect (aud == paused, "os " + juce::String (os) + " slot " + juce::String (slot) + ": audition impulse at "
+                        + juce::String (aud) + ", unit powered off at " + juce::String (paused));
+                expect (std::abs (aud - fixed) <= 4, "audition impulse at " + juce::String (aud) + ", fixed " + juce::String (fixed));
             }
         }
     }
@@ -459,18 +476,21 @@ public:
     // ------------------------------------------------------------------------------------------
     void testProcessorApi()
     {
-        beginTest ("Processor API: setAnalyzedSlot / setLevelMatchedAudition keep latency and default output");
-        auto renderProc = [] (bool useApi, std::vector<float>& out, int& latency)
+        beginTest ("Processor API: analyzer bit-identical, audition keeps latency, no NaN");
+        // mode 0: API unused, 1: analyzer only, 2: analyzer + audition held for 10 blocks
+        auto renderProc = [] (int mode, std::vector<float>& out, int& latency, float& heldGainDb)
         {
             EffectorKillaAudioProcessor proc;
             proc.prepareToPlay (48000.0, 512);
             juce::AudioBuffer<float> buf (2, 512);
             juce::MidiBuffer midi;
             out.clear();
+            heldGainDb = 0.0f;
             for (int b = 0; b < 60; ++b)
             {
-                if (useApi && b == 10) { proc.setAnalyzedSlot (0); proc.setLevelMatchedAudition (0); }
-                if (useApi && b == 20) proc.setLevelMatchedAudition (-1);
+                if (mode >= 1 && b == 5) proc.setAnalyzedSlot (0);
+                if (mode == 2 && b == 10) proc.setLevelMatchedAudition (0);
+                if (mode == 2 && b == 20) { heldGainDb = proc.getAuditionGainDb(); proc.setLevelMatchedAudition (-1); }
                 for (int c = 0; c < 2; ++c)
                     for (int i = 0; i < 512; ++i)
                         buf.setSample (c, i, 0.3f * std::sin ((float) (b * 512 + i) * 0.031f));
@@ -478,17 +498,20 @@ public:
                 for (int i = 0; i < 512; ++i) out.push_back (buf.getSample (0, i));
             }
             latency = proc.getLatencySamples();
-            if (useApi) proc.setAnalyzedSlot (-1);
+            proc.setAnalyzedSlot (-1);
         };
-        std::vector<float> a, b;
-        int latA = 0, latB = 0;
-        renderProc (false, a, latA);
-        renderProc (true, b, latB);
-        expectEquals (latB, latA);
-        expect (allFinite (b.data(), (int) b.size()));
-        bool tailSame = true;
-        for (size_t i = 40 * 512; i < a.size(); ++i) tailSame = tailSame && a[i] == b[i];
-        logMessage ("default program after the audition is released: " + juce::String (tailSame ? "bit-identical" : "differs (unit tails)"));
+        std::vector<float> ref, an, au;
+        int latRef = 0, latAn = 0, latAu = 0;
+        float g0 = 0.0f, g1 = 0.0f, g2 = 0.0f;
+        renderProc (0, ref, latRef, g0);
+        renderProc (1, an, latAn, g1);
+        renderProc (2, au, latAu, g2);
+        expectEquals (latAn, latRef);
+        expectEquals (latAu, latRef);
+        expect (an == ref, "SPECTRAL VIEW changed the processor output");
+        expect (allFinite (au.data(), (int) au.size()), "NaN / runaway during audition");
+        expect (std::abs (g2) <= SlotTap::maxMatchDb, "audition gain readout out of range");
+        logMessage ("default program, slot 1 auditioned: applied " + juce::String (g2, 2) + " dB");
     }
 };
 

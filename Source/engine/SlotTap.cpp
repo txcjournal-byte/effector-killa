@@ -48,18 +48,20 @@ void SpectrumFifo::discardAll() noexcept
 // ============================================================================
 void ShortTermLoudness::prepare (double sr) noexcept
 {
-    for (auto& s : shelf) s.setHighShelf (1500.0f, 4.0f, (float) sr, 1.0f);
+    for (auto& f : shelf) f.setHighShelf (1500.0f, 4.0f, (float) sr, 1.0f);
     for (auto& h : hp) h.setHighPass (60.0f, 0.5f, (float) sr);
-    coeff = 1.0 - std::exp (-1.0 / (windowMs * 0.001 * sr));
+    blockLen = std::max (1, (int) (sr * 0.1));
     reset();
 }
 
 void ShortTermLoudness::reset() noexcept
 {
-    for (auto& s : shelf) s.reset();
+    for (auto& f : shelf) f.reset();
     for (auto& h : hp) h.reset();
-    ms = 0.0;
-    count = 0.0;
+    blocks.fill (0.0);
+    blockPos = blockIndex = filled = 0;
+    acc = 0.0;
+    loudnessDb = -120.0f;
 }
 
 void ShortTermLoudness::process (const float* L, const float* R, int n) noexcept
@@ -68,13 +70,32 @@ void ShortTermLoudness::process (const float* L, const float* R, int n) noexcept
     {
         const float l = hp[0].process (shelf[0].process (L[i]));
         const float r = hp[1].process (shelf[1].process (R[i]));
-        const double x = 0.5 * ((double) l * l + (double) r * r);
-        // exact running mean at first, then an exponential window
-        count += 1.0;
-        const double k = std::max (coeff, 1.0 / count);
-        ms += (x - ms) * k;
+        acc += ((double) l * l + (double) r * r) * 0.5;
+        if (++blockPos >= blockLen)
+        {
+            blocks[(size_t) blockIndex] = std::isfinite (acc) ? acc / (double) blockLen : 0.0;
+            blockIndex = (blockIndex + 1) % kBlocks;
+            filled = std::min (kBlocks, filled + 1);
+            acc = 0.0;
+            blockPos = 0;
+
+            double maxMs = 0.0;
+            for (int k = 0; k < filled; ++k) maxMs = std::max (maxMs, blocks[(size_t) k]);
+            double sum = 0.0;
+            int cnt = 0;
+            for (int k = 0; k < filled; ++k)
+                if (blocks[(size_t) k] > maxMs * 0.01) { sum += blocks[(size_t) k]; ++cnt; }
+            loudnessDb = cnt > 0 ? (float) (10.0 * std::log10 (sum / cnt + 1.0e-12)) : -120.0f;
+        }
     }
-    if (! std::isfinite (ms)) reset();
+    if (! std::isfinite (acc)) // a NaN from a broken unit must not stick in the filters
+    {
+        for (auto& f : shelf) f.reset();
+        for (auto& h : hp) h.reset();
+        acc = 0.0;
+    }
+    if (filled == 0 && blockPos > 0) // first 100 ms: running mean of the partial block
+        loudnessDb = (float) (10.0 * std::log10 (acc / (double) blockPos + 1.0e-12));
 }
 
 // ============================================================================
@@ -83,6 +104,7 @@ void ShortTermLoudness::process (const float* L, const float* R, int n) noexcept
 void SlotTap::prepare (double sr)
 {
     sampleRate = sr;
+    sampleRateOut.store (sr);
     for (auto& lane : lanes)
     {
         lane.activeSlot = lane.meteredSlot = -1;
@@ -123,6 +145,7 @@ void SlotTap::afterSlot (int laneIndex, bool primary, int slot, const float* inL
             lane.withUnit.reset();
             lane.withoutUnit.reset();
             lane.meteredSlot = slot;
+            lane.matchDb = 0.0f; // never carry a match over from another unit
         }
         lane.withUnit.process (L, R, n);
         lane.withoutUnit.process (inL, inR, n);

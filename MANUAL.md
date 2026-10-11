@@ -128,9 +128,10 @@ as with it. Release to hear the unit again. A louder sound almost always seems "
 POWER removes that trick, so you can tell whether the unit improves the sound or just makes it louder.
 
 - Only the one unit is taken out; all other units keep playing.
-- Loudness is matched by short-term, ear-weighted RMS (the same kind of measurement as COMPARE),
-  limited to ±12 dB. The display next to the button shows the applied correction (e.g. *−3.4 dB* means
-  the unit was adding 3.4 dB of loudness).
+- Loudness is matched by short-term (3 s), ear-weighted RMS – the same measurement as COMPARE –
+  limited to ±12 dB. It is measured right around the unit, so the result tells you about this unit only.
+  The display next to the button shows the correction applied to the unit-less sound (e.g. *+3.4 dB*
+  means the unit adds 3.4 dB of loudness, *−2.0 dB* means it takes 2 dB away).
 - Switching takes a smooth 20 ms crossfade – no clicks – and timing never shifts (the bypass is
   latency-compensated).
 - The unit keeps running in the background, so delay and reverb tails are still there when you let go.
