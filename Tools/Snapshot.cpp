@@ -135,6 +135,7 @@ int runUnitsSnapshot (const juce::File& outDir);
 // --faceplates: contact sheet of the colour-group faceplates
 #include "ui/Theme.h"
 #include "ui/rack/Faceplates.h"
+#include "ui/rack/CardStyle.h"
 
 // Renders the Cassette Plug..Slap faceplates at 2x with a fake live State (+ mock knobs on top,
 // the way RackView places them) and their 264x41 miniatures into one contact sheet.
@@ -279,7 +280,7 @@ static int renderFaceplatesSpace (const juce::File& outDir)
     Image img (Image::ARGB, (int) (sheetW * sc), (int) (sheetH * sc), true);
     Graphics g (img);
     g.addTransform (AffineTransform::scale (sc));
-    g.fillAll (Colour (0xff07090d));
+    g.fillAll (card::bg);
     g.setColour (theme::silverDim);
     g.setFont (theme::monoLabel (11.0f));
     g.drawText ("FACEPLATES - SPACE GROUP (2x, fake live state, mock knobs)", Rectangle<float> (24.0f, 10.0f, W, 20.0f), Justification::centredLeft);
@@ -338,10 +339,11 @@ static int renderFaceplatesSpace (const juce::File& outDir)
         {
             if (! info.params[(size_t) i].used) continue;
             const auto cell = Rectangle<float> (ka.getX() + cw * (float) k, ka.getY(), cw, ka.getHeight());
-            g.setColour (pal.ink.withAlpha (0.8f));
-            g.setFont (theme::monoLabel (8.5f));
-            g.drawText (info.params[(size_t) i].name, cell.withHeight (14.0f), Justification::centred);
-            theme::drawKnob (g, cell.getCentre().translated (0.0f, -2.0f), 19.0f, -1.0f + 0.3f * (float) k);
+            g.setColour (card::muted);
+            g.setFont (card::monoFont (8.0f));
+            g.drawText (info.params[(size_t) i].name.toUpperCase(), cell.withHeight (14.0f), Justification::centred);
+            card::paintKnob (g, cell.getCentre().translated (0.0f, -2.0f), 17.0f, s.params[(size_t) i], pal.accent);
+            g.setColour (pal.ink);
             g.drawText (info.params[(size_t) i].format (info.params[(size_t) i].toReal (s.params[(size_t) i])),
                         cell.withTop (cell.getBottom() - 16.0f), Justification::centred);
             ++k;
