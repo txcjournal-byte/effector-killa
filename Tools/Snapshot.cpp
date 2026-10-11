@@ -2,10 +2,70 @@
 //   EffectorKillaSnapshot <outDir>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ui/rack/PerformerUnit.h"
+#include "ui/rack/PresetBrowser.h"
+
+// --performer: the PERFORMER unit at 2x and the preset browser on their own (performer.png, browser.png).
+static int renderPerformerSnapshots (const juce::File& outDir)
+{
+    EffectorKillaAudioProcessor proc;
+    proc.prepareToPlay (48000.0, 512);
+    juce::AudioBuffer<float> buf (2, 512);
+    juce::MidiBuffer midi;
+    int blockIndex = 0;
+    auto render = [&] (float amp)
+    {
+        for (int c = 0; c < 2; ++c)
+            for (int i = 0; i < 512; ++i)
+                buf.setSample (c, i, amp * std::sin ((float) (blockIndex * 512 + i) * 0.05f));
+        ++blockIndex;
+        proc.processBlock (buf, midi);
+    };
+    auto write = [&] (juce::Component& comp, const juce::String& name, float scale)
+    {
+        auto img = comp.createComponentSnapshot (comp.getLocalBounds(), true, scale);
+        auto f = outDir.getChildFile (name + ".png");
+        f.deleteFile();
+        juce::FileOutputStream os (f);
+        juce::PNGImageFormat().writeImageToStream (img, os);
+        std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
+    };
+
+    proc.loadFactory (9, 2);   // CH10 Night Drive
+    const float macroPos[] = { 0.62f, 0.35f, 0.78f, 0.5f, 0.24f };
+    for (int m = 0; m < ek::kNumMacros; ++m)
+        proc.setParamNorm (ek::ParamIDs::macro (m), macroPos[m]);
+    proc.killLevel = ek::KillLevel::R;
+
+    {
+        ek::ui::PerformerUnit unit (proc);
+        // ~1 s of a -17 dBFS RMS sine so the needles settle with their ballistics
+        for (int frame = 0; frame < 34; ++frame)
+        {
+            render (0.2f);
+            unit.tick();
+        }
+        write (unit, "performer", 2.0f);
+    }
+    {
+        ek::ui::PresetBrowser browser (proc);
+        browser.setSize (940, 540);   // the rack area it covers in the editor
+        browser.open();
+        write (browser, "browser", 1.0f);
+    }
+    return 0;
+}
 
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
+    for (int a = 1; a < argc; ++a)
+        if (juce::String (argv[a]) == "--performer")
+        {
+            const juce::File dir (a + 1 < argc ? juce::String (argv[a + 1]) : juce::File::getCurrentWorkingDirectory().getFullPathName());
+            dir.createDirectory();
+            return renderPerformerSnapshots (dir);   // EffectorKillaSnapshot --performer [outDir]
+        }
     const juce::File outDir (argc > 1 ? juce::String (argv[1]) : juce::File::getCurrentWorkingDirectory().getFullPathName());
     outDir.createDirectory();
 
