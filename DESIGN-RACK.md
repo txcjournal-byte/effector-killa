@@ -1,5 +1,7 @@
 # TrapWin Effector – zadání nového vzhledu „Hardware Rack“
 
+> **11. 10. 2026 – PŘEDNOST MÁ `Docs/TRAPWIN-STYLE.md`:** vzhled podle trapwin.com, žádné dřevo, rack ucha, šrouby ani vintage panely. Funkce a ovládání z tohoto zadání platí dál.
+
 Cíl: **lepší Effector než Effect Rack** – vzhled a ovládání ve stylu Effect Rack (Soundtoys) – stejné rozložení, stejný způsob práce,
 stejně „živý“ hardwarový dojem – ale **vlastní grafika TrapWin**. Nic nudného: každý efekt vypadá
 jako jiný kus hardwaru, svítí LEDky, hýbou se metry.
