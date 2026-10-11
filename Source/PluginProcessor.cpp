@@ -221,6 +221,10 @@ void EffectorKillaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
     in.global.pocketTv = pPocket->load() > 0.5f;
     in.global.offAir = pOffAir->load() > 0.5f;
     in.global.recycle = pRecycle->load();
+    in.base.split.freqHz = splitFreq.load (std::memory_order_relaxed);
+    in.base.split.balance = splitBalance.load (std::memory_order_relaxed);
+    in.base.split.levelADb = splitLevelA.load (std::memory_order_relaxed);
+    in.base.split.levelBDb = splitLevelB.load (std::memory_order_relaxed);
 
     ProcessContext ctx;
     ctx.sampleRate = getSampleRate() > 0 ? getSampleRate() : currentSampleRate;
@@ -303,6 +307,7 @@ void EffectorKillaAudioProcessor::applyProgram (const ProgramState& p, bool undo
     if (screening >= 0 && meta.slots[(size_t) screening].isEmpty()) screening = -1;
     if (solo >= 0 && meta.slots[(size_t) solo].isEmpty()) solo = -1;
     updateHostNames();
+    pushSplitParams();
     pushConfigToEngine();
     pushExtrasToEngine();
     ++programEvents;
@@ -335,6 +340,15 @@ void EffectorKillaAudioProcessor::tapTempo()
 }
 
 void EffectorKillaAudioProcessor::pushConfigToEngine() { engine.setRackConfig (meta.rackConfig (screening, solo)); }
+
+void EffectorKillaAudioProcessor::pushSplitParams()
+{
+    meta.split.params = meta.split.params.sanitised();
+    splitFreq.store (meta.split.params.freqHz);
+    splitBalance.store (meta.split.params.balance);
+    splitLevelA.store (meta.split.params.levelADb);
+    splitLevelB.store (meta.split.params.levelBDb);
+}
 
 void EffectorKillaAudioProcessor::pushExtrasToEngine()
 {
@@ -490,9 +504,11 @@ void EffectorKillaAudioProcessor::setSlotType (int slot, EffectType t)
     auto p = captureProgram();
     auto& s = p.slots[(size_t) slot];
     const bool lock = s.writeProtect;
+    const int branch = s.branch;
     s = SlotState();
     s.setType (t);
     s.writeProtect = lock && t != EffectType::None;
+    s.branch = branch;
     p.maps.erase (std::remove_if (p.maps.begin(), p.maps.end(), [slot] (const MacroMapping& m) { return m.slot == slot; }), p.maps.end());
     applyProgram (p, true);
 }
@@ -506,9 +522,11 @@ void EffectorKillaAudioProcessor::playTape (int slot, EffectType t, int programm
     const auto ms = s.ms;
     const bool lock = s.writeProtect;
     const bool sameType = s.type == t;
+    const int branch = s.branch;
     s = list[(size_t) programme].slot;
     s.ms = sameType ? ms : MSMode::Stereo;
     s.writeProtect = lock;
+    s.branch = branch;
     if (! sameType)
         p.maps.erase (std::remove_if (p.maps.begin(), p.maps.end(), [slot] (const MacroMapping& m) { return m.slot == slot; }), p.maps.end());
     applyProgram (p, true);
@@ -542,6 +560,12 @@ static void reorderSlots (ek::ProgramState& p, int from, int to)
     order.erase (order.begin() + from);
     order.insert (order.begin() + to, movedIdx);
     for (int i = 0; i < kNumSlots; ++i) p.slots[(size_t) i] = v[(size_t) i];
+    // SPLIT: a unit crossing the split point changes zone, the split stays between the same neighbours
+    if (p.split.isActive())
+    {
+        if (from < p.split.at && to >= p.split.at) --p.split.at;
+        else if (from >= p.split.at && to < p.split.at) ++p.split.at;
+    }
     // macro mappings follow their slot
     for (auto& m : p.maps)
         for (int i = 0; i < kNumSlots; ++i)
@@ -563,7 +587,9 @@ void EffectorKillaAudioProcessor::moveSlot (int from, int to)
     applyProgram (p, true);
 }
 
-int EffectorKillaAudioProcessor::insertEffect (int at, EffectType t)
+int EffectorKillaAudioProcessor::insertEffect (int at, EffectType t) { return insertEffectImpl (at, t, -1); }
+
+int EffectorKillaAudioProcessor::insertEffectImpl (int at, EffectType t, int branch)
 {
     if (at < 0 || at > kNumSlots || t == EffectType::None) return -1; // at == kNumSlots: append at the end
     auto p = captureProgram();
@@ -581,6 +607,11 @@ int EffectorKillaAudioProcessor::insertEffect (int at, EffectType t)
     // a free slot before the drop point: moving it forward shifts the units in between back by one
     const int dest = free < at ? at - 1 : at;
     if (free != dest) reorderSlots (p, free, dest);
+    if (branch >= 0 && p.split.isActive())
+    {
+        if (dest < p.split.at) p.split.at = dest; // the new unit is the last one in front: move the split above it
+        p.slots[(size_t) dest].branch = branch;
+    }
     screening = -1;
     solo = -1;
     selectedSlot = dest;
@@ -634,8 +665,10 @@ void EffectorKillaAudioProcessor::pasteSlot (int slot)
 {
     if (! slotClipboard) return;
     auto p = captureProgram();
+    const int branch = p.slots[(size_t) slot].branch;
     p.slots[(size_t) slot] = *slotClipboard;
     p.slots[(size_t) slot].writeProtect = false;
+    p.slots[(size_t) slot].branch = branch;
     applyProgram (p, true);
 }
 
@@ -649,7 +682,9 @@ bool EffectorKillaAudioProcessor::loadSlotPreset (int slot, const juce::File& f)
     if (auto s = bank.loadSlotPreset (f))
     {
         auto p = captureProgram();
+        const int branch = p.slots[(size_t) slot].branch;
         p.slots[(size_t) slot] = *s;
+        p.slots[(size_t) slot].branch = branch;
         applyProgram (p, true);
         return true;
     }
@@ -677,6 +712,106 @@ float EffectorKillaAudioProcessor::getSlotParam (int slot, int param) const
     if (param < kNumParams) return pSlot[(size_t) slot][(size_t) param]->load();
     if (param == 8) return pMix[(size_t) slot]->load();
     return pPause[(size_t) slot]->load();
+}
+
+// ---- SPLIT / MERGE ---------------------------------------------------------------------------
+void EffectorKillaAudioProcessor::insertSplit (int at)
+{
+    at = juce::jlimit (0, kNumSlots, at);
+    if (meta.split.isActive() && meta.split.at == at) return;
+    auto p = captureProgram();
+    if (! p.split.isActive())
+        for (auto& s : p.slots) s.branch = 0; // every unit behind a new split starts in branch A
+    p.split.at = at;
+    screening = -1;
+    solo = -1;
+    applyProgram (p, true);
+}
+
+void EffectorKillaAudioProcessor::removeSplit()
+{
+    if (! meta.split.isActive()) return;
+    auto p = captureProgram();
+    p.split = SplitState(); // inactive; the knob values return to their defaults
+    for (auto& s : p.slots) s.branch = 0;
+    screening = -1;
+    solo = -1;
+    applyProgram (p, true);
+}
+
+void EffectorKillaAudioProcessor::setSplitMode (SplitMode m)
+{
+    if (! meta.split.isActive() || meta.split.mode == m || (int) m < 0 || m >= SplitMode::Count) return;
+    auto p = captureProgram();
+    p.split.mode = m;
+    applyProgram (p, true);
+}
+
+void EffectorKillaAudioProcessor::setSplitFreq (float hz)
+{
+    meta.split.params.freqHz = hz;
+    pushSplitParams();
+    notifyUi();
+}
+
+void EffectorKillaAudioProcessor::setSplitBalance (float balance)
+{
+    meta.split.params.balance = balance;
+    pushSplitParams();
+    notifyUi();
+}
+
+void EffectorKillaAudioProcessor::setSplitLevel (int branch, float db)
+{
+    (branch == 0 ? meta.split.params.levelADb : meta.split.params.levelBDb) = db;
+    pushSplitParams();
+    notifyUi();
+}
+
+int EffectorKillaAudioProcessor::getSlotBranch (int slot) const noexcept
+{
+    if (! meta.split.isActive() || slot < 0 || slot >= kNumSlots || slot < meta.split.at) return -1;
+    return meta.slots[(size_t) slot].branch != 0 ? 1 : 0;
+}
+
+std::vector<int> EffectorKillaAudioProcessor::getBranchSlots (int branch) const
+{
+    std::vector<int> out;
+    for (int i = 0; i < kNumSlots; ++i)
+        if (! meta.slots[(size_t) i].isEmpty() && getSlotBranch (i) == branch)
+            out.push_back (i);
+    return out;
+}
+
+void EffectorKillaAudioProcessor::setSlotBranch (int slot, int branch)
+{
+    if (! meta.split.isActive() || slot < 0 || slot >= kNumSlots || meta.slots[(size_t) slot].isEmpty()) return;
+    branch = branch != 0 ? 1 : 0;
+    if (getSlotBranch (slot) == branch) return;
+    auto p = captureProgram();
+    int dest = slot;
+    if (slot < p.split.at)
+    {
+        // a unit in front of the split moves behind it, after the last unit of the rack
+        int lastUnit = -1;
+        for (int i = 0; i < kNumSlots; ++i) if (! p.slots[(size_t) i].isEmpty()) lastUnit = i;
+        dest = std::max (lastUnit, p.split.at - 1);
+        if (dest != slot) reorderSlots (p, slot, dest);
+        if (dest < p.split.at) p.split.at = dest;
+    }
+    p.slots[(size_t) dest].branch = branch;
+    screening = -1;
+    solo = -1;
+    if (selectedSlot == slot) selectedSlot = dest;
+    applyProgram (p, true);
+}
+
+int EffectorKillaAudioProcessor::insertEffectInBranch (int branch, EffectType t)
+{
+    if (! meta.split.isActive()) return -1;
+    int lastUnit = -1;
+    for (int i = 0; i < kNumSlots; ++i) if (! meta.slots[(size_t) i].isEmpty()) lastUnit = i;
+    return insertEffectImpl (std::max (lastUnit + 1, meta.split.at), t, branch != 0 ? 1 : 0);
 }
 
 // ---- source / modulation / settings ------------------------------------------------------
@@ -772,6 +907,7 @@ void EffectorKillaAudioProcessor::setStateInformation (const void* data, int siz
 
     undoStack.clear();
     redoStack.clear();
+    pushSplitParams();
     pushConfigToEngine();
     pushExtrasToEngine();
     ++programEvents;

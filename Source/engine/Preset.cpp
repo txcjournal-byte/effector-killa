@@ -101,6 +101,7 @@ juce::var SlotState::toVar() const
     o->setProperty ("pause", pause);
     o->setProperty ("ms", msName (ms));
     o->setProperty ("lock", writeProtect);
+    if (branch != 0) o->setProperty ("branch", branch); // written only when used: old presets stay byte-identical
     return juce::var (o);
 }
 
@@ -159,6 +160,7 @@ SlotState slotFromPresetJson (const juce::var& v)
     s.pause = (bool) v.getProperty ("pause", false);
     s.ms = msFromName (v.getProperty ("ms", "STEREO").toString());
     s.writeProtect = (bool) v.getProperty ("lock", false);
+    s.branch = juce::jlimit (0, 1, (int) v.getProperty ("branch", 0));
     return s;
 }
 
@@ -177,7 +179,27 @@ RackConfig ProgramState::rackConfig (int screening, int solo) const
     }
     c.screening = screening;
     c.solo = solo;
+    if (split.isActive())
+    {
+        c.split.at = split.at;
+        c.split.mode = split.mode;
+        for (int i = 0; i < kNumSlots; ++i)
+            c.split.branch[(size_t) i] = (juce::uint8) (i >= split.at && slots[(size_t) i].branch != 0 ? 1 : 0);
+    }
     return c;
+}
+
+RackParams ProgramState::rackParams() const
+{
+    RackParams r;
+    for (int s = 0; s < kNumSlots; ++s)
+    {
+        r.slots[(size_t) s].p = slots[(size_t) s].p;
+        r.slots[(size_t) s].mix = slots[(size_t) s].mix;
+        r.slots[(size_t) s].pause = slots[(size_t) s].pause;
+    }
+    r.split = split.params;
+    return r;
 }
 
 juce::var ProgramState::toVar() const
@@ -230,6 +252,7 @@ juce::var ProgramState::toVar() const
     for (auto& pt : this->mod.path) { juce::Array<juce::var> xy { pt.x, pt.y }; pts.add (xy); }
     mod->setProperty ("path", pts);
     o->setProperty ("mod", juce::var (mod));
+    if (split.isActive()) o->setProperty ("split", split.toVar()); // versioned block, absent = no split
     return juce::var (o);
 }
 
@@ -321,6 +344,7 @@ ProgramState ProgramState::fromVar (const juce::var& v)
                     s.mod.path.push_back ({ clamp01 ((float) (double) xy->getReference (0)),
                                             clamp01 ((float) (double) xy->getReference (1)) });
     }
+    s.split = SplitState::fromVar (v.getProperty ("split", {}));
     return s;
 }
 
@@ -334,13 +358,14 @@ bool ProgramState::sameSound (const ProgramState& o) const
         const auto& a = slots[(size_t) i];
         const auto& b = o.slots[(size_t) i];
         if (a.type != b.type || a.ms != b.ms || a.pause != b.pause || a.writeProtect != b.writeProtect) return false;
+        if (split.isActive() && i >= split.at && a.branch != b.branch) return false;
         if (std::abs (a.mix - b.mix) > 1.0e-4f) return false;
         for (int k = 0; k < kNumParams; ++k)
             if (std::abs (a.p[(size_t) k] - b.p[(size_t) k]) > 1.0e-4f) return false;
     }
     for (int m = 0; m < kNumMacros; ++m)
         if (std::abs (macros[(size_t) m] - o.macros[(size_t) m]) > 1.0e-4f) return false;
-    return std::abs (trimDb - o.trimDb) < 1.0e-3f && source == o.source;
+    return std::abs (trimDb - o.trimDb) < 1.0e-3f && source == o.source && split == o.split;
 }
 
 // ============================================================================

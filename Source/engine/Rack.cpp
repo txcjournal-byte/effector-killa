@@ -9,6 +9,9 @@ Chain::Chain (const RackConfig& cfg, const PrepareSpec& spec, int fixedLatency) 
 {
     lastSlot = (cfg.screening >= 0 && cfg.screening < kNumSlots) ? cfg.screening : kNumSlots - 1;
     soloSlot = (cfg.solo >= 0 && cfg.solo < kNumSlots) ? cfg.solo : -1;
+    for (int i = 0; i < kNumSlots; ++i)
+        heard[(size_t) i] = i <= lastSlot && (soloSlot < 0 || i == soloSlot);
+    initSplitRouting(); // may mute one branch and creates splitRt when the rack is split
 
     // Only the last Red Line of the processed part of the chain may use lookahead,
     // so the fixed latency budget is never exceeded.
@@ -38,6 +41,9 @@ Chain::Chain (const RackConfig& cfg, const PrepareSpec& spec, int fixedLatency) 
             actualLatency += s.latency;
     }
 
+    if (splitRt != nullptr)
+        actualLatency = prepareSplit (spec); // before the split + the longer branch (the shorter one is padded)
+
     jassert (actualLatency <= fixedLatency);
     pad.prepare (std::max (0, fixedLatency - actualLatency));
 
@@ -47,6 +53,13 @@ Chain::Chain (const RackConfig& cfg, const PrepareSpec& spec, int fixedLatency) 
 
 void Chain::process (float* L, float* R, int n, const RackParams* params, const ProcessContext& ctx) noexcept
 {
+    if (splitRt != nullptr)
+    {
+        processSplit (L, R, n, params, ctx);
+        pad.processBlock (L, R, n);
+        return;
+    }
+
     for (int i = 0; i <= lastSlot; ++i)
         if (isHeard (i))
             processSlot (slots[(size_t) i], i, L, R, n, params, ctx);

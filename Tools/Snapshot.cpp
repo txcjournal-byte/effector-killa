@@ -1,12 +1,45 @@
 // Renders the editor to PNG files - checks the UI without a DAW.
 //   EffectorKillaSnapshot <outDir>
+//   EffectorKillaSnapshot <outDir> --split    only the SPLIT / MERGE strip (split_unit.png, 2x)
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ui/rack/SplitUnit.h"
+
+// --split: the SPLIT / MERGE strip alone, with a LOW/HIGH split on a factory preset (2x scale).
+static int snapshotSplitUnit (EffectorKillaAudioProcessor& proc, const juce::File& outDir, const std::function<void (int)>& render)
+{
+    proc.loadFactory (9, 2);
+    proc.insertSplit (1);
+    proc.setSlotBranch (3, 1);
+    proc.setSplitMode (ek::SplitMode::LowHigh);
+    proc.setSplitFreq (180.0f);
+    proc.setSplitBalance (0.42f);
+    proc.setSplitLevel (1, -3.0f);
+    render (20);
+    ek::ui::SplitUnit unit (proc);
+    unit.setBounds (0, 0, ek::ui::SplitUnit::width, ek::ui::SplitUnit::height);
+    unit.tick();
+    auto img = unit.createComponentSnapshot (unit.getLocalBounds(), true, 2.0f);
+    auto f = outDir.getChildFile ("split_unit.png");
+    f.deleteFile();
+    juce::FileOutputStream os (f);
+    if (! os.openedOk() || ! juce::PNGImageFormat().writeImageToStream (img, os)) return 1;
+    std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
+    return 0;
+}
 
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
-    const juce::File outDir (argc > 1 ? juce::String (argv[1]) : juce::File::getCurrentWorkingDirectory().getFullPathName());
+    juce::String outArg;
+    bool splitOnly = false;
+    for (int i = 1; i < argc; ++i)
+    {
+        const juce::String a (argv[i]);
+        if (a == "--split") splitOnly = true;
+        else if (! a.startsWith ("--") && outArg.isEmpty()) outArg = a;
+    }
+    const juce::File outDir (outArg.isNotEmpty() ? outArg : juce::File::getCurrentWorkingDirectory().getFullPathName());
     outDir.createDirectory();
 
     EffectorKillaAudioProcessor proc;
@@ -24,6 +57,9 @@ int main (int argc, char** argv)
         }
     };
     render (50);
+
+    if (splitOnly)
+        return snapshotSplitUnit (proc, outDir, render);
 
     auto shot = [&] (const juce::String& name, std::function<void (EffectorKillaAudioProcessorEditor&)> setup, float imageScale = 1.0f)
     {

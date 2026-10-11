@@ -298,6 +298,7 @@ namespace
                 continue;
             }
             out.slots[(size_t) pos] = SlotState();
+            out.slots[(size_t) pos].branch = cur.slots[(size_t) pos].branch; // SPLIT layout stays by position
             int minAfter = 1000;
             for (int k = pos + 1; k < kNumSlots; ++k)
                 if (lockedRank[(size_t) k] >= 0) minAfter = std::min (minAfter, lockedRank[(size_t) k]);
