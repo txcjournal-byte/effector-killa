@@ -45,7 +45,16 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release $EXTRA
 
       - name: Build
-        run: cmake --build build --config Release --parallel 4
+        shell: bash
+        run: |
+          # compiler errors are also reported as annotations (readable without downloading the log)
+          set +e
+          cmake --build build --config Release --parallel 4 2>&1 | tee build.log
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then
+            grep -E "error( |:)|: fatal error|undefined reference|unresolved external" build.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+          fi
+          exit $rc
 
       - name: Unit tests
         shell: bash
