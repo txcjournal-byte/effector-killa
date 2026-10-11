@@ -49,7 +49,8 @@ juce_add_plugin(EffectorKilla
 
 # Graphic assets: reference.png is the cabinet placeholder. Drop in Resources/Design/cabinet.png and
 # fonts (Resources/Fonts/osd.ttf, vfd.ttf, hand.ttf) and they are picked up automatically.
-set(EK_DATA Resources/Presets/factory.json Resources/Presets/tapes.json)
+set(EK_DATA Resources/Presets/factory.json Resources/Presets/tapes.json
+            Resources/Brand/trapwin_logo.png)   # official TrapWin logo (stars + AUDIO · UNDERGROUND)
 set(EK_DATA_DEFS)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Design/cabinet.png")
     list(APPEND EK_DATA Resources/Design/cabinet.png)

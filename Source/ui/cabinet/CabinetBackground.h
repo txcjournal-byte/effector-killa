@@ -12,7 +12,7 @@ struct CabinetBackground
 {
     // Paints the whole cabinet in cabinet space (1630 x 965).
     static void paint (juce::Graphics& g);
-    // Chrome "TRAPWIN EFFECTOR" logo (also used by the AV3 screensaver).
+    // Official TrapWin logo (Resources/Brand/trapwin_logo.png) + chrome "EFFECTOR" (also the AV3 screensaver).
     static void paintLogo (juce::Graphics& g, juce::Rectangle<float> r, bool tagline);
     static juce::Image renderLogo (int width, int height);
 };

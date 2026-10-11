@@ -1,6 +1,7 @@
 #include "CabinetBackground.h"
 #include "Layout.h"
 #include "../Theme.h"
+#include "EKBinaryData.h"
 
 namespace ek::ui
 {
@@ -37,17 +38,31 @@ static void chromeFrame (Graphics& g, Rectangle<float> r, float corner, float wi
     g.strokePath (p, PathStrokeType (width));
 }
 
+// The official TrapWin logo (chrome TRAPWIN, four sparkle stars, "AUDIO · UNDERGROUND"),
+// the same artwork the other TrapWin plugins use. Never redraw it as text.
+static const Image& brandLogo()
+{
+    static const Image img = ImageCache::getFromMemory (EKData::trapwin_logo_png, EKData::trapwin_logo_pngSize);
+    return img;
+}
+
 void CabinetBackground::paintLogo (Graphics& g, Rectangle<float> r, bool tagline)
 {
-    auto top = r.removeFromTop (r.getHeight() * 0.36f);
+    const auto& logo = brandLogo();
+    const float aspect = logo.isValid() ? (float) logo.getWidth() / (float) logo.getHeight() : 2.74f;
+
+    // logo on top at full width, product name under it
+    auto logoArea = r.removeFromTop (jmin (r.getWidth() / aspect, r.getHeight() * 0.62f));
+    if (logo.isValid())
+        g.drawImage (logo, logoArea, RectanglePlacement::centred);
+
     auto main = tagline ? r.removeFromTop (r.getHeight() * 0.74f) : r;
-    theme::drawChromeText (g, "TRAPWIN", top, theme::stencilFont (top.getHeight() * 1.05f), Justification::centredLeft, 0.8f);
-    theme::drawChromeText (g, "EFFECTOR", main, theme::stencilFont (main.getHeight() * 1.02f), Justification::centredLeft, 1.2f);
+    theme::drawChromeText (g, "EFFECTOR", main, theme::stencilFont (main.getHeight() * 1.02f), Justification::centred, 1.2f);
     if (tagline)
     {
         g.setFont (theme::monoLabel (r.getHeight() * 0.55f));
         g.setColour (theme::accent);
-        g.drawText ("EVERY EFFECT. ONE WIN.", r, Justification::centredLeft, false);
+        g.drawText ("EVERY EFFECT. ONE WIN.", r, Justification::centred, false);
     }
 }
 
