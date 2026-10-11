@@ -1,4 +1,4 @@
-// Renders the editor (software TV) to PNG files – used to check the UI layout without a DAW.
+// Renders the editor to PNG files - checks the UI without a DAW.
 //   EffectorKillaSnapshot <outDir>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -10,7 +10,6 @@ int main (int argc, char** argv)
     outDir.createDirectory();
 
     EffectorKillaAudioProcessor proc;
-    proc.softwareTv = true;
     proc.prepareToPlay (48000.0, 512);
     juce::AudioBuffer<float> buf (2, 512);
     juce::MidiBuffer midi;
@@ -28,40 +27,44 @@ int main (int argc, char** argv)
 
     auto shot = [&] (const juce::String& name, std::function<void (EffectorKillaAudioProcessorEditor&)> setup)
     {
+        proc.uiScale = 1.0f;
         auto* ed = dynamic_cast<EffectorKillaAudioProcessorEditor*> (proc.createEditor());
         if (ed == nullptr) return;
+        ed->setUiScale (1.0f);
         if (setup) setup (*ed);
-        for (int i = 0; i < 90; ++i)
-        {
-            render (2);
-            ed->getCabinet().tick (1.0 / 60.0);
-        }
+        for (int i = 0; i < 20; ++i) { render (2); ed->tickAll(); }
         auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
         juce::PNGImageFormat png;
         auto f = outDir.getChildFile (name + ".png");
         f.deleteFile();
         juce::FileOutputStream os (f);
         png.writeImageToStream (img, os);
-        std::printf ("wrote %s\n", f.getFullPathName().toRawUTF8());
+        std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
         delete ed;
     };
 
-    shot ("01_default", nullptr);
-    shot ("02_tape_menu", [&] (EffectorKillaAudioProcessorEditor& e) { e.getCabinet().selectSlot (1); });
-    shot ("02b_insert_menu", [&] (EffectorKillaAudioProcessorEditor& e) { e.getCabinet().selectSlot (6); });
-    shot ("03_ch08_av3", [&] (EffectorKillaAudioProcessorEditor&)
+    shot ("01_factory", [&] (EffectorKillaAudioProcessorEditor&) { proc.loadFactory (9, 2); });   // CH10 Night Drive, 4 units
+    shot ("02_full_rack", [&] (EffectorKillaAudioProcessorEditor&)
     {
-        proc.loadFactory (7, 0);
-        auto m = proc.getMeta().mod; m.mode = ek::AvMode::Screensaver; proc.setModState (m, false);
+        proc.loadFactory (1, 0);
+        for (auto t : { ek::EffectType::Doubles, ek::EffectType::WideBody, ek::EffectType::RedLine })
+            proc.insertEffect (ek::kNumSlots, t);
+        proc.setSlotParam (1, 9, 1.0f);       // one unit powered off
         proc.setWriteProtect (0, true);
-        proc.setSlotParam (2, 9, 1.0f);
     });
-    shot ("04_scale150", [&] (EffectorKillaAudioProcessorEditor& e) { proc.loadFactory (2, 0); e.setUiScale (1.5f); });
-    shot ("05_basic_pocket", [&] (EffectorKillaAudioProcessorEditor&)
+    shot ("03_browser", [&] (EffectorKillaAudioProcessorEditor& e) { proc.loadFactory (2, 3); e.showBrowser (true); });
+    shot ("04_empty_no_gear", [&] (EffectorKillaAudioProcessorEditor& e)
     {
-        proc.premiumCable = false;
-        proc.setParamNorm (ek::ParamIDs::pocketTv, 1.0f);
-        proc.loadFactory (4, 2);
+        for (int s = ek::kNumSlots - 1; s >= 0; --s) proc.removeEffect (s);
+        e.setGearShown (false);
+    });
+    shot ("05_solo_recycle", [&] (EffectorKillaAudioProcessorEditor& e)
+    {
+        e.setGearShown (true);
+        proc.loadFactory (4, 0);
+        proc.setSolo (2);
+        proc.setParamNorm (ek::ParamIDs::recycle, 0.35f);
+        proc.setParamNorm (ek::ParamIDs::tempoMode, 1.0f);
     });
     return 0;
 }

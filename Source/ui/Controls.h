@@ -4,7 +4,7 @@
 // All of them live in cabinet space (see Layout.h) and paint themselves opaque over the background.
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "../Theme.h"
+#include "Theme.h"
 
 namespace ek::ui
 {

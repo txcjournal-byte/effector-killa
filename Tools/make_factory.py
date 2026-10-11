@@ -4,6 +4,7 @@
 Parameters are written as REAL values by parameter name (e.g. {"CUTOFF": 2500, "TYPE": "BP"});
 the plugin converts them through each effect's ParamSpec. Run:  python3 Tools/make_factory.py
 """
+import sys
 import json, math, os
 
 # ---------------------------------------------------------------------------- effect helpers
@@ -293,6 +294,13 @@ channel("FINAL BOSS", "bus, master", "#C0C0C0", "BUS", [
     preset("Side Quest", "jemné pumpování busu",
            [squeeze(RATIO=8, THRESHOLD=-30, ATTACK=3, RELEASE=80, MAKEUP=6, MIX=0.3), chopped("PUMP", "1/4", 0.2), redline(SOFT)], DR),
 ])
+
+sys.path.insert(0, os.path.dirname(__file__))
+from descriptions_en import translate
+for c in channels:
+    c["description"] = translate(c["description"])
+    for p in c["presets"]:
+        p["description"] = translate(p["description"])
 
 out = {"version": 1, "product": "Effector Killa", "channels": channels}
 path = os.path.join(os.path.dirname(__file__), "..", "Resources", "Presets", "factory.json")

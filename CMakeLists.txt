@@ -68,7 +68,7 @@ target_compile_definitions(EffectorKillaData INTERFACE ${EK_DATA_DEFS})
 file(GLOB_RECURSE EK_ENGINE_SOURCES CONFIGURE_DEPENDS Source/engine/*.cpp)
 
 file(GLOB EK_UI_SOURCES CONFIGURE_DEPENDS
-    Source/ui/*.cpp Source/ui/cabinet/*.cpp Source/ui/tv/*.cpp)
+    Source/ui/*.cpp Source/ui/rack/*.cpp)
 
 target_sources(EffectorKilla PRIVATE
     Source/PluginProcessor.cpp
@@ -90,7 +90,6 @@ target_link_libraries(EffectorKilla
         EffectorKillaData
         juce::juce_audio_utils
         juce::juce_dsp
-        juce::juce_opengl
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
@@ -126,6 +125,6 @@ if(EK_BUILD_TOOLS)
         ${EK_ENGINE_SOURCES} ${EK_UI_SOURCES})
     target_include_directories(EffectorKillaSnapshot PRIVATE Source)
     target_compile_definitions(EffectorKillaSnapshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
-    target_link_libraries(EffectorKillaSnapshot PRIVATE EffectorKillaData juce::juce_audio_utils juce::juce_dsp juce::juce_opengl
+    target_link_libraries(EffectorKillaSnapshot PRIVATE EffectorKillaData juce::juce_audio_processors juce::juce_gui_extra juce::juce_dsp
         juce::juce_recommended_config_flags)
 endif()

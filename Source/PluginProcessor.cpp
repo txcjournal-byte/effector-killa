@@ -562,7 +562,7 @@ void EffectorKillaAudioProcessor::moveSlot (int from, int to)
 
 int EffectorKillaAudioProcessor::insertEffect (int at, EffectType t)
 {
-    if (at < 0 || at >= kNumSlots || t == EffectType::None) return -1;
+    if (at < 0 || at > kNumSlots || t == EffectType::None) return -1; // at == kNumSlots: append at the end
     auto p = captureProgram();
     // free slot: the first empty one at/after the drop point, otherwise the last empty one before it
     int free = -1;
@@ -575,12 +575,14 @@ int EffectorKillaAudioProcessor::insertEffect (int at, EffectType t)
     const auto& tapes = bank.getTapes (t);
     if (! tapes.empty()) { s = tapes.front().slot; s.ms = MSMode::Stereo; s.writeProtect = false; }
     p.maps.erase (std::remove_if (p.maps.begin(), p.maps.end(), [free] (const MacroMapping& m) { return m.slot == free; }), p.maps.end());
-    if (free != at) reorderSlots (p, free, at);
+    // a free slot before the drop point: moving it forward shifts the units in between back by one
+    const int dest = free < at ? at - 1 : at;
+    if (free != dest) reorderSlots (p, free, dest);
     screening = -1;
     solo = -1;
-    selectedSlot = at;
+    selectedSlot = dest;
     applyProgram (p, true);
-    return at;
+    return dest;
 }
 
 void EffectorKillaAudioProcessor::removeEffect (int slot)
@@ -729,6 +731,7 @@ void EffectorKillaAudioProcessor::getStateInformation (juce::MemoryBlock& destDa
     root.setProperty ("oversampling", oversampling, nullptr);
     root.setProperty ("premium", premiumCable, nullptr);
     root.setProperty ("uiScale", uiScale, nullptr);
+    root.setProperty ("showGear", showGear, nullptr);
     root.setProperty ("softwareTv", softwareTv, nullptr);
     root.setProperty ("killLevel", (int) killLevel, nullptr);
     root.setProperty ("screening", screening, nullptr);
@@ -755,7 +758,8 @@ void EffectorKillaAudioProcessor::setStateInformation (const void* data, int siz
     sides[1] = ProgramState::fromJson (root.getProperty ("sideB").toString());
     side = juce::jlimit (0, 1, (int) root.getProperty ("side", 0));
     premiumCable = (bool) root.getProperty ("premium", true);
-    uiScale = juce::jlimit (1.0f, 1.5f, (float) (double) root.getProperty ("uiScale", 1.0));
+    uiScale = juce::jlimit (0.0f, 2.0f, (float) (double) root.getProperty ("uiScale", 0.0)); // 0 = auto
+    showGear = (bool) root.getProperty ("showGear", true);
     softwareTv = (bool) root.getProperty ("softwareTv", false);
     killLevel = (KillLevel) juce::jlimit (0, 2, (int) root.getProperty ("killLevel", 1));
     screening = juce::jlimit (-1, kNumSlots - 1, (int) root.getProperty ("screening", -1));

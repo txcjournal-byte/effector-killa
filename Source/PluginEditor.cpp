@@ -1,146 +1,229 @@
 #include "PluginEditor.h"
-#include "EKBinaryData.h"
-#include "ui/cabinet/CabinetBackground.h"
 
 using namespace ek;
 
+namespace
+{
+constexpr int bodyTop = ui::ControlPanel::headerHeight + 8 + ui::ControlPanel::stripHeight + 8;
+constexpr int gearWidth = 240;
+}
+
 EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKillaAudioProcessor& p)
-    : AudioProcessorEditor (&p), processor (p), cabinet (p)
+    : AudioProcessorEditor (&p), processor (p), controls (p), rackView (p), gearList (p), browser (p)
 {
     setOpaque (true);
-    addAndMakeVisible (cabinet);
-    cabinet.onLogoMenu = [this] (const juce::MouseEvent&) { showMainMenu(); };
+    addAndMakeVisible (content);
+    content.setBounds (0, 0, kWidth, kHeight);
+    content.addAndMakeVisible (controls);
+    controls.setBounds (0, 0, kWidth, bodyTop);
+
+    rackViewport.setViewedComponent (&rackView, false);
+    rackViewport.setScrollBarsShown (true, false);
+    rackViewport.setScrollBarThickness (8);
+    rackViewport.setScrollOnDragMode (juce::Viewport::ScrollOnDragMode::never);
+    content.addAndMakeVisible (rackViewport);
+    content.addAndMakeVisible (gearList);
+    content.addChildComponent (browser);
+
+    controls.onBrowse = [this] { showBrowser (! browser.isVisible()); };
+    controls.isBrowserShown = [this] { return browser.isVisible(); };
+    controls.onSave = [this] { showSaveDialog(); };
+    controls.onToggleGear = [this] { setGearShown (! processor.showGear); };
+    controls.isGearShown = [this] { return processor.showGear; };
+    controls.onSettings = [this] { showSettingsMenu(); };
+    browser.onClose = [this] { showBrowser (false); };
+    auto say = [this] (const juce::String& m) { controls.showMessage (m); };
+    rackView.onMessage = say;
+    gearList.onMessage = say;
+
+    getLookAndFeel().setColour (juce::TooltipWindow::backgroundColourId, juce::Colour (0xf00b111c));
+    getLookAndFeel().setColour (juce::TooltipWindow::textColourId, ek::theme::silver);
+    getLookAndFeel().setColour (juce::TooltipWindow::outlineColourId, ek::theme::accent.withAlpha (0.5f));
+    getLookAndFeel().setColour (juce::ScrollBar::thumbColourId, ek::theme::accent.withAlpha (0.35f));
+
     setWantsKeyboardFocus (true);
+    addMouseListener (this, true);
     processor.addChangeListener (this);
 
-    gl = std::make_unique<ui::TvGl> (cabinet.getTv(), [this] { return cabinet.getTv().getLocalBounds(); });
-    // the AV3 screensaver logo is the cabinet logo
-    gl->setLogo (ui::CabinetBackground::renderLogo (440, 200));
-    // EK_SOFTWARE_TV=1 forces the software TV (machines / VMs without a usable OpenGL driver)
-    if (std::getenv ("EK_SOFTWARE_TV") != nullptr) processor.softwareTv = true;
-    if (! processor.softwareTv) gl->attach();
-
-    addMouseListener (this, true); // any click inside -> keyboard shortcuts work
-    setResizable (false, false);
+    setResizable (true, true);
+    if (auto* c = getConstrainer())
+    {
+        c->setFixedAspectRatio ((double) kWidth / (double) kHeight);
+        c->setSizeLimits (juce::roundToInt (kWidth * 0.6), juce::roundToInt (kHeight * 0.6), kWidth * 2, kHeight * 2);
+    }
     setUiScale (processor.uiScale);
-    lastTick = juce::Time::getMillisecondCounterHiRes();
-    startTimerHz (60);
+    layoutBody();
+    startTimerHz (30);
 }
 
 EffectorKillaAudioProcessorEditor::~EffectorKillaAudioProcessorEditor()
 {
     stopTimer();
     processor.removeChangeListener (this);
-    if (gl != nullptr) gl->detach();
 }
 
 void EffectorKillaAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    if (! cabinet.getTv().isGlActive()) g.fillAll (juce::Colours::black);
+    g.fillAll (ek::theme::bg);
 }
 
-void EffectorKillaAudioProcessorEditor::resized()
+float EffectorKillaAudioProcessorEditor::autoScale() const
 {
-    cabinet.setTransform (juce::AffineTransform::scale ((float) getWidth() / layout::kWidth, (float) getHeight() / layout::kHeight));
+    auto area = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay() != nullptr
+                    ? juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea
+                    : juce::Rectangle<int> (1920, 1080);
+    const float s = juce::jmin ((float) area.getWidth() * 0.86f / kWidth, (float) area.getHeight() * 0.80f / kHeight);
+    return juce::jlimit (0.6f, 1.5f, std::floor (s * 20.0f) / 20.0f);
 }
 
 void EffectorKillaAudioProcessorEditor::setUiScale (float s)
 {
-    uiScale = juce::jlimit (1.0f, 1.5f, s);
-    processor.uiScale = uiScale;
-    setSize (juce::roundToInt (layout::kEditorWidth * uiScale), juce::roundToInt (layout::kEditorHeight * uiScale));
+    processor.uiScale = s;
+    const float scale = s <= 0.0f ? autoScale() : juce::jlimit (0.6f, 2.0f, s);
+    settingSize = true;
+    setSize (juce::roundToInt (kWidth * scale), juce::roundToInt (kHeight * scale));
+    settingSize = false;
 }
 
-void EffectorKillaAudioProcessorEditor::setOpenGl (bool on)
+void EffectorKillaAudioProcessorEditor::resized()
 {
-    processor.softwareTv = ! on;
-    if (on) gl->attach();
-    else { gl->detach(); cabinet.getTv().setGlActive (false); cabinet.repaint(); }
+    const float scale = (float) getWidth() / (float) kWidth;
+    content.setTransform (juce::AffineTransform::scale (scale));
+    if (! settingSize && isShowing()) processor.uiScale = scale; // dragged the corner: remember that size
+}
+
+void EffectorKillaAudioProcessorEditor::layoutBody()
+{
+    const int h = kHeight - bodyTop - 10;
+    const int rackW = processor.showGear ? kWidth - 20 - gearWidth - 8 : kWidth - 20;
+    rackViewport.setBounds (10, bodyTop, rackW, h);
+    rackView.setSize (rackW - rackViewport.getScrollBarThickness() - 2, juce::jmax (h, rackView.getIdealHeight()));
+    gearList.setVisible (processor.showGear);
+    gearList.setBounds (kWidth - 10 - gearWidth, bodyTop, gearWidth, h);
+    browser.setBounds (10, bodyTop, kWidth - 20, h);
+}
+
+void EffectorKillaAudioProcessorEditor::setGearShown (bool shown)
+{
+    processor.showGear = shown;
+    layoutBody();
+}
+
+void EffectorKillaAudioProcessorEditor::showBrowser (bool shown)
+{
+    if (shown == browser.isVisible()) return;
+    browser.setVisible (shown);
+    if (shown) { browser.toFront (true); browser.open(); }
+    else grabKeyboardFocus();
+}
+
+void EffectorKillaAudioProcessorEditor::tickAll()
+{
+    // structure changes normally arrive through the change message; checking here too keeps the
+    // rack right even when the host delays messages (cheap: compares the slot types only)
+    rackView.refresh (false);
+    const int h = kHeight - bodyTop - 10;
+    const int want = juce::jmax (h, rackView.getIdealHeight());
+    if (rackView.getHeight() != want) rackView.setSize (rackView.getWidth(), want);
+    controls.tick();
+    rackView.tick();
 }
 
 void EffectorKillaAudioProcessorEditor::timerCallback()
 {
     if (! focusGrabbed && isShowing()) { focusGrabbed = true; grabKeyboardFocus(); }
-    const double now = juce::Time::getMillisecondCounterHiRes();
-    const double dt = juce::jlimit (0.0, 0.1, (now - lastTick) * 0.001);
-    lastTick = now;
-
-    auto& tv = cabinet.getTv();
-    if (gl != nullptr && ! processor.softwareTv)
-    {
-        if (gl->hasFailed())
-        {
-            // no usable OpenGL: detach for good and use the software TV
-            gl->detach();
-            processor.softwareTv = true;
-            tv.setGlActive (false);
-            cabinet.repaint();
-        }
-        else if (gl->isWorking() && ! tv.isGlActive()) { tv.setGlActive (true); cabinet.repaint(); }
-    }
-    cabinet.tick (dt);
-    if (gl != nullptr && ! processor.softwareTv)
-    {
-        gl->setFrame (tv.getFrame());
-        juce::Image osd;
-        if (tv.renderOsdIfDirty (osd)) gl->setOsd (osd);
-    }
+    tickAll();
 }
 
-void EffectorKillaAudioProcessorEditor::mouseDown (const juce::MouseEvent&)
+void EffectorKillaAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster*)
 {
+    rackView.refresh();
+    const int h = kHeight - bodyTop - 10;
+    rackView.setSize (rackView.getWidth(), juce::jmax (h, rackView.getIdealHeight()));
+    controls.refresh();
+}
+
+void EffectorKillaAudioProcessorEditor::mouseDown (const juce::MouseEvent& e)
+{
+    if (e.eventComponent != nullptr && dynamic_cast<juce::TextEditor*> (e.eventComponent) != nullptr) return;
     if (! hasKeyboardFocus (true)) grabKeyboardFocus();
 }
-
-void EffectorKillaAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster*) { cabinet.refreshAll(); }
 
 bool EffectorKillaAudioProcessorEditor::keyPressed (const juce::KeyPress& k)
 {
     const auto code = k.getKeyCode();
     const auto mods = k.getModifiers();
+    if (code == juce::KeyPress::escapeKey && browser.isVisible()) { showBrowser (false); return true; }
     if (code == juce::KeyPress::spaceKey) { processor.kill(); return true; }
     if (code == juce::KeyPress::leftKey) { processor.stepPreset (-1); return true; }
     if (code == juce::KeyPress::rightKey) { processor.stepPreset (1); return true; }
     if (code == juce::KeyPress::upKey) { processor.stepChannel (1); return true; }
     if (code == juce::KeyPress::downKey) { processor.stepChannel (-1); return true; }
-    if (code == juce::KeyPress::escapeKey) { cabinet.selectSlot (-1); return true; }
     if (mods.isCommandDown() && (code == 'Z' || code == 'z'))
     {
         if (mods.isShiftDown()) processor.redo(); else processor.undo();
         return true;
     }
     if (mods.isCommandDown() && (code == 'Y' || code == 'y')) { processor.redo(); return true; }
+    if (mods.isCommandDown() && (code == 'S' || code == 's')) { showSaveDialog(); return true; }
+    if (! mods.isAnyModifierKeyDown() && (code == 'B' || code == 'b')) { showBrowser (! browser.isVisible()); return true; }
+    if (! mods.isAnyModifierKeyDown() && (code == 'G' || code == 'g')) { setGearShown (! processor.showGear); return true; }
+    if (! mods.isAnyModifierKeyDown() && (code == 'T' || code == 't')) { processor.tapTempo(); return true; }
     if (! mods.isAnyModifierKeyDown() && code >= '1' && code <= '8')
     {
+        // number keys: power a unit on / off
         const int slot = code - '1';
-        cabinet.selectSlot (processor.selectedSlot == slot ? -1 : slot);
+        if (processor.getSlotType (slot) != EffectType::None)
+            processor.setSlotParam (slot, 9, processor.getSlotParam (slot, 9) > 0.5f ? 0.0f : 1.0f);
         return true;
     }
     return false;
 }
 
-void EffectorKillaAudioProcessorEditor::showMainMenu()
+void EffectorKillaAudioProcessorEditor::showSaveDialog()
+{
+    auto* w = new juce::AlertWindow ("SAVE PRESET", "Preset name:", juce::MessageBoxIconType::NoIcon);
+    w->addTextEditor ("name", processor.getMeta().factory ? processor.getMeta().name + " (mine)" : processor.getMeta().name);
+    w->addButton ("SAVE", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    w->addButton ("CANCEL", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    juce::Component::SafePointer<EffectorKillaAudioProcessorEditor> safe (this);
+    w->enterModalState (true, juce::ModalCallbackFunction::create ([safe, w] (int res)
+    {
+        if (res != 1 || safe == nullptr) return;
+        const auto name = w->getTextEditorContents ("name").trim();
+        if (name.isEmpty()) return;
+        const bool ok = safe->processor.saveUserPreset (name);
+        safe->controls.showMessage (ok ? "SAVED" : "SAVE FAILED");
+    }), true);
+}
+
+void EffectorKillaAudioProcessorEditor::showSettingsMenu()
 {
     juce::PopupMenu m;
     m.addSectionHeader ("TRAPWIN EFFECTOR 1.0 - Every effect. One win.");
     juce::PopupMenu size;
-    for (float s : { 1.0f, 1.25f, 1.5f })
-        size.addItem ((int) (s * 100.0f), juce::String (juce::roundToInt (s * 100.0f)) + " %", true, std::abs (uiScale - s) < 0.01f);
-    m.addSubMenu ("UI size", size);
+    size.addItem (100, "Auto (fits the screen)", true, processor.uiScale <= 0.0f);
+    for (int pct : { 80, 90, 100, 110, 125, 150 })
+        size.addItem (100 + pct, juce::String (pct) + " %", true, processor.uiScale > 0.0f && std::abs (processor.uiScale * 100.0f - (float) pct) < 0.5f);
+    m.addSubMenu ("Window size  (or drag the corner)", size);
+    m.addItem (2, "Show gear list  (G)", true, processor.showGear);
     juce::PopupMenu os;
-    for (int i = 0; i < 3; ++i) os.addItem (200 + i, juce::String (1 << i) + "x", true, processor.getOversampling() == i);
+    for (int i = 0; i < 3; ++i) os.addItem (300 + i, juce::String (1 << i) + "x", true, processor.getOversampling() == i);
     m.addSubMenu ("Oversampling (saturation / distortion / crush / clipper)", os);
-    m.addItem (300, "OpenGL TV (off = software)", true, ! processor.softwareTv);
     m.addSeparator();
-    m.addItem (400, "Open user preset folder");
+    m.addItem (4, "Open user preset folder");
+    m.addSeparator();
+    m.addSectionHeader ("Keys: Space KILL - B browser - G gear - T tap - 1-8 unit on/off");
+    m.addSectionHeader ("Left/Right preset - Up/Down channel - Ctrl+Z / Ctrl+Y undo / redo - Ctrl+S save");
     juce::Component::SafePointer<EffectorKillaAudioProcessorEditor> safe (this);
     m.showMenuAsync (juce::PopupMenu::Options(), [safe] (int r)
     {
         if (safe == nullptr || r <= 0) return;
-        if (r >= 100 && r <= 150) safe->setUiScale ((float) r / 100.0f);
-        else if (r >= 200 && r < 203) safe->processor.setOversampling (r - 200);
-        else if (r == 300) safe->setOpenGl (safe->processor.softwareTv);
-        else if (r == 400)
+        if (r == 100) safe->setUiScale (0.0f);
+        else if (r > 100 && r <= 250) safe->setUiScale ((float) (r - 100) / 100.0f);
+        else if (r == 2) safe->setGearShown (! safe->processor.showGear);
+        else if (r >= 300 && r < 303) safe->processor.setOversampling (r - 300);
+        else if (r == 4)
         {
             auto dir = PresetBank::getUserPresetDir();
             dir.createDirectory();

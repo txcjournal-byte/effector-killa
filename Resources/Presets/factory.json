@@ -5,13 +5,13 @@
   {
    "number": 1,
    "name": "MELODIA",
-   "description": "melodie, klávesy",
+   "description": "melodies, keys",
    "colour": "#8A2BE2",
    "source": "MELODY",
    "presets": [
     {
      "name": "Melodia",
-     "description": "teplá čistá melodie",
+     "description": "warm, clean melody",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -43,7 +43,7 @@
     },
     {
      "name": "Dark Keys",
-     "description": "tmavé klávesy",
+     "description": "dark keys",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -86,7 +86,7 @@
     },
     {
      "name": "Glass Bells",
-     "description": "jasné bells",
+     "description": "bright bells",
      "slots": [
       {
        "fx": "Tone Up",
@@ -118,7 +118,7 @@
     },
     {
      "name": "Villain Piano",
-     "description": "temné piano",
+     "description": "sinister piano",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -153,7 +153,7 @@
     },
     {
      "name": "Wide Dream",
-     "description": "široký dreamy",
+     "description": "wide and dreamy",
      "slots": [
       {
        "fx": "Doubles",
@@ -180,7 +180,7 @@
     },
     {
      "name": "Detroit Pluck",
-     "description": "tvrdý pluck",
+     "description": "hard pluck",
      "slots": [
       {
        "fx": "Slap",
@@ -214,7 +214,7 @@
     },
     {
      "name": "Guitar Soul",
-     "description": "emo kytara",
+     "description": "emo guitar",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -249,7 +249,7 @@
     },
     {
      "name": "Melodia Mid",
-     "description": "nenápadné vylepšení",
+     "description": "subtle polish",
      "slots": [
       {
        "fx": "Tone Up",
@@ -280,13 +280,13 @@
   {
    "number": 2,
    "name": "VOX DEI",
-   "description": "vokály",
+   "description": "vocals",
    "colour": "#40E0D0",
    "source": "VOX",
    "presets": [
     {
      "name": "Vox Dei",
-     "description": "moderní trap vokál",
+     "description": "modern trap vocal",
      "slots": [
       {
        "fx": "Tone Up",
@@ -331,7 +331,7 @@
     },
     {
      "name": "Rage Vox",
-     "description": "agresivní",
+     "description": "aggressive",
      "slots": [
       {
        "fx": "Menace",
@@ -365,7 +365,7 @@
     },
     {
      "name": "Phone Ghost",
-     "description": "telefon",
+     "description": "telephone",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -393,7 +393,7 @@
     },
     {
      "name": "Demon Double",
-     "description": "temný dubl",
+     "description": "dark double",
      "slots": [
       {
        "fx": "Doubles",
@@ -429,7 +429,7 @@
     },
     {
      "name": "Angel Air",
-     "description": "vzdušný",
+     "description": "airy",
      "slots": [
       {
        "fx": "Tone Up",
@@ -469,7 +469,7 @@
     },
     {
      "name": "Throw It Back",
-     "description": "ad-lib do prostoru",
+     "description": "ad-libs thrown into space",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -499,7 +499,7 @@
     },
     {
      "name": "Crash Out Vox",
-     "description": "přetížený",
+     "description": "overdriven",
      "slots": [
       {
        "fx": "Overcooked",
@@ -527,7 +527,7 @@
     },
     {
      "name": "Whisper Tape",
-     "description": "lo-fi šepot",
+     "description": "lo-fi whisper",
      "slots": [
       {
        "fx": "Brainrot",
@@ -563,13 +563,13 @@
   {
    "number": 3,
    "name": "SVBTERRA",
-   "description": "808 / bas",
+   "description": "808 / bass",
    "colour": "#B22222",
    "source": "808",
    "presets": [
     {
      "name": "Svbterra",
-     "description": "808 slyšitelná na mobilu",
+     "description": "808 you hear on a phone",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -610,7 +610,7 @@
     },
     {
      "name": "Grave Digger",
-     "description": "tmavá těžká",
+     "description": "dark and heavy",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -669,7 +669,7 @@
     },
     {
      "name": "Fuzz Tonka",
-     "description": "fuzz střed",
+     "description": "fuzzy mids",
      "slots": [
       {
        "fx": "Menace",
@@ -700,7 +700,7 @@
     },
     {
      "name": "Spinz Warm",
-     "description": "teplá dlouhá",
+     "description": "warm and long",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -730,7 +730,7 @@
     },
     {
      "name": "Reese Motion",
-     "description": "pohyb v basu",
+     "description": "movement in the bass",
      "slots": [
       {
        "fx": "Doubles",
@@ -766,7 +766,7 @@
     },
     {
      "name": "Sub Only",
-     "description": "čistý sub",
+     "description": "clean sub",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -799,7 +799,7 @@
     },
     {
      "name": "Mid Bite",
-     "description": "agresivní středy",
+     "description": "aggressive mids",
      "slots": [
       {
        "fx": "Overcooked",
@@ -830,13 +830,13 @@
   {
    "number": 4,
    "name": "DRVM CVLT",
-   "description": "drumy",
+   "description": "drums",
    "colour": "#FF6A00",
    "source": "DRUMS",
    "presets": [
     {
      "name": "Drvm Cvlt",
-     "description": "víc punch",
+     "description": "more punch",
      "slots": [
       {
        "fx": "Slap",
@@ -868,7 +868,7 @@
     },
     {
      "name": "Knock Box",
-     "description": "tvrdý knock",
+     "description": "hard knock",
      "slots": [
       {
        "fx": "Slap",
@@ -896,7 +896,7 @@
     },
     {
      "name": "Lo-Fi Kit",
-     "description": "lo-fi drumy",
+     "description": "lo-fi drums",
      "slots": [
       {
        "fx": "Brainrot",
@@ -949,7 +949,7 @@
     },
     {
      "name": "Hat Shine",
-     "description": "lesklé hajtky",
+     "description": "shiny hi-hats",
      "slots": [
       {
        "fx": "Tone Up",
@@ -973,7 +973,7 @@
     },
     {
      "name": "Snare Crack",
-     "description": "praskavý snare",
+     "description": "cracking snare",
      "slots": [
       {
        "fx": "Slap",
@@ -1002,7 +1002,7 @@
     },
     {
      "name": "Memphis Tape",
-     "description": "kazetové drumy",
+     "description": "tape drums",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -1030,7 +1030,7 @@
     },
     {
      "name": "Clipper Cult",
-     "description": "hlasité drumy",
+     "description": "loud drums",
      "slots": [
       {
        "fx": "Overcooked",
@@ -1054,13 +1054,13 @@
   {
    "number": 5,
    "name": "RAGE ENGINE",
-   "description": "rage leady, synthy",
+   "description": "rage leads, synths",
    "colour": "#FF0000",
    "source": "MELODY",
    "presets": [
     {
      "name": "Rage Engine",
-     "description": "klasický rage lead",
+     "description": "classic rage lead",
      "slots": [
       {
        "fx": "Menace",
@@ -1134,7 +1134,7 @@
     },
     {
      "name": "Siren Lead",
-     "description": "pumpující",
+     "description": "pumping",
      "slots": [
       {
        "fx": "Chopped",
@@ -1163,7 +1163,7 @@
     },
     {
      "name": "Molten Pad",
-     "description": "rozžhavený pad",
+     "description": "molten pad",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -1248,7 +1248,7 @@
     },
     {
      "name": "Stadium",
-     "description": "velký hall",
+     "description": "big hall",
      "slots": [
       {
        "fx": "Overcooked",
@@ -1276,7 +1276,7 @@
     },
     {
      "name": "Burn It Down",
-     "description": "extrém",
+     "description": "extreme",
      "slots": [
       {
        "fx": "Menace",
@@ -1351,7 +1351,7 @@
     },
     {
      "name": "Cloud Bells",
-     "description": "měkké bells",
+     "description": "soft bells",
      "slots": [
       {
        "fx": "Tone Up",
@@ -1380,7 +1380,7 @@
     },
     {
      "name": "Pluggnb Glow",
-     "description": "teplá záře",
+     "description": "warm glow",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -1412,7 +1412,7 @@
     },
     {
      "name": "Heaven Gate",
-     "description": "andělský",
+     "description": "angelic",
      "slots": [
       {
        "fx": "Tone Up",
@@ -1443,7 +1443,7 @@
     },
     {
      "name": "Soft Focus",
-     "description": "rozmazaný",
+     "description": "blurred",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -1470,7 +1470,7 @@
     },
     {
      "name": "Pink Tape",
-     "description": "jemná páska",
+     "description": "gentle tape",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -1499,7 +1499,7 @@
     },
     {
      "name": "Main Character",
-     "description": "široký",
+     "description": "wide",
      "slots": [
       {
        "fx": "Wide Body",
@@ -1527,7 +1527,7 @@
     },
     {
      "name": "Floating",
-     "description": "plovoucí",
+     "description": "floating",
      "slots": [
       {
        "fx": "Swirl",
@@ -1566,7 +1566,7 @@
    "presets": [
     {
      "name": "VHS",
-     "description": "kazeta",
+     "description": "cassette",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -1594,7 +1594,7 @@
     },
     {
      "name": "Basement",
-     "description": "sklep",
+     "description": "basement",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -1615,7 +1615,7 @@
     },
     {
      "name": "Payphone",
-     "description": "telefon",
+     "description": "telephone",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -1650,7 +1650,7 @@
     },
     {
      "name": "Pirate Radio",
-     "description": "rádio",
+     "description": "radio",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -1701,7 +1701,7 @@
     },
     {
      "name": "Dusty",
-     "description": "prašný",
+     "description": "dusty",
      "slots": [
       {
        "fx": "Tone Up",
@@ -1773,7 +1773,7 @@
    "presets": [
     {
      "name": "Mvtant",
-     "description": "zmutovaný zvuk",
+     "description": "mutated sound",
      "slots": [
       {
        "fx": "Menace",
@@ -1807,7 +1807,7 @@
     },
     {
      "name": "Toxic Comb",
-     "description": "kovový comb",
+     "description": "metallic comb",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -1835,7 +1835,7 @@
     },
     {
      "name": "Radioactive",
-     "description": "vibrující",
+     "description": "vibrating",
      "slots": [
       {
        "fx": "Swirl",
@@ -1861,7 +1861,7 @@
     },
     {
      "name": "Robot NPC",
-     "description": "robotický",
+     "description": "robotic",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -1892,7 +1892,7 @@
     },
     {
      "name": "Underwater",
-     "description": "pod vodou",
+     "description": "underwater",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -1921,7 +1921,7 @@
     },
     {
      "name": "Portal",
-     "description": "vír",
+     "description": "vortex",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -1955,7 +1955,7 @@
     },
     {
      "name": "Glitch Aura",
-     "description": "glitchový prostor",
+     "description": "glitchy space",
      "slots": [
       {
        "fx": "Brainrot",
@@ -1993,7 +1993,7 @@
     },
     {
      "name": "Black Hole",
-     "description": "nekonečný",
+     "description": "endless",
      "slots": [
       {
        "fx": "Aura Room",
@@ -2025,13 +2025,13 @@
   {
    "number": 9,
    "name": "NO FILTER",
-   "description": "raw, suché, clipnuté",
+   "description": "raw, dry, clipped",
    "colour": "#F2F2F2",
    "source": "VOX",
    "presets": [
     {
      "name": "No Filter",
-     "description": "syrový suchý vokál",
+     "description": "raw, dry vocal",
      "slots": [
       {
        "fx": "Tone Up",
@@ -2069,7 +2069,7 @@
     },
     {
      "name": "Crash Out",
-     "description": "totální přetížení",
+     "description": "total overload",
      "slots": [
       {
        "fx": "Overcooked",
@@ -2097,7 +2097,7 @@
     },
     {
      "name": "Opp Pack",
-     "description": "tmavý a tvrdý",
+     "description": "dark and hard",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -2132,7 +2132,7 @@
     },
     {
      "name": "Lock In",
-     "description": "čistý suchý vokál vepředu",
+     "description": "clean, dry vocal up front",
      "slots": [
       {
        "fx": "Squeeze",
@@ -2163,7 +2163,7 @@
     },
     {
      "name": "Red Line Rage",
-     "description": "hlasitý rage",
+     "description": "loud rage",
      "slots": [
       {
        "fx": "Menace",
@@ -2191,7 +2191,7 @@
     },
     {
      "name": "Dry Menace",
-     "description": "suchá distorze",
+     "description": "dry distortion",
      "slots": [
       {
        "fx": "Menace",
@@ -2213,7 +2213,7 @@
     },
     {
      "name": "Big Back 808",
-     "description": "tlustá syrová 808",
+     "description": "fat raw 808",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -2252,7 +2252,7 @@
     },
     {
      "name": "3AM Studio",
-     "description": "suchý, intimní",
+     "description": "dry, intimate",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -2337,7 +2337,7 @@
     },
     {
      "name": "Cowbell Curse",
-     "description": "přetížený zvon",
+     "description": "overdriven bell",
      "slots": [
       {
        "fx": "Menace",
@@ -2366,7 +2366,7 @@
     },
     {
      "name": "Night Drive",
-     "description": "noční jízda",
+     "description": "night drive",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -2403,7 +2403,7 @@
     },
     {
      "name": "Smoke Tape",
-     "description": "zakouřená kazeta",
+     "description": "smoky tape",
      "slots": [
       {
        "fx": "Brainrot",
@@ -2432,7 +2432,7 @@
     },
     {
      "name": "Tokyo Ghost",
-     "description": "éterický pohyb",
+     "description": "ethereal motion",
      "slots": [
       {
        "fx": "Doubles",
@@ -2465,7 +2465,7 @@
     },
     {
      "name": "Burnout",
-     "description": "sekaný drive",
+     "description": "chopped drive",
      "slots": [
       {
        "fx": "Overcooked",
@@ -2493,7 +2493,7 @@
     },
     {
      "name": "Low Rider",
-     "description": "phonk bas",
+     "description": "phonk bass",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -2533,7 +2533,7 @@
     },
     {
      "name": "Midnight Pressure",
-     "description": "pumpující temnota",
+     "description": "pumping darkness",
      "slots": [
       {
        "fx": "Chopped",
@@ -2578,7 +2578,7 @@
    "presets": [
     {
      "name": "Hyper",
-     "description": "hyperpop vokál",
+     "description": "hyperpop vocal",
      "slots": [
       {
        "fx": "Squeeze",
@@ -2620,7 +2620,7 @@
     },
     {
      "name": "Brain Melt",
-     "description": "rozpadlý glitch",
+     "description": "falling-apart glitch",
      "slots": [
       {
        "fx": "Brainrot",
@@ -2650,7 +2650,7 @@
     },
     {
      "name": "Delulu",
-     "description": "snový, přeslazený",
+     "description": "dreamy, oversweet",
      "slots": [
       {
        "fx": "Doubles",
@@ -2684,7 +2684,7 @@
     },
     {
      "name": "Screen Time",
-     "description": "digitální drť",
+     "description": "digital grit",
      "slots": [
       {
        "fx": "Brainrot",
@@ -2719,7 +2719,7 @@
     },
     {
      "name": "Glitch Princess",
-     "description": "sekaný lesk",
+     "description": "chopped shine",
      "slots": [
       {
        "fx": "Chopped",
@@ -2749,7 +2749,7 @@
     },
     {
      "name": "Sugar Rush",
-     "description": "přesycený, jasný",
+     "description": "saturated, bright",
      "slots": [
       {
        "fx": "Tone Up",
@@ -2787,7 +2787,7 @@
     },
     {
      "name": "Plot Twist",
-     "description": "pohyblivý filtr",
+     "description": "moving filter",
      "slots": [
       {
        "fx": "Through The Wall",
@@ -2817,7 +2817,7 @@
     },
     {
      "name": "Lore Drop",
-     "description": "velký glitch prostor",
+     "description": "big glitch space",
      "slots": [
       {
        "fx": "Chopped",
@@ -2860,7 +2860,7 @@
    "presets": [
     {
      "name": "Final Boss",
-     "description": "master glue + hlasitost",
+     "description": "master glue + loudness",
      "slots": [
       {
        "fx": "Squeeze",
@@ -2898,7 +2898,7 @@
     },
     {
      "name": "No Cap Master",
-     "description": "čistý master",
+     "description": "clean master",
      "slots": [
       {
        "fx": "Tone Up",
@@ -2928,7 +2928,7 @@
     },
     {
      "name": "Glue Gang",
-     "description": "lepidlo na bus",
+     "description": "bus glue",
      "slots": [
       {
        "fx": "Squeeze",
@@ -2961,7 +2961,7 @@
     },
     {
      "name": "Car Test",
-     "description": "basy do auta",
+     "description": "bass for the car",
      "slots": [
       {
        "fx": "Tone Up",
@@ -2990,7 +2990,7 @@
     },
     {
      "name": "Phone Speaker",
-     "description": "slyšitelné z mobilu",
+     "description": "translates to phone speakers",
      "slots": [
       {
        "fx": "Cassette Plug",
@@ -3026,7 +3026,7 @@
     },
     {
      "name": "Big Stage",
-     "description": "široký bus",
+     "description": "wide bus",
      "slots": [
       {
        "fx": "Tone Up",
@@ -3054,7 +3054,7 @@
     },
     {
      "name": "Loud Money",
-     "description": "maximální hlasitost",
+     "description": "maximum loudness",
      "slots": [
       {
        "fx": "Overcooked",
@@ -3084,7 +3084,7 @@
     },
     {
      "name": "Side Quest",
-     "description": "jemné pumpování busu",
+     "description": "gentle bus pump",
      "slots": [
       {
        "fx": "Squeeze",

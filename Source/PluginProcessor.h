@@ -108,7 +108,7 @@ public:
     int findTape (int slot) const;                               // programme matching the slot, or -1
     void ejectSlot (int slot) { setSlotType (slot, ek::EffectType::None); }
     void moveSlot (int from, int to);
-    int insertEffect (int at, ek::EffectType t);   // push the rack down, returns the slot or -1 when full
+    int insertEffect (int at, ek::EffectType t);   // insert before slot `at` (kNumSlots = append), returns the slot or -1 when full
     void removeEffect (int slot);                  // remove and close the gap
     void setSlotMs (int slot, ek::MSMode m);
     void setWriteProtect (int slot, bool on);
@@ -134,7 +134,8 @@ public:
     void setOversampling (int osFactorLog2);
     int getOversampling() const noexcept { return oversampling; }
     bool premiumCable = true;
-    float uiScale = 1.0f;       // 1.0 / 1.25 / 1.5
+    float uiScale = 0.0f;       // 0 = auto (fits the screen), else 0.6 - 2.0
+    bool showGear = true;       // gear list visible
     bool softwareTv = false;    // force the software TV renderer
 
     // macro gestures from the UI (host automation of macros disconnects AV modulation)
