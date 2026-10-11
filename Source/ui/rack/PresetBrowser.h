@@ -1,6 +1,6 @@
 #pragma once
 
-// Preset browser over the rack: categories on the left (all, favourites, user, the 12 channels),
+// Preset browser over the rack (black glass, ice-blue type, categories as LED tabs): categories on the left (all, favourites, user, the 12 channels),
 // presets on the right with search. Click = load and listen, double-click / Enter = load and close.
 
 #include "Widgets.h"
@@ -19,6 +19,8 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
     void mouseUp (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
     bool keyPressed (const juce::KeyPress&) override;
 
 private:
@@ -33,6 +35,8 @@ private:
     void load (int row);
     juce::Rectangle<int> categoryArea() const;
     int categoryAt (juce::Point<int> p) const;
+    int categoryRowHeight() const;
+    juce::Colour categoryLed (int category) const;
 
     int getNumRows() override { return (int) shown.size(); }
     void paintListBoxItem (int row, juce::Graphics&, int w, int h, bool selected) override;
@@ -49,6 +53,7 @@ private:
     juce::StringArray categories;
     int category = 0;   // 0 = all, 1 = favourites, 2 = user, 3.. = channels
     bool loadingFromSelection = false;
+    int hoverCategory = -1;
 };
 
 } // namespace ek::ui
