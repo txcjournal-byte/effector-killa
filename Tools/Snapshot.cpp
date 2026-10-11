@@ -28,6 +28,9 @@ static int snapshotModUnit (const juce::File& outDir)
     auto lfo = proc.getModSources().lfo[0];
     lfo.rateHz = 0.8f; lfo.phase = 0.1f;
     proc.setLfo (0, lfo);
+    auto env = proc.getModSources().env;
+    env.sensitivity = 0.15f; env.releaseMs = 220.0f;
+    proc.setEnvFollower (env);
     proc.setParamNorm (ek::ParamIDs::tempoMode, 1.0f);
 
     juce::AudioBuffer<float> buf (2, 512);

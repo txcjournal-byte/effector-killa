@@ -190,21 +190,10 @@ void Engine::processChunk (float* L, float* R, int n, const EngineInput& in, con
             modSources.updateOffsets (ex->modSources, m);
 
             auto mac = macros;
-            for (int k = 0; k < kNumMacros; ++k)
-                if (! in.macroModSuspended[(size_t) k] && modSources.macroOffset (k) != 0.0f)
-                    mac[(size_t) k] = clamp01 (mac[(size_t) k] + modSources.macroOffset (k));
-
+            modSources.applyMacroOffsets (mac, in.macroModSuspended);
             RackParams eff;
             computeEffective (mac, eff);
-            for (int s = 0; s < kNumSlots; ++s)
-            {
-                auto& sp = eff.slots[(size_t) s];
-                for (int p = 0; p < kNumParams; ++p)
-                    if (const float o = modSources.slotOffset (s, p); o != 0.0f)
-                        sp.p[(size_t) p] = clamp01 (sp.p[(size_t) p] + o);
-                if (const float o = modSources.slotOffset (s, kNumParams); o != 0.0f)
-                    sp.mix = clamp01 (sp.mix + o);
-            }
+            modSources.applySlotOffsets (eff);
             if (pos + m >= n) publishEffective (mac, eff);
             processRack (L + pos, R + pos, m, eff, sub);
         }

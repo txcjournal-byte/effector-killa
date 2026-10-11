@@ -138,7 +138,7 @@ public:
         const auto b = getLocalBounds().toFloat();
         g.setFont (theme::monoLabel (8.5f));
         g.setColour (theme::silverDim);
-        g.drawText (label, b.withHeight (10.0f), Justification::centred, false);
+        g.drawFittedText (label, getLocalBounds().withHeight (10).reduced (2, 0), Justification::centred, 1, 0.6f);
 
         const auto c = Point<float> (b.getCentreX(), 26.0f);
         const float r = 10.0f;
@@ -155,7 +155,7 @@ public:
 
         g.setFont (theme::monoLabel (8.5f));
         g.setColour (colour.interpolatedWith (theme::silver, 0.45f));
-        g.drawText (text(), Rectangle<float> (0.0f, 42.0f, b.getWidth(), 10.0f), Justification::centred, false);
+        g.drawFittedText (text(), Rectangle<int> (0, 42, getWidth(), 10), Justification::centred, 1, 0.7f);
     }
 
     void mouseDown (const MouseEvent& e) override
@@ -207,10 +207,10 @@ private:
 namespace
 {
 constexpr int kEar = 18;
-constexpr int kTitleW = 78;
-constexpr int kSecX = kEar + kTitleW;                     // 96
-constexpr int kSecW[kNumModSources] = { 210, 210, 186, 212 };
-constexpr int kKnobW = 34, kKnobTop = 22, kKnobH = 56;
+constexpr int kTitleW = 60;
+constexpr int kSecX = kEar + kTitleW;                     // 78
+constexpr int kSecW[kNumModSources] = { 210, 210, 196, 220 }; // 78 + 836 + 18 = 932
+constexpr int kKnobW = 32, kKnobTop = 22, kKnobH = 56;
 }
 
 ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
@@ -233,14 +233,14 @@ ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
     for (int i = 0; i < 2; ++i)
     {
         auto& sec = sections[(size_t) i];
-        sec.display = { sec.area.getX() + 8, 24, 70, 40 };
-        sec.jack = Rectangle<int> (26, 26).withCentre ({ sec.area.getX() + 190, 47 });
-        syncButtons[i] = { sec.area.getX() + 8, 68, 70, 14 };
+        sec.display = { sec.area.getX() + 8, 24, 68, 40 };
+        sec.jack = Rectangle<int> (26, 26).withCentre ({ sec.area.getX() + 193, 47 });
+        syncButtons[i] = { sec.area.getX() + 8, 68, 68, 14 };
     }
-    sections[2].display = { sections[2].area.getX() + 8, 24, 56, 58 };
-    sections[2].jack = Rectangle<int> (26, 26).withCentre ({ sections[2].area.getX() + 168, 47 });
-    sections[3].display = { sections[3].area.getX() + 8, 24, 112, 58 };
-    sections[3].jack = Rectangle<int> (26, 26).withCentre ({ sections[3].area.getX() + 192, 47 });
+    sections[2].display = { sections[2].area.getX() + 8, 24, 54, 58 };
+    sections[2].jack = Rectangle<int> (26, 26).withCentre ({ sections[2].area.getX() + 179, 47 });
+    sections[3].display = { sections[3].area.getX() + 8, 24, 110, 58 };
+    sections[3].jack = Rectangle<int> (26, 26).withCentre ({ sections[3].area.getX() + 203, 47 });
 
     // ---- knobs -------------------------------------------------------------------------------
     auto addKnob = [this] (int cx, String label, int source, std::function<float()> g, std::function<void (float)> s,
@@ -257,11 +257,11 @@ ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
     {
         const int ax = sections[(size_t) i].area.getX();
         auto lfo = [this, i] { return proc.getModSources().lfo[(size_t) i]; };
-        addKnob (ax + 98, "SHAPE", i,
+        addKnob (ax + 96, "SHAPE", i,
                  [lfo] { return (float) lfo().shape / (float) ((int) LfoShape::Count - 1); },
                  [this, lfo, i] (float v) { auto l = lfo(); l.shape = (LfoShape) roundToInt (v * (float) ((int) LfoShape::Count - 1)); proc.setLfo (i, l); },
                  [lfo] { return String (lfoShapeName (lfo().shape)); }, 0.0f, [] { return (int) LfoShape::Count; });
-        addKnob (ax + 131, "RATE", i,
+        addKnob (ax + 128, "RATE", i,
                  [lfo, nDiv] { auto l = lfo(); return l.sync ? (float) l.division / (float) (nDiv - 1) : logNorm (l.rateHz, LfoSettings::minHz, LfoSettings::maxHz); },
                  [this, lfo, i, nDiv] (float v)
                  {
@@ -273,24 +273,24 @@ ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
                  [lfo] { auto l = lfo(); return l.sync ? String (modDivision (l.division).label) : hzText (l.rateHz); },
                  i == 0 ? logNorm (1.0f, LfoSettings::minHz, LfoSettings::maxHz) : 2.0f / (float) (nDiv - 1),
                  [lfo, nDiv] { return lfo().sync ? nDiv : 0; });
-        addKnob (ax + 164, "PHASE", i,
+        addKnob (ax + 160, "PHASE", i,
                  [lfo] { return lfo().phase; },
                  [this, lfo, i] (float v) { auto l = lfo(); l.phase = v; proc.setLfo (i, l); },
-                 [lfo] { return String (roundToInt (lfo().phase * 360.0f)) + juce::CharPointer_UTF8 ("\xc2\xb0"); }, 0.0f);
+                 [lfo] { return String (roundToInt (lfo().phase * 360.0f)) + String (CharPointer_UTF8 ("\xc2\xb0")); }, 0.0f);
     }
 
     {
         const int ax = sections[2].area.getX();
         auto env = [this] { return proc.getModSources().env; };
-        addKnob (ax + 83, "ATTACK", 2,
+        addKnob (ax + 82, "ATTACK", 2,
                  [env] { return logNorm (env().attackMs, 0.1f, 500.0f); },
                  [this, env] (float v) { auto e = env(); e.attackMs = logValue (v, 0.1f, 500.0f); proc.setEnvFollower (e); },
                  [env] { return msText (env().attackMs); }, logNorm (10.0f, 0.1f, 500.0f));
-        addKnob (ax + 115, "RELEASE", 2,
+        addKnob (ax + 114, "RELEASE", 2,
                  [env] { return logNorm (env().releaseMs, 5.0f, 5000.0f); },
                  [this, env] (float v) { auto e = env(); e.releaseMs = logValue (v, 5.0f, 5000.0f); proc.setEnvFollower (e); },
                  [env] { return msText (env().releaseMs); }, logNorm (150.0f, 5.0f, 5000.0f));
-        addKnob (ax + 147, "SENS", 2,
+        addKnob (ax + 146, "SENS", 2,
                  [env] { return env().sensitivity; },
                  [this, env] (float v) { auto e = env(); e.sensitivity = v; proc.setEnvFollower (e); },
                  [env] { return "+" + String (roundToInt (EnvSettings::sensitivityGainDb (env().sensitivity))) + "dB"; }, 0.5f);
@@ -299,7 +299,7 @@ ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
     {
         const int ax = sections[3].area.getX();
         auto seq = [this] { return proc.getModSources().seq; };
-        addKnob (ax + 139, "RATE", 3,
+        addKnob (ax + 138, "RATE", 3,
                  [seq, nDiv] { return (float) seq().division / (float) (nDiv - 1); },
                  [this, seq, nDiv] (float v) { auto s = seq(); s.division = roundToInt (v * (float) (nDiv - 1)); proc.setStepSeq (s); },
                  [seq] { return String (modDivision (seq().division).label); }, 10.0f / (float) (nDiv - 1), [nDiv] { return nDiv; });
@@ -330,7 +330,7 @@ String ModUnit::countText (int source) const
 {
     int n = 0;
     for (auto& a : proc.getModAssignments()) if (a.source == source) ++n;
-    return n == 0 ? String ("OUT") : String (n) + String (CharPointer_UTF8 ("\xc3\x97")); // "3x"
+    return n == 0 ? String() : String (n) + String (CharPointer_UTF8 ("\xc3\x97")); // "3x"
 }
 
 void ModUnit::refresh()
@@ -421,8 +421,8 @@ void ModUnit::paintChassis (Graphics& g)
         drawScrew (g, c, 4.2f, 0.35f + c.x * 0.01f);
 
     // title block
-    const auto title = Rectangle<float> ((float) kEar + 8.0f, 20.0f, (float) kTitleW - 12.0f, 30.0f);
-    theme::drawChromeText (g, "MOD", title, theme::stencilFont (25.0f), Justification::centredLeft, 0.6f);
+    const auto title = Rectangle<float> ((float) kEar + 6.0f, 20.0f, (float) kTitleW - 8.0f, 30.0f);
+    theme::drawChromeText (g, "MOD", title, theme::stencilFont (22.0f), Justification::centredLeft, 0.6f);
     g.setFont (theme::monoLabel (9.0f));
     g.setColour (theme::accent);
     g.drawText ("SOURCES", title.translated (0.0f, 26.0f).withHeight (11.0f), Justification::centredLeft, false);
@@ -583,9 +583,9 @@ void ModUnit::paintJack (Graphics& g, const Section& sec)
 
     g.setFont (theme::monoLabel (8.0f));
     g.setColour (count > 0 ? col : theme::silverDim);
-    g.drawText (countText (sec.source), Rectangle<float> (c.x - 20.0f, c.y + 15.0f, 40.0f, 10.0f), Justification::centred, false);
+    g.drawText (countText (sec.source), Rectangle<float> (c.x - 14.0f, c.y + 15.0f, 28.0f, 10.0f), Justification::centred, false);
     g.setColour (theme::silverDim.withAlpha (0.8f));
-    g.drawText ("MOD", Rectangle<float> (c.x - 20.0f, c.y - 25.0f, 40.0f, 9.0f), Justification::centred, false);
+    g.drawText ("OUT", Rectangle<float> (c.x - 14.0f, c.y - 25.0f, 28.0f, 9.0f), Justification::centred, false);
 }
 
 void ModUnit::paintSection (Graphics& g, const Section& sec)
@@ -649,7 +649,7 @@ void ModUnit::paint (Graphics& g)
 int ModUnit::jackAt (Point<int> p) const
 {
     for (auto& s : sections)
-        if (s.jack.expanded (4).contains (p)) return s.source;
+        if (s.jack.expanded (2).contains (p)) return s.source;
     return -1;
 }
 
@@ -708,7 +708,7 @@ void ModUnit::mouseDrag (const MouseEvent& e)
     if (dragSource >= 0)
     {
         setMouseCursor (MouseCursor::DraggingHandCursor);
-        if (onDragHandle) onDragHandle (dragSource, e.getScreenPosition());
+        if (onHandleDrag) onHandleDrag (dragSource, e.getScreenPosition());
         return;
     }
     if (seqDragStep >= 0) setSeqFromMouse (e.getPosition());
@@ -722,7 +722,7 @@ void ModUnit::mouseUp (const MouseEvent& e)
         dragSource = -1;
         setMouseCursor (MouseCursor::NormalCursor);
         repaint();
-        if (e.mouseWasDraggedSinceMouseDown() && onDropHandle) onDropHandle (src, e.getScreenPosition());
+        if (e.mouseWasDraggedSinceMouseDown() && onHandleDrop) onHandleDrop (src, e.getScreenPosition());
         return;
     }
     seqDragStep = -1;

@@ -377,6 +377,25 @@ bool ModSourceEngine::updateOffsets (const ModSourceState& st, int n) noexcept
     return any;
 }
 
+void ModSourceEngine::applyMacroOffsets (std::array<float, kNumMacros>& macros, const std::array<bool, kNumMacros>& suspended) const noexcept
+{
+    for (int k = 0; k < kNumMacros; ++k)
+        if (! suspended[(size_t) k] && macroOff[(size_t) k] != 0.0f)
+            macros[(size_t) k] = clamp01 (macros[(size_t) k] + macroOff[(size_t) k]);
+}
+
+void ModSourceEngine::applySlotOffsets (RackParams& eff) const noexcept
+{
+    for (int s = 0; s < kNumSlots; ++s)
+    {
+        auto& sp = eff.slots[(size_t) s];
+        const auto& off = slotOff[(size_t) s];
+        for (int p = 0; p < kNumParams; ++p)
+            if (off[(size_t) p] != 0.0f) sp.p[(size_t) p] = clamp01 (sp.p[(size_t) p] + off[(size_t) p]);
+        if (off[(size_t) kNumParams] != 0.0f) sp.mix = clamp01 (sp.mix + off[(size_t) kNumParams]);
+    }
+}
+
 void ModSourceEngine::publish (ModSourceMeters& m) const noexcept
 {
     for (int i = 0; i < kNumModSources; ++i) m.value[(size_t) i].store (values[(size_t) i], std::memory_order_relaxed);

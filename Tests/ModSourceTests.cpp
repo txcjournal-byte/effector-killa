@@ -229,7 +229,7 @@ public:
             st.lfo[0].sync = true;
             st.lfo[0].division = 5; // 1/4: one cycle per beat
             st.seq.division = 10;   // 1/16
-            std::vector<float> zeros (4096, 0.0f);
+            std::vector<float> zeros (4800, 0.0f);
             ModSourceEngine a, b;
             a.prepare (48000.0); b.prepare (48000.0);
             ProcessContext ctx; ctx.sampleRate = 48000.0; ctx.bpm = 120.0; ctx.playing = true; ctx.hostHasPosition = true;

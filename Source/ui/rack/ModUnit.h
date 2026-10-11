@@ -8,8 +8,8 @@
 // reports the gesture; the editor / RackView hit-tests the knob and calls
 //   proc.addModAssignment (source, slot, param, depth)   (or addMacroModAssignment for a macro knob)
 //
-//   onDragHandle (source, screenPos)   while the jack is dragged (every mouse move)
-//   onDropHandle (source, screenPos)   when it is released (also when released over the unit itself)
+//   onHandleDrag (source, screenPos)   while the jack is dragged (every mouse move)
+//   onHandleDrop (source, screenPos)   when it is released (also when released over the unit itself)
 //
 // Right-click a jack = list / remove the assignments of that source.
 // Helpers for the rack knobs: paintModRing() draws the coloured depth ring, paintPatchCable() a cable
@@ -41,8 +41,8 @@ public:
 
     static constexpr int kWidth = 932, kHeight = 96;
 
-    std::function<void (int source, juce::Point<int> screenPos)> onDragHandle;
-    std::function<void (int source, juce::Point<int> screenPos)> onDropHandle;
+    std::function<void (int source, juce::Point<int> screenPos)> onHandleDrag;
+    std::function<void (int source, juce::Point<int> screenPos)> onHandleDrop;
 
     void tick();      // call at ~30 Hz (animated displays, LEDs)
     void refresh();   // program changed (preset, undo ...)

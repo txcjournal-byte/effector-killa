@@ -16,7 +16,7 @@
 //
 // The file is named ModSources.* because Modulation.* is the older AV (XY / scribble) modulation.
 
-#include "Effect.h"
+#include "Rack.h"
 #include <atomic>
 
 namespace ek
@@ -145,6 +145,11 @@ public:
     bool updateOffsets (const ModSourceState& st, int n) noexcept;
 
     bool needsProcessing (const ModSourceState& st) const noexcept { return anyOffset || st.isModulating(); }
+
+    // Apply the offsets of the current block (macros before MacroEngine::compute, slots after it).
+    // A macro the host is automating (suspended) is left alone. Results are clamped to 0..1.
+    void applyMacroOffsets (std::array<float, kNumMacros>& macros, const std::array<bool, kNumMacros>& suspended) const noexcept;
+    void applySlotOffsets (RackParams& eff) const noexcept;
 
     // Offsets of the current block.
     float macroOffset (int m) const noexcept { return macroOff[(size_t) m]; }
