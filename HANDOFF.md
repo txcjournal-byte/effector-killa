@@ -39,5 +39,22 @@ Spec: `CLAUDE.md` (původní zadání „Effector Killa“), produkt je přejmen
    (nahrát mac zip, upravit popis a titulek na „(VST3 / AU)“).
 5. Volitelně: Windows code-signing certifikát (SmartScreen), EULA doplnit údaje firmy, licence JUCE (ověřit podmínky na juce.com).
 
+
+## Stav 11. 10. 2026, noc – nový vzhled TrapWin + funkce priority 1
+- **Vzhled podle trapwin.com** (`Docs/TRAPWIN-STYLE.md`, má přednost před hardware-rack částmi DESIGN-RACK.md):
+  žádné dřevo, rack ucha ani vintage panely. Okno 1360×900 (bez knihovny 1124): hlavička (logo, preset, A/B, undo, ⚙, BYPASS),
+  vlevo FX LIBRARY, uprostřed MOD karta + řetězec karet se svítící signálovou linkou, vpravo MASTER (tempo, úrovně, KILL, makra, LED metry).
+  Karty efektů: `Faceplates*.cpp` + `CardStyle.*`; řetězec `RackView`/`UnitControls`; okno `PluginEditor`, `Toolbar`, `MasterColumn`.
+- **Nové funkce:** MOD SOURCES (2 LFO, ENV, STEP SEQ, kabel přetažením na knob, prstenec = hloubka), MACRO LEARN (pravý klik na knob,
+  rozsah tažením), SPLIT A/B (5 režimů, MERGE), SPECTRAL VIEW (najetí na kartu), LEVEL-MATCHED POWER (podržení ⏻).
+  Engine: `ModSources.*`, `Split.*`, `SlotTap.*`, `UnitTaps.h`. Testy: 0 chyb (pozor: `Tests/Main.cpp` dřív skrýval chyby – opraveno).
+- Obrázek do obchodu `Resources/Marketing/TrapWinEffector-cover.png` (nový UI, „VST3 / AU · WINDOWS & macOS“).
+  `Tools/make_cover.py` bere hlavičku ze starého obrázku; spodní text se po něm musí přepsat (viz historie session).
+- Lokální build v cloudu navíc potřebuje `-DJUCE_ALSA=0 -DJUCE_JACK=0` a snapshoty běží přes `xvfb-run -a`.
+- **macOS podpis:** secrets v GitHubu (MACOS_CERT_P12, MACOS_CERT_PASSWORD, APPLE_TEAM_ID, APPLE_API_KEY_P8/ID, APPLE_API_ISSUER_ID);
+  identita se bere z .p12, notarizace přes App Store Connect API klíč. Klíče zálohované v Dokumenty\TrapWin-signing (NESDÍLET).
+- Známé drobnosti: rack interně zpožďuje o 1 vzorek méně, než hlásí (starší chyba, oprava by změnila zvuk presetů);
+  „Reduce motion“ a CPU UI ověřit ve FL Studiu; Archivo italic je zatím zkosená Archivo Black.
+
 ## Rozhodnutí, která lze změnit
 Cena 59 USD; macOS zdarma pro dřívější kupce (věta v popisu); factory presety srovnané na hlasitost (kromě CH 12).
