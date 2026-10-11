@@ -86,7 +86,8 @@ void BpmDisplay::mouseDoubleClick (const MouseEvent&)
     editor->setText (String (proc.getEffectiveBpm(), 1), false);
     editor->selectAll();
     editor->grabKeyboardFocus();
-    auto close = [this] (bool apply)
+    SafePointer<BpmDisplay> self (this);
+    auto close = [this, self] (bool apply)
     {
         if (editor == nullptr) return;
         if (apply)
@@ -94,7 +95,7 @@ void BpmDisplay::mouseDoubleClick (const MouseEvent&)
             const double v = editor->getText().replace (",", ".").getDoubleValue();
             if (v >= 40.0 && v <= 300.0) setBpm (v);
         }
-        MessageManager::callAsync ([safe = SafePointer<BpmDisplay> (this)] { if (safe != nullptr) safe->editor.reset(); });
+        MessageManager::callAsync ([self] { if (self != nullptr) self->editor.reset(); });
     };
     editor->onReturnKey = [close] { close (true); };
     editor->onEscapeKey = [close] { close (false); };
