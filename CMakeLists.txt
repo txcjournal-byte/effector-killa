@@ -101,7 +101,8 @@ target_link_libraries(EffectorKilla
 if(EK_BUILD_TESTS)
     juce_add_console_app(EffectorKillaTests PRODUCT_NAME "EffectorKillaTests")
     file(GLOB EK_TEST_SOURCES CONFIGURE_DEPENDS Tests/*.cpp)
-    target_sources(EffectorKillaTests PRIVATE ${EK_TEST_SOURCES} ${EK_ENGINE_SOURCES} Source/PluginProcessor.cpp)
+    target_sources(EffectorKillaTests PRIVATE ${EK_TEST_SOURCES} ${EK_ENGINE_SOURCES} Source/PluginProcessor.cpp
+        Source/ui/rack/SpectrumOverlay.cpp)   # SPECTRAL VIEW analyzer (UI side, tested)
     target_include_directories(EffectorKillaTests PRIVATE Source Tests)
     target_compile_definitions(EffectorKillaTests PRIVATE
         JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 EK_TESTS=1)

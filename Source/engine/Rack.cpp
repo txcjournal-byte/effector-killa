@@ -56,6 +56,7 @@ void Chain::process (float* L, float* R, int n, const RackParams* params, const 
     if (splitRt != nullptr)
     {
         processSplit (L, R, n, params, ctx);
+        if (tap != nullptr) tap->endOfChain (tapLane, params != nullptr);
         pad.processBlock (L, R, n);
         return;
     }
@@ -64,6 +65,7 @@ void Chain::process (float* L, float* R, int n, const RackParams* params, const 
         if (isHeard (i))
             processSlot (slots[(size_t) i], i, L, R, n, params, ctx);
 
+    if (tap != nullptr) tap->endOfChain (tapLane, params != nullptr);
     pad.processBlock (L, R, n);
 }
 
@@ -96,8 +98,8 @@ void Chain::processSlot (Slot& s, int index, float* L, float* R, int n, const Ra
         s.running = false;
     }
 
-    const bool tap = taps != nullptr && params != nullptr; // only the chain that is fading in / playing
-    if (tap) taps->captureIn (index, L, R, n);
+    const bool unitTap = taps != nullptr && params != nullptr; // only the chain that is fading in / playing
+    if (unitTap) taps->captureIn (index, L, R, n);
 
     std::copy (L, L + n, dryL.data());
     std::copy (R, R + n, dryR.data());
@@ -142,6 +144,8 @@ void Chain::processSlot (Slot& s, int index, float* L, float* R, int n, const Ra
     {
         const float dl = s.dryDelay.process (0, dryL[(size_t) i]);
         const float dr = s.dryDelay.process (1, dryR[(size_t) i]);
+        dryL[(size_t) i] = dl; // keep the latency-aligned input for the slot tap
+        dryR[(size_t) i] = dr;
         const float w = s.wet.next();
         if (s.running)
         {
@@ -155,7 +159,11 @@ void Chain::processSlot (Slot& s, int index, float* L, float* R, int n, const Ra
         }
     }
 
-    if (tap) taps->captureOut (index, L, R, n, s.running ? s.fx.get() : nullptr);
+    // SPECTRAL VIEW / LEVEL-MATCHED POWER (may replace L/R by the level-matched bypass)
+    if (tap != nullptr && tap->wants (tapLane, index))
+        tap->afterSlot (tapLane, params != nullptr, index, dryL.data(), dryR.data(), L, R, n);
+
+    if (unitTap) taps->captureOut (index, L, R, n, s.running ? s.fx.get() : nullptr);
 }
 
 // ===========================================================================
@@ -209,7 +217,9 @@ void Rack::prepare (double sampleRate, int osFactorLog2)
     fixedLatency = computeFixedLatency (sampleRate, spec.osFactorLog2);
     fadeLen = std::max (1, (int) std::lround (crossfadeMs * 0.001 * sampleRate));
 
+    slotTap.prepare (sampleRate);
     current = buildChain (lastConfig);
+    current->attachTap (&slotTap, 0);
 }
 
 void Rack::setOversampling (int osFactorLog2)
@@ -284,10 +294,14 @@ void Rack::process (float* L, float* R, int n, const RackParams& params, const P
             if (current == nullptr)
             {
                 current = p;
+                current->attachTap (&slotTap, 0);
             }
             else
             {
+                // the new chain continues the audition state on the other lane
                 next = p;
+                next->attachTap (&slotTap, 1 - current->getTapLane());
+                slotTap.cloneLane (current->getTapLane(), next->getTapLane());
                 fadePos = 0;
                 fading.store (true, std::memory_order_relaxed);
             }

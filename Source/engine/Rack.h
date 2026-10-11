@@ -12,6 +12,7 @@
 #include "Effect.h"
 #include "UnitTaps.h"
 #include "Split.h"
+#include "SlotTap.h"
 #include <atomic>
 
 namespace ek
@@ -65,6 +66,10 @@ public:
 
     UnitTaps* taps = nullptr; // UI telemetry sink (set by Rack::buildChain), may be null
 
+    // SPECTRAL VIEW / LEVEL-MATCHED POWER hook (see SlotTap.h). nullptr = no taps (default).
+    void attachTap (SlotTap* t, int lane) noexcept { tap = t; tapLane = lane; }
+    int getTapLane() const noexcept { return tapLane; }
+
 private:
     struct Slot
     {
@@ -95,6 +100,8 @@ private:
     int actualLatency = 0;
     LatencyDelay pad;
     std::vector<float> dryL, dryR, wL, wR, other;
+    SlotTap* tap = nullptr;
+    int tapLane = 0;
 };
 
 class Rack
@@ -136,6 +143,10 @@ public:
     // Live per-unit levels / GR / scope for the UI (written by the audible chain only).
     UnitTaps& getTaps() const noexcept { return taps; }
 
+    // Per-unit taps: SPECTRAL VIEW feed + LEVEL-MATCHED POWER (any thread for its control API).
+    SlotTap& getSlotTap() noexcept { return slotTap; }
+    const SlotTap& getSlotTap() const noexcept { return slotTap; }
+
 private:
     Chain* buildChain (const RackConfig& cfg) const;
     void retire (Chain* c) noexcept;
@@ -152,6 +163,7 @@ private:
     std::atomic<bool> fading { false };
     int fadePos = 0, fadeLen = 1;
     std::vector<float> aL, aR, bL, bR;
+    SlotTap slotTap;
 
     // retired chains travel audio -> message thread through this SPSC FIFO
     juce::AbstractFifo graveyardFifo { 64 };
