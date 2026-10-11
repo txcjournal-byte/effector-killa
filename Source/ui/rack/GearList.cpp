@@ -1,4 +1,5 @@
 #include "GearList.h"
+#include "CardStyle.h"
 #include <map>
 #include <tuple>
 
@@ -85,11 +86,12 @@ Image miniature (EffectType t, int w, int h)
 } // namespace gear
 
 // ============================================================================
-// Scrolling list of group labels and miniatures (the drag source).
+// Scrolling list of group labels and miniature chips (the drag source).
 class GearList::Content : public Component, public TooltipClient
 {
 public:
-    static constexpr int miniW = 264, miniH = 41;   // DESIGN-RACK.md section 7
+    static constexpr int miniW = 264, miniH = 41;   // designed chip size (faceplate miniature)
+    static constexpr int sidePad = 12;              // chip inset from the content edge (220 px column -> 196 px chips)
 
     explicit Content (GearList& o) : owner (o) { rebuild(); }
 
@@ -129,15 +131,17 @@ public:
     void layoutRows()
     {
         const int w = jmax (100, getWidth());
-        // miniatures keep the faceplate's 898 x 140 aspect (264 x 41 in the 280 px column)
-        const int itemH = jmax (24, roundToInt ((float) (w - 16) * 140.0f / 898.0f));
+        const int chipW = w - 2 * sidePad;
+        // chips keep the miniature's 264 x 41 aspect
+        const int itemH = jmax (22, roundToInt ((float) chipW * (float) miniH / (float) miniW));
         int y = 2;
+        bool first = true;
         for (auto& r : rows)
         {
-            if (r.header) { r.bounds = { 8, y + 4, w - 16, 16 }; y += 22; }
-            else          { r.bounds = { 8, y, w - 16, itemH }; y += itemH + 6; }
+            if (r.header) { y += first ? 0 : 5; r.bounds = { sidePad, y + 2, chipW, 16 }; y += 21; first = false; }
+            else          { r.bounds = { sidePad, y, chipW, itemH }; y += itemH + 5; }
         }
-        idealHeight = y + 8;
+        idealHeight = y + 6;
     }
 
     int getIdealHeight() const { return rows.empty() ? 60 : idealHeight; }
@@ -156,59 +160,69 @@ public:
         if (i < 0) return {};
         const auto t = rows[(size_t) i].type;
         return effectInfo (t).name.toUpperCase() + "  -  " + gear::categoryName (t) + "\n" + gear::describe (t)
-             + "\nDrag into the rack, double-click = add at the end";
+             + "\nDrag into the chain, double-click = add at the end";
+    }
+
+    static float chipRadius (Rectangle<float> rb) { return card::radiusMini * rb.getWidth() / (float) miniW; }
+
+    // soft outer glow around a chip (layered rounded rects, no blur)
+    static void paintChipGlow (Graphics& g, Rectangle<float> rb, Colour c, float amount)
+    {
+        const float rad = chipRadius (rb);
+        for (int k = 4; k >= 1; --k)
+        {
+            g.setColour (c.withAlpha (0.055f * amount * (float) (5 - k)));
+            g.fillRoundedRectangle (rb.expanded ((float) k * 1.6f), rad + (float) k * 1.6f);
+        }
     }
 
     void paint (Graphics& g) override
     {
         if (rows.empty())
         {
-            g.setFont (theme::monoLabel (10.0f));
-            g.setColour (theme::silverDim.withAlpha (0.6f));
-            g.drawText ("NO GEAR MATCHES", getLocalBounds().removeFromTop (50), Justification::centred, false);
+            g.setFont (card::monoFont (9.0f));
+            g.setColour (card::muted);
+            g.drawText ("NO EFFECT MATCHES", getLocalBounds().removeFromTop (50), Justification::centred, false);
             return;
         }
         for (int i = 0; i < (int) rows.size(); ++i)
         {
             const auto& r = rows[(size_t) i];
             auto rb = r.bounds.toFloat();
-            if (! g.clipRegionIntersects (r.bounds.expanded (8))) continue;
+            if (! g.clipRegionIntersects (r.bounds.expanded (10))) continue;
             if (r.header)
             {
-                g.setFont (theme::monoLabel (9.0f).boldened());
-                g.setColour (theme::accent.withAlpha (0.85f));
-                const float tw = (float) GlyphArrangement::getStringWidthInt (g.getCurrentFont(), r.text);
-                g.drawText (r.text, rb, Justification::centredLeft, false);
-                g.setColour (theme::accent.withAlpha (0.18f));
-                g.fillRect (rb.getX() + tw + 8.0f, rb.getCentreY(), rb.getWidth() - tw - 8.0f, 1.0f);
+                // group label: tiny sparkle, Plex Mono muted, hairline fading out to the right
+                card::paintSparkle (g, { rb.getX() + 3.5f, rb.getCentreY() }, 3.2f, card::ice.withAlpha (0.75f), 0.6f);
+                const auto f = card::monoFont (8.5f);
+                g.setFont (f);
+                g.setColour (card::text2);
+                const float tw = GlyphArrangement::getStringWidth (f, r.text);
+                g.drawText (r.text, rb.withTrimmedLeft (11.0f), Justification::centredLeft, false);
+                const float lx = rb.getX() + 11.0f + tw + 8.0f;
+                if (lx < rb.getRight())
+                {
+                    ColourGradient hl (card::ice.withAlpha (0.20f), lx, 0.0f, card::ice.withAlpha (0.0f), rb.getRight(), 0.0f, false);
+                    g.setGradientFill (hl);
+                    g.fillRect (lx, rb.getCentreY(), rb.getRight() - lx, 1.0f);
+                }
                 continue;
             }
             const bool hot = i == hover;
             const bool down = i == pressed;
+            const auto accent = faceplate::palette (r.type).accent;
+            const float rad = chipRadius (rb);
+            if (hot) paintChipGlow (g, rb, card::iceDeep.interpolatedWith (accent, 0.35f), 1.0f);
+
+            const auto img = gear::miniature (r.type, miniW, miniH);   // the designed 264 x 41 chip, scaled to the row
+            g.setOpacity (hot ? 1.0f : 0.92f);
+            g.drawImage (img, rb.translated (0.0f, down ? 1.0f : 0.0f), RectanglePlacement::stretchToFit);
+            g.setOpacity (1.0f);
             if (hot)
             {
-                for (int k = 3; k >= 1; --k)
-                {
-                    g.setColour (theme::accent.withAlpha (0.07f * (float) (4 - k)));
-                    g.fillRoundedRectangle (rb.expanded ((float) k * 2.0f), 4.0f + (float) k * 2.0f);
-                }
+                g.setColour (card::ice.withAlpha (0.55f));
+                g.drawRoundedRectangle (rb.reduced (0.5f), rad, 1.0f);
             }
-            g.setColour (Colours::black.withAlpha (0.55f));
-            g.fillRoundedRectangle (rb.translated (0.0f, 2.0f), 3.0f);
-            const auto img = gear::miniature (r.type, miniW, miniH);   // always the designed 264 x 41 layout, scaled to the row
-            g.drawImage (img, rb.translated (0.0f, down ? 1.0f : 0.0f), RectanglePlacement::stretchToFit);
-            if (! hot)
-            {
-                g.setColour (Colours::black.withAlpha (0.16f));
-                g.fillRoundedRectangle (rb, 3.0f);
-            }
-            else
-            {
-                g.setColour (Colours::white.withAlpha (0.07f));
-                g.fillRoundedRectangle (rb, 3.0f);
-            }
-            g.setColour (hot ? theme::accent.withAlpha (0.95f) : Colours::black.withAlpha (0.8f));
-            g.drawRoundedRectangle (rb.reduced (0.5f), 3.0f, hot ? 1.4f : 1.0f);
         }
     }
 
@@ -247,12 +261,13 @@ public:
             Image img (Image::ARGB, w + 2 * m, h + 2 * m, true);
             {
                 Graphics g (img);
-                DropShadow (Colours::black.withAlpha (0.7f), m, { 0, m / 3 }).drawForRectangle (g, { m, m, w, h });
-                g.setOpacity (0.92f);
-                g.drawImage (gear::miniature (r.type, miniW, miniH), Rectangle<float> ((float) m, (float) m, (float) w, (float) h));
+                const auto rb = Rectangle<float> ((float) m, (float) m, (float) w, (float) h);
+                paintChipGlow (g, rb, card::iceDeep, 1.2f);
+                g.setOpacity (0.94f);
+                g.drawImage (gear::miniature (r.type, miniW, miniH), rb);
                 g.setOpacity (1.0f);
-                g.setColour (theme::accent);
-                g.drawRoundedRectangle (Rectangle<float> ((float) m, (float) m, (float) w, (float) h).reduced (0.5f), 3.0f, 1.2f);
+                g.setColour (card::ice.withAlpha (0.7f));
+                g.drawRoundedRectangle (rb.reduced (0.5f), chipRadius (rb), 1.0f);
             }
             const auto grab = e.getMouseDownPosition() - r.bounds.getPosition();
             Point<int> offset (-(grab.x + m), -(grab.y + m));
@@ -271,7 +286,14 @@ public:
         for (int s = kNumSlots - 1; s >= 0 && last < 0; --s)
             if (proc.getSlotType (s) != EffectType::None) last = s;
         if (proc.insertEffect (last + 1, rows[(size_t) i].type) < 0 && owner.onMessage)
-            owner.onMessage ("RACK FULL - DROP ON A UNIT TO REPLACE IT");
+            owner.onMessage ("CHAIN FULL - DROP ON A CARD TO REPLACE IT");
+    }
+
+    void setHoverForSnapshot (EffectType t)
+    {
+        for (int i = 0; i < (int) rows.size(); ++i)
+            if (! rows[(size_t) i].header && rows[(size_t) i].type == t) hover = i;
+        repaint();
     }
 
 private:
@@ -283,29 +305,39 @@ private:
 };
 
 // ============================================================================
+namespace
+{
+constexpr int kHeadH = 64;      // title block inside the card
+constexpr int kSearchH = 26;
+constexpr float kCardInset = 0.0f;
+}
+
 GearList::GearList (EffectorKillaAudioProcessor& p) : proc (p)
 {
     content = std::make_unique<Content> (*this);
     viewport.setViewedComponent (content.get(), false);
     viewport.setScrollBarsShown (true, false);
-    viewport.setScrollBarThickness (6);
+    viewport.setScrollBarThickness (5);
     viewport.setScrollOnDragMode (Viewport::ScrollOnDragMode::never);
-    viewport.getVerticalScrollBar().setColour (ScrollBar::thumbColourId, theme::accent.withAlpha (0.3f));
+    viewport.getVerticalScrollBar().setColour (ScrollBar::thumbColourId, card::ice.withAlpha (0.25f));
     addAndMakeVisible (viewport);
 
-    search.setTextToShowWhenEmpty ("SEARCH GEAR", theme::silverDim.withAlpha (0.45f));
-    search.setFont (theme::monoLabel (11.0f));
-    search.setColour (TextEditor::backgroundColourId, Colour (0xff050608));
-    search.setColour (TextEditor::outlineColourId, Colour (0xff2a2d33));
-    search.setColour (TextEditor::focusedOutlineColourId, theme::accent.withAlpha (0.6f));
-    search.setColour (TextEditor::textColourId, theme::vfd);
-    search.setColour (TextEditor::highlightColourId, theme::accent.withAlpha (0.3f));
-    search.setColour (CaretComponent::caretColourId, theme::vfd);
-    search.setIndents (24, 5);
+    // the search field is drawn as a pill in paint(); the editor itself is transparent
+    search.setTextToShowWhenEmpty ("SEARCH EFFECTS", card::muted.withAlpha (0.8f));
+    search.setFont (card::monoFont (10.5f));
+    search.setColour (TextEditor::backgroundColourId, Colours::transparentBlack);
+    search.setColour (TextEditor::outlineColourId, Colours::transparentBlack);
+    search.setColour (TextEditor::focusedOutlineColourId, Colours::transparentBlack);
+    search.setColour (TextEditor::textColourId, card::text);
+    search.setColour (TextEditor::highlightColourId, card::ice.withAlpha (0.25f));
+    search.setColour (CaretComponent::caretColourId, card::ice);
+    search.setIndents (28, 6);
+    search.setJustification (Justification::centredLeft);
     search.setEscapeAndReturnKeysConsumed (false);
     search.onTextChange = [this] { setFilter (search.getText()); };
     search.onEscapeKey = [this] { search.setText ({}, true); };
-    search.setTooltip ("Filter the gear by name, group or description");
+    search.onFocusLost = [this] { repaint(); };
+    search.setTooltip ("Filter the effects by name, group or description");
     addAndMakeVisible (search);
 }
 
@@ -320,11 +352,11 @@ void GearList::setFilter (const String& text)
 
 void GearList::resized()
 {
-    auto r = getLocalBounds().reduced (6, 0);
-    r.removeFromTop (46);
-    search.setBounds (r.removeFromTop (26).reduced (2, 0));
-    r.removeFromTop (8);
-    viewport.setBounds (r.withTrimmedBottom (6).withX (0).withWidth (getWidth()));
+    auto r = getLocalBounds();
+    r.removeFromTop (kHeadH);
+    search.setBounds (r.removeFromTop (kSearchH).reduced (12, 0));
+    r.removeFromTop (12);
+    viewport.setBounds (r.withTrimmedBottom (12));
     // the row height follows the width, so lay out at full width first, then decide on the scroll bar
     content->setSize (viewport.getWidth(), content->getHeight());
     const int w = viewport.getWidth() - (content->getIdealHeight() > viewport.getHeight() ? viewport.getScrollBarThickness() : 0);
@@ -334,52 +366,78 @@ void GearList::resized()
 
 void GearList::paint (Graphics& g)
 {
-    auto b = getLocalBounds().toFloat();
-    ColourGradient bg (Colour (0xff0d0f13), 0.0f, 0.0f, Colour (0xff07080b), 0.0f, b.getBottom(), false);
-    g.setGradientFill (bg);
-    g.fillRect (b);
-    g.setColour (Colours::black);
-    g.drawVerticalLine (0, 0.0f, b.getBottom());
-    g.setColour (Colours::white.withAlpha (0.04f));
-    g.drawVerticalLine (1, 0.0f, b.getBottom());
+    const auto b = getLocalBounds().toFloat().reduced (kCardInset);
+    card::paintCard (g, b, card::ice, false);
 
-    // header
-    auto head = b.removeFromTop (44.0f).reduced (14.0f, 0.0f);
-    theme::drawGlowText (g, "GEAR", head.withTrimmedTop (6.0f).removeFromTop (26.0f), theme::stencilFont (24.0f), theme::silver,
-                         Justification::centredLeft, 0.4f);
-    g.setFont (theme::monoLabel (9.0f));
-    g.setColour (theme::accent.withAlpha (0.75f));
-    g.drawText ("DRAG INTO THE RACK", head.withTrimmedTop (10.0f).removeFromTop (20.0f), Justification::centredRight, false);
-    g.setColour (theme::accent.withAlpha (0.35f));
-    g.fillRect (14.0f, 42.0f, (float) getWidth() - 28.0f, 1.0f);
+    // header: chrome italic title + Plex Mono hint
+    card::paintChromeTitle (g, "FX LIBRARY", { b.getX() + 16.0f, b.getY() + 14.0f, b.getWidth() - 40.0f, 24.0f }, 19.0f, 0.9f);
+    card::paintSparkle (g, { b.getRight() - 20.0f, b.getY() + 25.0f }, 4.5f, card::ice, 1.0f);
+    g.setFont (card::monoFont (8.0f));
+    g.setColour (card::muted);
+    g.drawText ("DRAG INTO THE CHAIN", Rectangle<float> (b.getX() + 16.0f, b.getY() + 40.0f, b.getWidth() - 32.0f, 12.0f),
+                Justification::centredLeft, false);
+
+    // search pill
+    const auto sb = search.getBounds().toFloat();
+    const bool focus = search.hasKeyboardFocus (true);
+    if (focus)
+        for (int k = 3; k >= 1; --k)
+        {
+            g.setColour (card::iceDeep.withAlpha (0.10f * (float) (4 - k)));
+            g.fillRoundedRectangle (sb.expanded ((float) k * 1.5f), sb.getHeight() * 0.5f + (float) k * 1.5f);
+        }
+    g.setColour (card::bg);
+    g.fillRoundedRectangle (sb, sb.getHeight() * 0.5f);
+    g.setColour (focus ? card::ice.withAlpha (0.6f) : card::line.withMultipliedAlpha (1.4f));
+    g.drawRoundedRectangle (sb.reduced (0.5f), sb.getHeight() * 0.5f - 0.5f, 1.0f);
 }
 
 void GearList::paintOverChildren (Graphics& g)
 {
-    // the magnifier is drawn over the text editor background
+    // magnifier inside the search pill
     const auto sb = search.getBounds().toFloat();
-    const auto c = Point<float> (sb.getX() + 12.0f, sb.getCentreY() - 1.0f);
-    g.setColour (theme::silverDim.withAlpha (0.7f));
-    g.drawEllipse (Rectangle<float> (8.0f, 8.0f).withCentre (c), 1.4f);
-    g.drawLine (c.x + 3.0f, c.y + 3.0f, c.x + 6.5f, c.y + 6.5f, 1.6f);
+    const auto c = Point<float> (sb.getX() + 14.0f, sb.getCentreY() - 0.5f);
+    g.setColour (card::text2.withAlpha (0.8f));
+    g.drawEllipse (Rectangle<float> (7.5f, 7.5f).withCentre (c), 1.2f);
+    g.drawLine (c.x + 2.9f, c.y + 2.9f, c.x + 5.6f, c.y + 5.6f, 1.4f);
 
     if (removeHover)
     {
-        auto b = getLocalBounds().toFloat();
-        g.setColour (theme::killRed.withAlpha (0.22f));
-        g.fillRect (b);
-        g.setColour (theme::killRed);
-        g.drawRect (b.reduced (2.0f), 2.5f);
-        auto tag = b.withSizeKeepingCentre (b.getWidth() - 40.0f, 70.0f);
-        g.setColour (Colour (0xf0120507));
-        g.fillRoundedRectangle (tag, 6.0f);
-        g.setColour (theme::killRed);
-        g.drawRoundedRectangle (tag, 6.0f, 1.5f);
-        theme::drawGlowText (g, "DROP TO REMOVE", tag.removeFromTop (44.0f).withTrimmedTop (10.0f), theme::stencilFont (20.0f),
-                             theme::killRed, Justification::centred, 0.8f);
-        g.setFont (theme::monoLabel (9.5f));
-        g.setColour (Colour (0xffffb3ba));
-        g.drawText ("the unit leaves the rack", tag, Justification::centredTop, false);
+        const Colour red (0xffff2e3e);
+        const auto b = getLocalBounds().toFloat().reduced (kCardInset);
+        Path shape;
+        shape.addRoundedRectangle (b, card::radius);
+        g.setColour (Colour (0xff04060a).withAlpha (0.72f));
+        g.fillPath (shape);
+        {
+            g.saveState();
+            g.reduceClipRegion (shape);
+            ColourGradient wash (red.withAlpha (0.22f), b.getCentreX(), b.getCentreY(), red.withAlpha (0.0f), b.getCentreX(), b.getY(), true);
+            g.setGradientFill (wash);
+            g.fillRect (b);
+            g.restoreState();
+        }
+        // glowing red outline
+        for (int k = 4; k >= 1; --k)
+        {
+            g.setColour (red.withAlpha (0.08f * (float) (5 - k)));
+            g.drawRoundedRectangle (b.reduced (0.5f + (float) k * 1.5f), card::radius - (float) k * 1.5f, 2.0f);
+        }
+        g.setColour (red);
+        g.drawRoundedRectangle (b.reduced (1.0f), card::radius - 1.0f, 1.4f);
+
+        auto tag = b.withSizeKeepingCentre (b.getWidth() - 32.0f, 56.0f);
+        g.setColour (card::bg);
+        g.fillRoundedRectangle (tag, 28.0f);
+        g.setColour (red.withAlpha (0.25f));
+        g.drawRoundedRectangle (tag.expanded (2.0f), 30.0f, 3.0f);
+        g.setColour (red);
+        g.drawRoundedRectangle (tag.reduced (0.5f), 27.5f, 1.2f);
+        card::glowText (g, "DROP TO REMOVE", tag.withTrimmedBottom (18.0f).withTrimmedTop (6.0f), card::monoFont (11.0f, true),
+                        Colour (0xffff6b78), Justification::centred, 1.2f);
+        g.setFont (card::monoFont (7.5f));
+        g.setColour (card::text2);
+        g.drawText ("THE CARD LEAVES THE CHAIN", tag.withTrimmedTop (32.0f).withTrimmedBottom (10.0f), Justification::centred, false);
     }
 }
 
@@ -398,8 +456,15 @@ void GearList::itemDropped (const SourceDetails& d)
     repaint();
     int s;
     if (! dnd::parseUnit (d.description, s)) return;
-    if (proc.getSlotMeta (s).writeProtect) { if (onMessage) onMessage ("UNIT IS LOCKED"); return; }
+    if (proc.getSlotMeta (s).writeProtect) { if (onMessage) onMessage ("CARD IS LOCKED"); return; }
     proc.removeEffect (s);
+}
+
+void GearList::setSnapshotState (bool showRemove, EffectType hoverType)
+{
+    removeHover = showRemove;
+    content->setHoverForSnapshot (hoverType);
+    repaint();
 }
 
 } // namespace ek::ui

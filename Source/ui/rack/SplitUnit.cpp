@@ -1,4 +1,5 @@
 #include "SplitUnit.h"
+#include "CardStyle.h"
 
 namespace ek::ui
 {
@@ -6,52 +7,15 @@ using namespace juce;
 
 namespace
 {
-const Colour amber { 0xffffc861 };
 const Colour branchA { 0xff9fc3ff };  // ice blue
-const Colour branchB { 0xffffc861 };  // amber
-
-constexpr float earW = 16.0f;
-
-void drawScrew (Graphics& g, Point<float> c, float r)
-{
-    g.setColour (Colours::black.withAlpha (0.6f));
-    g.fillEllipse (Rectangle<float> (r * 2.4f, r * 2.4f).withCentre (c.translated (0.0f, 0.6f)));
-    ColourGradient head (Colour (0xffb9c0cc), c.x - r, c.y - r, Colour (0xff3a404b), c.x + r, c.y + r, false);
-    g.setGradientFill (head);
-    g.fillEllipse (Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c));
-    g.setColour (Colour (0xff1a1d23));
-    g.drawLine (c.x - r * 0.7f, c.y + r * 0.25f, c.x + r * 0.7f, c.y - r * 0.25f, r * 0.35f);
-}
-
-// Engraved metal name plate with four tiny rivets.
-void drawPlate (Graphics& g, Rectangle<float> r)
-{
-    ColourGradient fill (Colour (0xffc7ccd4), r.getX(), r.getY(), Colour (0xff8a919c), r.getX(), r.getBottom(), false);
-    g.setGradientFill (fill);
-    g.fillRoundedRectangle (r, 3.0f);
-    g.setColour (Colours::white.withAlpha (0.5f));
-    g.drawHorizontalLine ((int) r.getY() + 1, r.getX() + 3.0f, r.getRight() - 3.0f);
-    g.setColour (Colours::black.withAlpha (0.55f));
-    g.drawRoundedRectangle (r, 3.0f, 1.0f);
-    for (auto p : { r.getTopLeft().translated (4.0f, 4.0f), r.getTopRight().translated (-4.0f, 4.0f),
-                    r.getBottomLeft().translated (4.0f, -4.0f), r.getBottomRight().translated (-4.0f, -4.0f) })
-    {
-        g.setColour (Colour (0xff4a505a));
-        g.fillEllipse (Rectangle<float> (2.6f, 2.6f).withCentre (p));
-    }
-}
-
-void drawArrow (Graphics& g, Rectangle<float> r, Colour c)
-{
-    Path tri;
-    tri.addTriangle (r.getX(), r.getY(), r.getX(), r.getBottom(), r.getRight(), r.getCentreY());
-    g.setColour (c);
-    g.fillPath (tri);
-}
+const Colour branchB { 0xffb07cff };  // violet
+const Colour killRed { 0xffff2e3e };
+constexpr float kCorner = 16.0f;
+constexpr float pi = MathConstants<float>::pi;
 } // namespace
 
 // ============================================================================
-// Mode button: small square push button with an LED above its printed label.
+// Mode segment of the segmented pill (the pill itself is painted by SplitUnit).
 class SplitUnit::ModeButton : public Component, public SettableTooltipClient
 {
 public:
@@ -65,18 +29,30 @@ public:
 
     void paint (Graphics& g) override
     {
-        auto r = getLocalBounds().toFloat().reduced (1.0f);
-        ColourGradient body (Colour (down ? 0xff0b0f18 : 0xff222a39), r.getX(), r.getY(),
-                             Colour (down ? 0xff151c29 : 0xff0b0f18), r.getX(), r.getBottom(), false);
-        g.setGradientFill (body);
-        g.fillRoundedRectangle (r, 4.0f);
-        g.setColour (lit ? amber.withAlpha (0.75f) : (isMouseOver() ? theme::accent.withAlpha (0.45f) : Colour (0x40a9b6cc)));
-        g.drawRoundedRectangle (r, 4.0f, lit ? 1.3f : 1.0f);
-
-        theme::drawLed (g, { r.getCentreX(), r.getY() + 8.0f }, 3.0f, amber, lit, 0.8f);
-        g.setFont (theme::monoLabel (9.5f).boldened());
-        g.setColour (lit ? amber.brighter (0.3f) : theme::silver.withAlpha (0.85f));
-        g.drawFittedText (splitModeName (mode), r.withTrimmedTop (15.0f).toNearestInt(), Justification::centred, 1, 0.7f);
+        auto r = getLocalBounds().toFloat().reduced (2.0f, 2.5f);
+        const float rad = r.getHeight() * 0.5f;
+        if (lit)
+        {
+            for (int k = 3; k >= 1; --k)
+            {
+                g.setColour (card::iceDeep.withAlpha (0.14f * (float) (4 - k)));
+                g.fillRoundedRectangle (r.expanded ((float) k * 0.8f), rad + (float) k * 0.8f);
+            }
+            ColourGradient fill (card::ice.withAlpha (0.42f), 0.0f, r.getY(), card::iceDeep.withAlpha (0.38f), 0.0f, r.getBottom(), false);
+            g.setGradientFill (fill);
+            g.fillRoundedRectangle (r, rad);
+            g.setColour (card::ice.withAlpha (0.9f));
+            g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
+        }
+        else if (isMouseOver())
+        {
+            g.setColour (card::ice.withAlpha (down ? 0.14f : 0.07f));
+            g.fillRoundedRectangle (r, rad);
+        }
+        const auto f = card::monoFont (7.5f, lit);
+        g.setFont (f);
+        g.setColour (lit ? Colours::white : (isMouseOver() ? card::text : card::text2));
+        g.drawFittedText (splitModeName (mode), r.toNearestInt(), Justification::centred, 1, 0.6f);
     }
 
     void mouseDown (const MouseEvent&) override { down = true; repaint(); }
@@ -91,6 +67,112 @@ private:
     SplitMode mode;
     std::function<void (SplitMode)> onClick;
     bool lit = false, down = false;
+};
+
+// ============================================================================
+// Flat TrapWin knob: label above, value below (Plex Mono), drag / shift / double-click / wheel.
+class SplitUnit::FlatKnob : public Component, public SettableTooltipClient
+{
+public:
+    FlatKnob (String n, Colour a) : name (std::move (n)), accent (a)
+    {
+        setMouseCursor (MouseCursor::UpDownResizeCursor);
+        setRepaintsOnMouseActivity (true);
+    }
+
+    std::function<void()> onGestureStart;
+    std::function<void (float)> onUserChange;
+    std::function<String()> valueText;
+
+    void setDefault (float d) { defaultValue = d; }
+    void setNormValue (float v) { v = jlimit (0.0f, 1.0f, v); if (v != value) { value = v; repaint(); } }
+    float getNormValue() const { return value; }
+    void tick()
+    {
+        const auto t = valueText ? valueText() : String();
+        if (t != shownText) { shownText = t; repaint(); }
+    }
+
+    void paint (Graphics& g) override
+    {
+        const auto b = getLocalBounds().toFloat();
+        const bool hot = isMouseOverOrDragging() && isEnabled();
+        g.setFont (card::monoFont (7.0f));
+        g.setColour (hot ? card::text : card::muted);
+        g.drawFittedText (name, getLocalBounds().withHeight (11), Justification::centred, 1, 0.6f);
+        const Point<float> c (b.getCentreX(), 30.0f);
+        const float r = 9.0f;
+        if (hot)
+        {
+            ColourGradient halo (accent.withAlpha (0.22f), c.x, c.y, accent.withAlpha (0.0f), c.x + r * 2.2f, c.y, true);
+            g.setGradientFill (halo);
+            g.fillEllipse (Rectangle<float> (r * 4.4f, r * 4.4f).withCentre (c));
+        }
+        card::paintKnob (g, c, r, value, accent);
+        g.setFont (card::monoFont (7.5f));
+        g.setColour (hot ? card::text : card::text2);
+        g.drawFittedText (shownText, Rectangle<int> (0, 45, getWidth(), 11), Justification::centred, 1, 0.6f);
+    }
+
+    void mouseDown (const MouseEvent&) override { if (onGestureStart) onGestureStart(); start = value; }
+    void mouseDrag (const MouseEvent& e) override
+    {
+        const float range = e.mods.isShiftDown() ? 800.0f : 160.0f;
+        userSet (start - (float) e.getDistanceFromDragStartY() / range);
+    }
+    void mouseDoubleClick (const MouseEvent&) override { if (onGestureStart) onGestureStart(); userSet (defaultValue); }
+    void mouseWheelMove (const MouseEvent&, const MouseWheelDetails& w) override
+    {
+        userSet (value + (w.deltaY > 0.0f ? 0.03f : -0.03f));
+    }
+
+private:
+    void userSet (float v)
+    {
+        v = jlimit (0.0f, 1.0f, v);
+        if (v == value) return;
+        value = v;
+        repaint();
+        if (onUserChange) onUserChange (v);
+    }
+    String name, shownText;
+    Colour accent;
+    float value = 0.5f, defaultValue = 0.5f, start = 0.0f;
+};
+
+// ============================================================================
+// Small round close pill (removes the split).
+class SplitUnit::ClosePill : public Component, public SettableTooltipClient
+{
+public:
+    ClosePill() { setMouseCursor (MouseCursor::PointingHandCursor); setRepaintsOnMouseActivity (true); }
+    std::function<void()> onClick;
+
+    void paint (Graphics& g) override
+    {
+        const auto r = getLocalBounds().toFloat().reduced (2.0f);
+        const bool hot = isMouseOver();
+        if (hot)
+        {
+            ColourGradient halo (killRed.withAlpha (0.35f), r.getCentreX(), r.getCentreY(), killRed.withAlpha (0.0f),
+                                 r.getCentreX() + r.getWidth(), r.getCentreY(), true);
+            g.setGradientFill (halo);
+            g.fillEllipse (r.expanded (r.getWidth() * 0.5f));
+        }
+        g.setColour (card::bg);
+        g.fillEllipse (r);
+        g.setColour (hot ? killRed : card::line.withMultipliedAlpha (1.5f));
+        g.drawEllipse (r.reduced (0.5f), 1.0f);
+        const auto c = r.getCentre();
+        const float d = r.getWidth() * 0.17f;
+        g.setColour (hot ? Colour (0xffff8a94) : card::text2);
+        g.drawLine (c.x - d, c.y - d, c.x + d, c.y + d, 1.3f);
+        g.drawLine (c.x - d, c.y + d, c.x + d, c.y - d, 1.3f);
+    }
+    void mouseUp (const MouseEvent& e) override
+    {
+        if (getLocalBounds().contains (e.getPosition()) && onClick) onClick();
+    }
 };
 
 // ============================================================================
@@ -133,7 +215,7 @@ String SplitUnit::formatBalance (SplitMode mode, float b)
 // ============================================================================
 SplitUnit::SplitUnit (EffectorKillaAudioProcessor& p) : proc (p)
 {
-    setTooltip ("SPLIT: the units under it run in two parallel branches (A left, B right) and meet again at MERGE");
+    setTooltip ("SPLIT: the cards under it run in two parallel branches (A left, B right) and meet again at MERGE");
 
     static const char* tips[] = {
         "PARALLEL: both branches get the full signal; A/B crossfades between them",
@@ -148,48 +230,54 @@ SplitUnit::SplitUnit (EffectorKillaAudioProcessor& p) : proc (p)
         addAndMakeVisible (*modeButtons[(size_t) m]);
     }
 
+    xover = std::make_unique<FlatKnob> ("XOVER", card::ice);
+    balance = std::make_unique<FlatKnob> ("A / B", card::ice);
+    levelA = std::make_unique<FlatKnob> ("LVL A", branchA);
+    levelB = std::make_unique<FlatKnob> ("LVL B", branchB);
+
     auto gesture = [this] { proc.pushUndo(); };
-    for (auto* k : { &xover, &balance, &levelA, &levelB })
+    for (auto* k : allKnobs())
     {
-        k->knob.onGestureStart = gesture;
+        k->onGestureStart = gesture;
         addAndMakeVisible (*k);
     }
 
-    xover.knob.setDefault (freqToNorm (SplitParams().freqHz));
-    xover.knob.onUserChange = [this] (float v) { proc.setSplitFreq (normToFreq (v)); xover.tick(); };
-    xover.valueText = [this] { return formatFreq (proc.getSplit().params.freqHz); };
-    xover.setTooltip ("Crossover frequency of the LOW/HIGH split");
+    xover->setDefault (freqToNorm (SplitParams().freqHz));
+    xover->onUserChange = [this] (float v) { proc.setSplitFreq (normToFreq (v)); xover->tick(); };
+    xover->valueText = [this] { return formatFreq (proc.getSplit().params.freqHz); };
+    xover->setTooltip ("Crossover frequency of the LOW/HIGH split");
 
-    balance.knob.setDefault (0.5f);
-    balance.knob.onUserChange = [this] (float v) { proc.setSplitBalance (v); balance.tick(); };
-    balance.valueText = [this] { return formatBalance (proc.getSplit().mode, proc.getSplit().params.balance); };
-    balance.setTooltip ("MERGE balance: left = only branch A, centre = both, right = only branch B");
+    balance->setDefault (0.5f);
+    balance->onUserChange = [this] (float v) { proc.setSplitBalance (v); balance->tick(); repaint (mergePane().getSmallestIntegerContainer().expanded (4)); };
+    balance->valueText = [this] { return formatBalance (proc.getSplit().mode, proc.getSplit().params.balance); };
+    balance->setTooltip ("MERGE balance: left = only branch A, centre = both, right = only branch B");
 
-    levelA.setAccent (branchA);
-    levelA.knob.setDefault (levelToNorm (0.0f));
-    levelA.knob.onUserChange = [this] (float v) { proc.setSplitLevel (0, normToLevel (v)); levelA.tick(); };
-    levelA.valueText = [this] { return String (proc.getSplit().params.levelADb, 1) + " dB"; };
-    levelA.setTooltip ("Level of branch A at the MERGE");
+    levelA->setDefault (levelToNorm (0.0f));
+    levelA->onUserChange = [this] (float v) { proc.setSplitLevel (0, normToLevel (v)); levelA->tick(); };
+    levelA->valueText = [this] { return String (proc.getSplit().params.levelADb, 1) + " dB"; };
+    levelA->setTooltip ("Level of branch A at the MERGE");
 
-    levelB.setAccent (branchB);
-    levelB.knob.setDefault (levelToNorm (0.0f));
-    levelB.knob.onUserChange = [this] (float v) { proc.setSplitLevel (1, normToLevel (v)); levelB.tick(); };
-    levelB.valueText = [this] { return String (proc.getSplit().params.levelBDb, 1) + " dB"; };
-    levelB.setTooltip ("Level of branch B at the MERGE");
+    levelB->setDefault (levelToNorm (0.0f));
+    levelB->onUserChange = [this] (float v) { proc.setSplitLevel (1, normToLevel (v)); levelB->tick(); };
+    levelB->valueText = [this] { return String (proc.getSplit().params.levelBDb, 1) + " dB"; };
+    levelB->setTooltip ("Level of branch B at the MERGE");
 
-    removeBtn.setTooltip ("Remove the split (the units stay, in series)");
-    removeBtn.onClick = [this]
+    removeBtn = std::make_unique<ClosePill>();
+    removeBtn->setTooltip ("Remove the split (the cards stay, in series)");
+    removeBtn->onClick = [this]
     {
         proc.removeSplit();
         if (onRemoved) onRemoved();
     };
-    addAndMakeVisible (removeBtn);
+    addAndMakeVisible (*removeBtn);
 
     setSize (width, height); // after the children exist: resized() lays them out
     refresh();
 }
 
 SplitUnit::~SplitUnit() = default;
+
+std::array<SplitUnit::FlatKnob*, 4> SplitUnit::allKnobs() const { return { xover.get(), balance.get(), levelA.get(), levelB.get() }; }
 
 void SplitUnit::setMode (SplitMode m)
 {
@@ -203,14 +291,14 @@ void SplitUnit::refresh()
     shownMode = s.mode;
     for (int m = 0; m < kNumSplitModes; ++m)
         modeButtons[(size_t) m]->setLit ((int) s.mode == m);
-    xover.knob.setNormValue (freqToNorm (s.params.freqHz), dontSendNotification);
-    balance.knob.setNormValue (s.params.balance, dontSendNotification);
-    levelA.knob.setNormValue (levelToNorm (s.params.levelADb), dontSendNotification);
-    levelB.knob.setNormValue (levelToNorm (s.params.levelBDb), dontSendNotification);
+    xover->setNormValue (freqToNorm (s.params.freqHz));
+    balance->setNormValue (s.params.balance);
+    levelA->setNormValue (levelToNorm (s.params.levelADb));
+    levelB->setNormValue (levelToNorm (s.params.levelBDb));
     const bool lowHigh = s.mode == SplitMode::LowHigh;
-    xover.setAlpha (lowHigh ? 1.0f : 0.35f);
-    xover.setEnabled (lowHigh);
-    for (auto* k : { &xover, &balance, &levelA, &levelB }) k->tick();
+    xover->setAlpha (lowHigh ? 1.0f : 0.35f);
+    xover->setEnabled (lowHigh);
+    for (auto* k : allKnobs()) k->tick();
     repaint();
 }
 
@@ -218,7 +306,7 @@ void SplitUnit::tick()
 {
     const auto& s = proc.getSplit();
     if (s.mode != shownMode) { refresh(); return; }
-    for (auto* k : { &xover, &balance, &levelA, &levelB }) k->tick();
+    for (auto* k : allKnobs()) k->tick();
     float gA, gB;
     splitMergeGains (s.mode, s.params.balance, gA, gB);
     gA *= Decibels::decibelsToGain (s.params.levelADb);
@@ -227,99 +315,141 @@ void SplitUnit::tick()
         repaint (mergePane().getSmallestIntegerContainer().expanded (4));
 }
 
-// ---- layout (x positions in a 932 px strip) -----------------------------------------------------
-Rectangle<float> SplitUnit::platePane() const { return { 24.0f, 8.0f, 156.0f, 48.0f }; }
-Rectangle<float> SplitUnit::mergePane() const { return { 768.0f, 8.0f, 112.0f, 48.0f }; }
+// ---- layout (adapts to the width) ---------------------------------------------------------------
+Rectangle<float> SplitUnit::platePane() const
+{
+    return { 14.0f, 6.0f, jlimit (104.0f, 150.0f, (float) getWidth() * 0.15f), (float) height - 12.0f };
+}
+
+Rectangle<float> SplitUnit::mergePane() const
+{
+    const float w = jlimit (96.0f, 124.0f, (float) getWidth() * 0.13f);
+    return { (float) getWidth() - 44.0f - w, 6.0f, w, (float) height - 12.0f };
+}
 
 void SplitUnit::resized()
 {
-    // mode buttons
-    float x = 188.0f;
-    for (auto& b : modeButtons)
+    const auto plate = platePane();
+    const auto merge = mergePane();
+    removeBtn->setBounds (Rectangle<int> (26, 26).withCentre ({ getWidth() - 24, height / 2 }));
+
+    const int knobW = getWidth() >= 760 ? 58 : 50;
+    int kx = (int) merge.getX() - 10 - 4 * knobW;
+    for (auto* k : allKnobs())
     {
-        b->setBounds (Rectangle<float> (x, 17.0f, 62.0f, 40.0f).toNearestInt());
-        x += 65.0f;
+        k->setBounds (kx, 4, knobW, 58);
+        kx += knobW;
     }
-    xover.setBounds (516, 2, 62, 60);
-    balance.setBounds (580, 2, 62, 60);
-    levelA.setBounds (646, 2, 58, 60);
-    levelB.setBounds (704, 2, 58, 60);
-    removeBtn.setBounds (889, 20, 22, 22);
+
+    // mode segmented pill between the SPLIT title and the knobs
+    const float left = plate.getRight() + 10.0f;
+    const float right = (float) ((int) merge.getX() - 10 - 4 * knobW) - 12.0f;
+    const float pw = jmax (150.0f, right - left);
+    modeArea = Rectangle<float> (left, 27.0f, jmin (pw, 380.0f), 24.0f);
+    modeArea.setX (left + (pw - modeArea.getWidth()) * 0.5f);
+    // segment widths follow the label lengths, so the narrow strip keeps every label readable
+    float tw[kNumSplitModes], sum = 0.0f;
+    for (int m = 0; m < kNumSplitModes; ++m)
+        sum += (tw[m] = GlyphArrangement::getStringWidth (card::monoFont (7.5f, true), splitModeName ((SplitMode) m)) + 18.0f);
+    float sx = modeArea.getX();
+    for (int m = 0; m < kNumSplitModes; ++m)
+    {
+        const float sw = modeArea.getWidth() * tw[m] / sum;
+        modeButtons[(size_t) m]->setBounds (Rectangle<float> (sx, modeArea.getY(), sw, modeArea.getHeight()).toNearestInt());
+        sx += sw;
+    }
 }
 
 void SplitUnit::paint (Graphics& g)
 {
     const auto b = getLocalBounds().toFloat();
-
-    // ---- chassis: gunmetal faceplate with brushed lines, rack ears with screws ------------------
-    ColourGradient metal (Colour (0xff272d38), 0.0f, 0.0f, Colour (0xff12161e), 0.0f, b.getBottom(), false);
-    g.setGradientFill (metal);
-    g.fillRoundedRectangle (b, 4.0f);
-    Random rng (7);
-    for (int y = 2; y < height - 2; y += 2)
-    {
-        g.setColour (Colours::white.withAlpha (0.012f + 0.018f * rng.nextFloat()));
-        g.drawHorizontalLine (y, earW, b.getRight() - earW);
-    }
-    g.setColour (Colours::white.withAlpha (0.10f));
-    g.drawHorizontalLine (1, 2.0f, b.getRight() - 2.0f);
-    g.setColour (Colours::black.withAlpha (0.7f));
-    g.drawRoundedRectangle (b.reduced (0.5f), 4.0f, 1.0f);
-
-    for (float ex : { 0.0f, b.getRight() - earW })
-    {
-        auto ear = Rectangle<float> (ex, 0.0f, earW, b.getHeight());
-        ColourGradient ef (Colour (0xff353c48), ear.getX(), 0.0f, Colour (0xff1a1e26), ear.getRight(), 0.0f, false);
-        g.setGradientFill (ef);
-        g.fillRect (ear.reduced (0.0f, 1.0f));
-        drawScrew (g, { ear.getCentreX(), 12.0f }, 3.6f);
-        drawScrew (g, { ear.getCentreX(), b.getBottom() - 12.0f }, 3.6f);
-    }
-
     const auto& s = proc.getSplit();
 
-    // ---- SPLIT > A | B plate --------------------------------------------------------------------
+    // ---- slim TrapWin card -----------------------------------------------------------------------
     {
-        auto r = platePane();
-        drawPlate (g, r);
-        auto top = r.reduced (9.0f, 4.0f).removeFromTop (24.0f);
-        g.setFont (theme::stencilFont (19.0f));
-        g.setColour (Colour (0xff15181d));
-        g.drawText ("SPLIT", top.removeFromLeft (66.0f), Justification::centredLeft, false);
-        drawArrow (g, top.removeFromLeft (14.0f).withSizeKeepingCentre (8.0f, 10.0f), Colour (0xff15181d));
-        top.removeFromLeft (4.0f);
-        g.setFont (theme::stencilFont (17.0f));
-        g.setColour (branchA.darker (1.3f));
-        g.drawText ("A", top.removeFromLeft (14.0f), Justification::centred, false);
-        g.setColour (Colour (0xff15181d));
-        g.drawText ("|", top.removeFromLeft (12.0f), Justification::centred, false);
-        g.setColour (branchB.darker (1.1f));
-        g.drawText ("B", top.removeFromLeft (14.0f), Justification::centred, false);
-
-        auto sub = r.reduced (9.0f, 5.0f).removeFromBottom (14.0f);
-        g.setFont (theme::monoLabel (9.0f).boldened());
-        g.setColour (Colour (0xff2a2f38));
-        g.drawFittedText ("A=" + String (splitBranchName (s.mode, 0)) + "   B=" + String (splitBranchName (s.mode, 1)),
-                          sub.toNearestInt(), Justification::centredLeft, 1, 0.7f);
+        Path shape;
+        shape.addRoundedRectangle (b, kCorner);
+        ColourGradient body (card::card2, 0.0f, b.getY(), Colour (0xff080c14), 0.0f, b.getBottom(), false);
+        body.addColour (0.5, card::card);
+        g.setGradientFill (body);
+        g.fillPath (shape);
+        g.saveState();
+        g.reduceClipRegion (shape);
+        // the fork: A glows in from the left, B from the right
+        ColourGradient ga (branchA.withAlpha (0.07f), b.getX(), b.getCentreY(), branchA.withAlpha (0.0f), b.getX() + b.getWidth() * 0.3f, b.getCentreY(), true);
+        g.setGradientFill (ga);
+        g.fillRect (b);
+        ColourGradient gb (branchB.withAlpha (0.06f), b.getRight(), b.getCentreY(), branchB.withAlpha (0.0f), b.getRight() - b.getWidth() * 0.3f, b.getCentreY(), true);
+        g.setGradientFill (gb);
+        g.fillRect (b);
+        g.restoreState();
+        g.setColour (card::line);
+        g.drawRoundedRectangle (b.reduced (0.5f), kCorner - 0.5f, 1.0f);
+        ColourGradient top (card::ice.withAlpha (0.0f), b.getX() + kCorner, 0.0f, card::ice.withAlpha (0.0f), b.getRight() - kCorner, 0.0f, false);
+        top.addColour (0.3, card::ice.withAlpha (0.16f));
+        top.addColour (0.7, card::ice.withAlpha (0.10f));
+        g.setGradientFill (top);
+        g.fillRect (b.getX() + kCorner, b.getY() + 0.5f, b.getWidth() - 2.0f * kCorner, 0.8f);
+        // accent edges: A on the left, B on the right
+        for (int side = 0; side < 2; ++side)
+        {
+            const auto col = side == 0 ? branchA : branchB;
+            const float y0 = b.getY() + kCorner * 0.6f, y1 = b.getBottom() - kCorner * 0.6f;
+            ColourGradient edge (col.withAlpha (0.0f), 0.0f, y0, col.withAlpha (0.0f), 0.0f, y1, false);
+            edge.addColour (0.5, col);
+            g.setGradientFill (edge);
+            g.fillRoundedRectangle (Rectangle<float> (side == 0 ? b.getX() + 1.0f : b.getRight() - 3.0f, y0, 2.0f, y1 - y0), 1.0f);
+        }
     }
 
-    // ---- section captions ------------------------------------------------------------------------
-    drawSmallLabel (g, "SPLIT MODE", { 188.0f, 3.0f, 322.0f, 13.0f }, Justification::centred, theme::silverDim, 9.0f);
-    g.setColour (theme::line);
-    g.drawVerticalLine (184, 8.0f, b.getBottom() - 8.0f);
-    g.drawVerticalLine (512, 8.0f, b.getBottom() - 8.0f);
-    g.drawVerticalLine (644, 8.0f, b.getBottom() - 8.0f);
-    g.drawVerticalLine (764, 8.0f, b.getBottom() - 8.0f);
-    g.drawVerticalLine (884, 8.0f, b.getBottom() - 8.0f);
+    // ---- SPLIT title + routing ------------------------------------------------------------------
+    {
+        const auto r = platePane();
+        const auto tb = card::paintChromeTitle (g, "SPLIT", { r.getX() + 4.0f, r.getY() + 3.0f, r.getWidth() - 32.0f, 24.0f }, 19.0f, 0.9f);
+        // little fork glyph after the title
+        const float fx = tb.getRight() + 9.0f, fy = r.getY() + 15.0f;
+        Path pa, pb, in;
+        in.startNewSubPath (fx, fy); in.lineTo (fx + 5.0f, fy);
+        pa.startNewSubPath (fx + 5.0f, fy); pa.quadraticTo (fx + 9.0f, fy, fx + 14.0f, fy - 6.0f);
+        pb.startNewSubPath (fx + 5.0f, fy); pb.quadraticTo (fx + 9.0f, fy, fx + 14.0f, fy + 6.0f);
+        card::strokeGlow (g, in, card::ice, 1.2f, 0.8f);
+        card::strokeGlow (g, pa, branchA, 1.2f, 0.8f);
+        card::strokeGlow (g, pb, branchB, 1.2f, 0.8f);
 
-    // ---- MERGE plate: two branch lines meet; LEDs glow with each branch's merge gain --------------
+        auto sub = Rectangle<float> (r.getX() + 4.0f, r.getY() + 30.0f, r.getWidth() - 4.0f, 18.0f);
+        const auto f = card::monoFont (7.5f);
+        const float cellW = (sub.getWidth() - 6.0f) * 0.5f;
+        auto drawBranch = [&] (int br, Colour col)
+        {
+            String bn = String (splitBranchName (s.mode, br)).toUpperCase();
+            if (bn.length() <= 1) bn = "FULL";
+            const String t = String (br == 0 ? "A " : "B ") + bn;
+            auto cell = sub.removeFromLeft (cellW);
+            card::dotGlow (g, { cell.getX() + 3.0f, cell.getCentreY() }, 1.8f, col, 0.9f);
+            g.setFont (f);
+            g.setColour (card::text2);
+            g.drawFittedText (t, cell.withTrimmedLeft (9.0f).toNearestInt(), Justification::centredLeft, 1, 0.6f);
+            sub.removeFromLeft (6.0f);
+        };
+        drawBranch (0, branchA);
+        drawBranch (1, branchB);
+    }
+
+    // ---- mode pill --------------------------------------------------------------------------------
+    {
+        g.setFont (card::monoFont (7.0f));
+        g.setColour (card::muted);
+        g.drawText ("SPLIT MODE", modeArea.withY (8.0f).withHeight (14.0f).withTrimmedLeft (10.0f), Justification::centredLeft, false);
+        const float rad = modeArea.getHeight() * 0.5f;
+        g.setColour (card::bg);
+        g.fillRoundedRectangle (modeArea, rad);
+        g.setColour (card::line);
+        g.drawRoundedRectangle (modeArea.reduced (0.5f), rad - 0.5f, 1.0f);
+    }
+
+    // ---- MERGE: the two branches meet; each glows with its merge gain ----------------------------
     {
         auto r = mergePane();
-        drawPlate (g, r);
-        g.setFont (theme::stencilFont (15.0f));
-        g.setColour (Colour (0xff15181d));
-        g.drawText ("MERGE", r.withTrimmedLeft (44.0f).withTrimmedTop (2.0f).withHeight (26.0f), Justification::centredLeft, false);
-
         float gA, gB;
         splitMergeGains (s.mode, s.params.balance, gA, gB);
         gA *= Decibels::decibelsToGain (s.params.levelADb);
@@ -327,29 +457,33 @@ void SplitUnit::paint (Graphics& g)
         shownGainA = gA;
         shownGainB = gB;
 
-        // little patch diagram: A and B come in from the top and join into one output line
-        const float x0 = r.getX() + 10.0f, y0 = r.getY() + 9.0f;
-        Path pa, pb, out;
-        pa.startNewSubPath (x0, y0); pa.quadraticTo (x0, y0 + 12.0f, x0 + 14.0f, y0 + 16.0f);
-        pb.startNewSubPath (x0 + 28.0f, y0); pb.quadraticTo (x0 + 28.0f, y0 + 12.0f, x0 + 14.0f, y0 + 16.0f);
-        out.startNewSubPath (x0 + 14.0f, y0 + 16.0f); out.lineTo (x0 + 14.0f, r.getBottom() - 5.0f);
-        g.setColour (Colour (0xff15181d));
-        g.strokePath (out, PathStrokeType (2.0f));
-        g.setColour (branchA.darker (0.8f).interpolatedWith (Colour (0xff15181d), 1.0f - jlimit (0.0f, 1.0f, gA)));
-        g.strokePath (pa, PathStrokeType (2.0f));
-        g.setColour (branchB.darker (0.6f).interpolatedWith (Colour (0xff15181d), 1.0f - jlimit (0.0f, 1.0f, gB)));
-        g.strokePath (pb, PathStrokeType (2.0f));
+        // divider
+        ColourGradient div (card::ice.withAlpha (0.0f), 0.0f, r.getY() + 4.0f, card::ice.withAlpha (0.0f), 0.0f, r.getBottom() - 4.0f, false);
+        div.addColour (0.5, card::ice.withAlpha (0.14f));
+        g.setGradientFill (div);
+        g.fillRect (r.getX() - 4.0f, r.getY() + 4.0f, 1.0f, r.getHeight() - 8.0f);
 
-        // A / B LEDs with the effective gain
-        auto leds = r.withTrimmedLeft (44.0f).withTrimmedTop (28.0f).withTrimmedBottom (4.0f);
-        auto la = leds.removeFromLeft (32.0f), lb = leds.removeFromLeft (32.0f);
-        theme::drawLed (g, { la.getX() + 5.0f, la.getCentreY() }, 3.0f, branchA, gA > 0.01f, jlimit (0.2f, 1.0f, gA));
-        theme::drawLed (g, { lb.getX() + 5.0f, lb.getCentreY() }, 3.0f, branchB, gB > 0.01f, jlimit (0.2f, 1.0f, gB));
-        g.setFont (theme::monoLabel (9.0f).boldened());
-        g.setColour (Colour (0xff15181d));
-        g.drawText ("A", la.withTrimmedLeft (11.0f), Justification::centredLeft, false);
-        g.drawText ("B", lb.withTrimmedLeft (11.0f), Justification::centredLeft, false);
+        // join glyph: A and B come in and leave as one line
+        const float x0 = r.getX() + 8.0f, yc = r.getY() + 15.0f;
+        Path pa, pb, out;
+        pa.startNewSubPath (x0, yc - 6.0f); pa.quadraticTo (x0 + 5.0f, yc, x0 + 9.0f, yc);
+        pb.startNewSubPath (x0, yc + 6.0f); pb.quadraticTo (x0 + 5.0f, yc, x0 + 9.0f, yc);
+        out.startNewSubPath (x0 + 9.0f, yc); out.lineTo (x0 + 15.0f, yc);
+        card::strokeGlow (g, pa, branchA.withAlpha (0.25f + 0.75f * jlimit (0.0f, 1.0f, gA)), 1.2f, jlimit (0.0f, 1.0f, gA));
+        card::strokeGlow (g, pb, branchB.withAlpha (0.25f + 0.75f * jlimit (0.0f, 1.0f, gB)), 1.2f, jlimit (0.0f, 1.0f, gB));
+        card::strokeGlow (g, out, card::ice, 1.2f, 0.8f);
+        card::paintChromeTitle (g, "MERGE", { x0 + 21.0f, r.getY() + 3.0f, r.getRight() - x0 - 21.0f, 24.0f }, 17.0f, 0.9f);
+
+        auto leds = Rectangle<float> (r.getX() + 8.0f, r.getY() + 30.0f, r.getWidth() - 8.0f, 18.0f);
+        auto la = leds.removeFromLeft (leds.getWidth() * 0.5f), lb = leds;
+        g.setFont (card::monoFont (7.5f));
+        card::dotGlow (g, { la.getX() + 3.0f, la.getCentreY() }, 2.0f, branchA, jlimit (0.0f, 1.0f, gA));
+        card::dotGlow (g, { lb.getX() + 3.0f, lb.getCentreY() }, 2.0f, branchB, jlimit (0.0f, 1.0f, gB));
+        g.setColour (card::text2);
+        g.drawText ("A " + String (roundToInt (gA * 100.0f)), la.withTrimmedLeft (10.0f), Justification::centredLeft, false);
+        g.drawText ("B " + String (roundToInt (gB * 100.0f)), lb.withTrimmedLeft (10.0f), Justification::centredLeft, false);
     }
+    ignoreUnused (pi);
 }
 
 void SplitUnit::mouseDrag (const MouseEvent& e)

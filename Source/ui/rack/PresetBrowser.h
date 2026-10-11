@@ -1,7 +1,8 @@
 #pragma once
 
-// Preset browser over the rack (black glass, ice-blue type, categories as LED tabs): categories on the left (all, favourites, user, the 12 channels),
-// presets on the right with search. Click = load and listen, double-click / Enter = load and close.
+// Preset browser overlay (TrapWin glass card #0A0F18 / 96 %, radius 20): category pills on the left (all, favourites,
+// user, the 12 channels; active = ice-blue glow), a search pill and the preset rows (Plex Mono names, channel colour dot,
+// sparkle for favourites) on the right. Click = load and listen, double-click / Enter = load and close.
 
 #include "Widgets.h"
 #include "../../PluginProcessor.h"
@@ -37,6 +38,7 @@ private:
     int categoryAt (juce::Point<int> p) const;
     int categoryRowHeight() const;
     juce::Colour categoryLed (int category) const;
+    juce::Colour entryColour (const struct Entry&) const;
 
     int getNumRows() override { return (int) shown.size(); }
     void paintListBoxItem (int row, juce::Graphics&, int w, int h, bool selected) override;
@@ -48,7 +50,8 @@ private:
     EffectorKillaAudioProcessor& proc;
     juce::TextEditor search;
     juce::ListBox list;
-    TwButton closeBtn;
+    juce::Rectangle<int> closeArea() const;
+    bool closeHover = false;
     std::vector<Entry> all, shown;
     juce::StringArray categories;
     int category = 0;   // 0 = all, 1 = favourites, 2 = user, 3.. = channels

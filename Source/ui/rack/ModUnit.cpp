@@ -1,4 +1,5 @@
 #include "ModUnit.h"
+#include "CardStyle.h"
 
 namespace ek::ui
 {
@@ -12,9 +13,9 @@ Colour modSourceColour (int source)
     switch (source)
     {
         case 0:  return Colour (0xff9fc3ff); // LFO 1 - ice blue
-        case 1:  return Colour (0xffc58bff); // LFO 2 - violet
-        case 2:  return Colour (0xffffc861); // ENV   - amber
-        case 3:  return Colour (0xff3dff6e); // SEQ   - green
+        case 1:  return Colour (0xffb07cff); // LFO 2 - violet
+        case 2:  return Colour (0xff5fe0b0); // ENV   - mint
+        case 3:  return Colour (0xffffd23f); // SEQ   - yellow
         default: return Colour (0xffe6ecf7);
     }
 }
@@ -27,17 +28,15 @@ void paintModRing (Graphics& g, Rectangle<float> knobBounds, float baseNorm, flo
 {
     const auto c = knobBounds.getCentre();
     const float r = knobBounds.getWidth() * 0.5f + 3.0f + 4.0f * (float) jmax (0, ringIndex);
-    const float thick = jmax (2.0f, knobBounds.getWidth() * 0.07f);
+    const float thick = jlimit (1.4f, 2.4f, knobBounds.getWidth() * 0.05f);
     baseNorm = jlimit (0.0f, 1.0f, baseNorm);
     depth = jlimit (-1.0f, 1.0f, depth);
 
     // faint track of the whole knob range
     Path track;
     track.addCentredArc (c.x, c.y, r, r, 0.0f, theme::knobStart, theme::knobEnd, true);
-    g.setColour (Colours::black.withAlpha (0.55f));
-    g.strokePath (track, PathStrokeType (thick + 1.5f, PathStrokeType::curved, PathStrokeType::rounded));
-    g.setColour (colour.withAlpha (0.12f));
-    g.strokePath (track, PathStrokeType (thick * 0.6f, PathStrokeType::curved, PathStrokeType::rounded));
+    g.setColour (colour.withAlpha (0.10f));
+    g.strokePath (track, PathStrokeType (thick, PathStrokeType::curved, PathStrokeType::rounded));
 
     const float lo = jlimit (0.0f, 1.0f, bipolar ? baseNorm - std::abs (depth) : jmin (baseNorm, baseNorm + depth));
     const float hi = jlimit (0.0f, 1.0f, bipolar ? baseNorm + std::abs (depth) : jmax (baseNorm, baseNorm + depth));
@@ -45,53 +44,31 @@ void paintModRing (Graphics& g, Rectangle<float> knobBounds, float baseNorm, flo
     {
         Path range;
         range.addCentredArc (c.x, c.y, r, r, 0.0f, normToAngle (lo), normToAngle (hi), true);
-        g.setColour (colour.withAlpha (0.28f));                          // glow
-        g.strokePath (range, PathStrokeType (thick * 2.6f, PathStrokeType::curved, PathStrokeType::rounded));
-        g.setColour (colour);
-        g.strokePath (range, PathStrokeType (thick, PathStrokeType::curved, PathStrokeType::rounded));
-        // the direction of a positive depth gets the brighter end cap
+        card::strokeGlow (g, range, colour, thick, 1.2f);
+        // the direction of a positive depth gets a bright end cap
         const float tip = bipolar ? (depth >= 0.0f ? hi : lo) : jlimit (0.0f, 1.0f, baseNorm + depth);
-        g.setColour (colour.brighter (0.8f));
-        g.fillEllipse (Rectangle<float> (thick * 1.7f, thick * 1.7f).withCentre (polarPt (c, r, normToAngle (tip))));
+        card::dotGlow (g, polarPt (c, r, normToAngle (tip)), thick * 0.9f, colour, 0.9f);
     }
-    // base marker
-    g.setColour (Colours::white.withAlpha (0.85f));
-    g.drawLine (Line<float> (polarPt (c, r - thick, normToAngle (baseNorm)), polarPt (c, r + thick, normToAngle (baseNorm))), 1.2f);
+    // base marker: a small white tick across the ring
+    g.setColour (Colours::white.withAlpha (0.8f));
+    g.drawLine (Line<float> (polarPt (c, r - thick * 1.2f, normToAngle (baseNorm)), polarPt (c, r + thick * 1.2f, normToAngle (baseNorm))), 1.0f);
 
     if (currentNorm >= 0.0f)
-    {
-        const auto p = polarPt (c, r, normToAngle (currentNorm));
-        g.setColour (colour.withAlpha (0.45f));
-        g.fillEllipse (Rectangle<float> (thick * 3.2f, thick * 3.2f).withCentre (p));
-        g.setColour (Colours::white);
-        g.fillEllipse (Rectangle<float> (thick * 1.4f, thick * 1.4f).withCentre (p));
-    }
+        card::dotGlow (g, polarPt (c, r, normToAngle (currentNorm)), thick * 1.1f, colour, 1.0f);
 }
 
 void paintPatchCable (Graphics& g, Point<float> from, Point<float> to, Colour colour)
 {
     const float dist = from.getDistanceFrom (to);
-    const float sag = jlimit (10.0f, 90.0f, dist * 0.25f);
+    const float sag = jlimit (10.0f, 80.0f, dist * 0.22f);
     Path cable;
     cable.startNewSubPath (from);
     cable.cubicTo (from.translated (0.0f, sag), to.translated (0.0f, sag), to);
-    g.setColour (Colours::black.withAlpha (0.45f));
-    g.strokePath (cable, PathStrokeType (6.0f, PathStrokeType::curved, PathStrokeType::rounded), AffineTransform::translation (1.5f, 3.0f));
-    g.setColour (colour.darker (0.9f));
-    g.strokePath (cable, PathStrokeType (5.0f, PathStrokeType::curved, PathStrokeType::rounded));
-    g.setColour (colour);
-    g.strokePath (cable, PathStrokeType (3.2f, PathStrokeType::curved, PathStrokeType::rounded));
-    g.setColour (Colours::white.withAlpha (0.35f));
-    g.strokePath (cable, PathStrokeType (1.0f, PathStrokeType::curved, PathStrokeType::rounded), AffineTransform::translation (-0.6f, -0.8f));
-    // plug at the free end
-    for (auto p : { from, to })
-    {
-        ColourGradient plug (Colour (0xffeef2f8), p.x - 4.0f, p.y - 4.0f, Colour (0xff4a505c), p.x + 4.0f, p.y + 4.0f, false);
-        g.setGradientFill (plug);
-        g.fillEllipse (Rectangle<float> (9.0f, 9.0f).withCentre (p));
-        g.setColour (colour);
-        g.drawEllipse (Rectangle<float> (9.0f, 9.0f).withCentre (p), 1.2f);
-    }
+    card::strokeGlow (g, cable, colour, 1.6f, 1.3f);
+    g.setColour (Colours::white.withAlpha (0.45f));
+    g.strokePath (cable, PathStrokeType (0.6f, PathStrokeType::curved, PathStrokeType::rounded));
+    card::dotGlow (g, from, 3.0f, colour, 1.0f);
+    card::dotGlow (g, to, 3.0f, colour, 1.0f);
 }
 
 static String hzText (float hz)
@@ -112,7 +89,7 @@ static float logNorm (float v, float lo, float hi) { return jlimit (0.0f, 1.0f, 
 static float logValue (float n, float lo, float hi) { return lo * std::pow (hi / lo, jlimit (0.0f, 1.0f, n)); }
 
 // ============================================================================
-// MiniKnob: small rotary knob with label + value, driven by callbacks
+// MiniKnob: small flat TrapWin knob with label + value, driven by callbacks
 // ============================================================================
 class ModUnit::MiniKnob : public Component, public SettableTooltipClient
 {
@@ -136,26 +113,24 @@ public:
     void paint (Graphics& g) override
     {
         const auto b = getLocalBounds().toFloat();
-        g.setFont (theme::monoLabel (8.5f));
-        g.setColour (theme::silverDim);
-        g.drawFittedText (label, getLocalBounds().withHeight (10).reduced (2, 0), Justification::centred, 1, 0.6f);
+        const bool hot = isMouseOverOrDragging();
+        g.setFont (card::monoFont (7.0f));
+        g.setColour (hot ? card::text : card::muted);
+        g.drawFittedText (label, getLocalBounds().withHeight (10), Justification::centred, 1, 0.6f);
 
-        const auto c = Point<float> (b.getCentreX(), 26.0f);
-        const float r = 10.0f;
-        // value arc
-        Path track;
-        track.addCentredArc (c.x, c.y, r + 3.5f, r + 3.5f, 0.0f, theme::knobStart, theme::knobEnd, true);
-        g.setColour (Colours::black.withAlpha (0.6f));
-        g.strokePath (track, PathStrokeType (2.6f));
-        Path val;
-        val.addCentredArc (c.x, c.y, r + 3.5f, r + 3.5f, 0.0f, theme::knobStart, normToAngle (get()), true);
-        g.setColour (colour.withAlpha (isMouseOverOrDragging() ? 1.0f : 0.75f));
-        g.strokePath (val, PathStrokeType (1.6f));
-        theme::drawKnob (g, c, r, normToAngle (get()), isMouseOverOrDragging());
+        const auto c = Point<float> (b.getCentreX(), 25.0f);
+        const float r = 8.5f;
+        if (hot)
+        {
+            ColourGradient halo (colour.withAlpha (0.22f), c.x, c.y, colour.withAlpha (0.0f), c.x + r * 2.2f, c.y, true);
+            g.setGradientFill (halo);
+            g.fillEllipse (Rectangle<float> (r * 4.4f, r * 4.4f).withCentre (c));
+        }
+        card::paintKnob (g, c, r, get(), colour);
 
-        g.setFont (theme::monoLabel (8.5f));
-        g.setColour (colour.interpolatedWith (theme::silver, 0.45f));
-        g.drawFittedText (text(), Rectangle<int> (0, 42, getWidth(), 10), Justification::centred, 1, 0.7f);
+        g.setFont (card::monoFont (7.5f));
+        g.setColour (hot ? card::text : card::text2);
+        g.drawFittedText (text(), Rectangle<int> (0, 39, getWidth(), 10), Justification::centred, 1, 0.6f);
     }
 
     void mouseDown (const MouseEvent& e) override
@@ -202,60 +177,38 @@ private:
 };
 
 // ============================================================================
-// Layout (local coordinates of the 932 x 96 unit)
+// Layout: computed in resized() for any width >= kMinWidth
 // ============================================================================
 namespace
 {
-constexpr int kEar = 18;
-constexpr int kTitleW = 60;
-constexpr int kSecX = kEar + kTitleW;                     // 78
-constexpr int kSecW[kNumModSources] = { 210, 210, 196, 220 }; // 78 + 836 + 18 = 932
-constexpr int kKnobW = 32, kKnobTop = 22, kKnobH = 56;
+constexpr int kKnobsPerSection[kNumModSources] = { 3, 3, 3, 2 };
+constexpr float kSectionWeight[kNumModSources] = { 1.0f, 1.0f, 0.96f, 1.08f };
+constexpr int kTop = 29, kBottom = 88;     // content band (under the section headers)
+constexpr int kHeadY = 16;                 // centre line of the section headers (title, jack)
+constexpr float kCorner = 16.0f;           // card radius (small card)
 }
 
 ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
 {
-    setSize (kWidth, kHeight);
-    setOpaque (true);
-    static const char* titles[] = { "LFO 1", "LFO 2", "ENV FOLLOW", "STEP SEQ" };
-
-    int x = kSecX;
+    static const char* titles[] = { "LFO 1", "LFO 2", "ENV", "SEQ" };
     for (int s = 0; s < kNumModSources; ++s)
     {
-        auto& sec = sections[(size_t) s];
-        sec.source = s;
-        sec.title = titles[s];
-        sec.area = { x, 4, kSecW[s], kHeight - 8 };
-        x += kSecW[s];
+        sections[(size_t) s].source = s;
+        sections[(size_t) s].title = titles[s];
     }
 
-    // ---- display / jack geometry -------------------------------------------------------------
-    for (int i = 0; i < 2; ++i)
-    {
-        auto& sec = sections[(size_t) i];
-        sec.display = { sec.area.getX() + 8, 24, 68, 40 };
-        sec.jack = Rectangle<int> (26, 26).withCentre ({ sec.area.getX() + 193, 47 });
-        syncButtons[i] = { sec.area.getX() + 8, 68, 68, 14 };
-    }
-    sections[2].display = { sections[2].area.getX() + 8, 24, 54, 58 };
-    sections[2].jack = Rectangle<int> (26, 26).withCentre ({ sections[2].area.getX() + 179, 47 });
-    sections[3].display = { sections[3].area.getX() + 8, 24, 110, 58 };
-    sections[3].jack = Rectangle<int> (26, 26).withCentre ({ sections[3].area.getX() + 203, 47 });
-
-    // ---- knobs -------------------------------------------------------------------------------
-    auto addKnob = [this] (int cx, String label, int source, std::function<float()> g, std::function<void (float)> s,
+    // ---- knobs (positioned in resized()) -----------------------------------------------------
+    auto addKnob = [this] (int, String label, int source, std::function<float()> g, std::function<void (float)> s,
                            std::function<String()> t, float def, std::function<int()> steps = {})
     {
         auto k = std::make_unique<MiniKnob> (proc, label, modSourceColour (source), std::move (g), std::move (s), std::move (t), def, std::move (steps));
-        k->setBounds (cx - kKnobW / 2, kKnobTop, kKnobW, kKnobH);
         addAndMakeVisible (*k);
         knobs.push_back (std::move (k));
     };
-
     const int nDiv = numModDivisions();
     for (int i = 0; i < 2; ++i)
     {
-        const int ax = sections[(size_t) i].area.getX();
+        const int ax = 0;
         auto lfo = [this, i] { return proc.getModSources().lfo[(size_t) i]; };
         addKnob (ax + 96, "SHAPE", i,
                  [lfo] { return (float) lfo().shape / (float) ((int) LfoShape::Count - 1); },
@@ -280,13 +233,13 @@ ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
     }
 
     {
-        const int ax = sections[2].area.getX();
+        const int ax = 0;
         auto env = [this] { return proc.getModSources().env; };
-        addKnob (ax + 82, "ATTACK", 2,
+        addKnob (ax + 82, "ATK", 2,
                  [env] { return logNorm (env().attackMs, 0.1f, 500.0f); },
                  [this, env] (float v) { auto e = env(); e.attackMs = logValue (v, 0.1f, 500.0f); proc.setEnvFollower (e); },
                  [env] { return msText (env().attackMs); }, logNorm (10.0f, 0.1f, 500.0f));
-        addKnob (ax + 114, "RELEASE", 2,
+        addKnob (ax + 114, "REL", 2,
                  [env] { return logNorm (env().releaseMs, 5.0f, 5000.0f); },
                  [this, env] (float v) { auto e = env(); e.releaseMs = logValue (v, 5.0f, 5000.0f); proc.setEnvFollower (e); },
                  [env] { return msText (env().releaseMs); }, logNorm (150.0f, 5.0f, 5000.0f));
@@ -297,7 +250,7 @@ ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
     }
 
     {
-        const int ax = sections[3].area.getX();
+        const int ax = 0;
         auto seq = [this] { return proc.getModSources().seq; };
         addKnob (ax + 138, "RATE", 3,
                  [seq, nDiv] { return (float) seq().division / (float) (nDiv - 1); },
@@ -309,12 +262,54 @@ ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
                  [seq] { return String (roundToInt (seq().smooth * 100.0f)) + "%"; }, 0.0f);
     }
 
-    setTooltip ("MOD SOURCES - drag a jack onto any knob in the rack to modulate it");
+    setTooltip ("MOD SOURCES - drag a jack onto any knob in the chain to modulate it");
+    setSize (kWidth, kHeight);
 }
 
 ModUnit::~ModUnit() = default;
 
-void ModUnit::resized() {}
+void ModUnit::resized()
+{
+    const int w = jmax (kMinWidth, getWidth());
+    const int titleW = jlimit (62, 84, roundToInt ((float) w * 0.095f));
+    titleArea = { 0, 0, titleW, kHeight };
+
+    // sections share the rest by weight
+    const float avail = (float) (w - titleW - 8);
+    float wsum = 0.0f;
+    for (auto wt : kSectionWeight) wsum += wt;
+    float x = (float) titleW;
+    for (int s = 0; s < kNumModSources; ++s)
+    {
+        const float sw = avail * kSectionWeight[s] / wsum;
+        sections[(size_t) s].area = Rectangle<float> (x, 6.0f, sw, (float) kHeight - 12.0f).toNearestInt();
+        x += sw;
+    }
+
+    const int knobW = w >= 820 ? 34 : 30;
+    int k = 0;
+    for (int s = 0; s < kNumModSources; ++s)
+    {
+        auto& sec = sections[(size_t) s];
+        const auto a = sec.area;
+        const int nk = kKnobsPerSection[s];
+        const int knobsRight = a.getRight() - 6;
+        const int knobsLeft = knobsRight - nk * knobW;
+        const int screenX = a.getX() + 12;
+        const int screenW = jmax (24, knobsLeft - 8 - screenX);
+        if (s <= 1)
+        {
+            sec.display = { screenX, kTop, screenW, 38 };
+            syncButtons[s] = { screenX, kTop + 43, screenW, 15 };
+        }
+        else
+            sec.display = { screenX, kTop, screenW, kBottom - kTop };
+        // the jack sits at the right end of the section header
+        sec.jack = Rectangle<int> (24, 24).withCentre ({ a.getRight() - 18, kHeadY });
+        for (int i = 0; i < nk; ++i, ++k)
+            knobs[(size_t) k]->setBounds (knobsLeft + i * knobW, kTop + 4, knobW, 52);
+    }
+}
 
 Rectangle<int> ModUnit::getHandleBounds (int source) const
 {
@@ -341,7 +336,7 @@ void ModUnit::refresh()
 
 void ModUnit::tick()
 {
-    // envelope history for the ENV display
+    // envelope history for the ENV screen
     envHistory[(size_t) envPos] = proc.getModSourceValue ((int) ModSourceId::Env);
     envPos = (envPos + 1) % (int) envHistory.size();
 
@@ -352,187 +347,151 @@ void ModUnit::tick()
         if (std::abs (v - shownValue[(size_t) s]) > 1.0e-3f || s == (int) ModSourceId::Env)
         {
             shownValue[(size_t) s] = v;
-            repaint (sections[(size_t) s].display.expanded (2));
-            repaint (sections[(size_t) s].area.withHeight (20));
+            repaint (sections[(size_t) s].display.expanded (4));
+            repaint (sections[(size_t) s].area.withHeight (22));
+            repaint (sections[(size_t) s].jack.expanded (14));
         }
     }
     const int st = proc.getSeqStep();
-    if (st != shownStep) { shownStep = st; repaint (sections[3].display.expanded (2)); }
-    repaint (Rectangle<int> (kEar, 60, kTitleW, 30)); // ACTIVE LED
+    if (st != shownStep) { shownStep = st; repaint (sections[3].display.expanded (4)); }
+    repaint (titleArea); // ACTIVE dot
 }
 
 // ============================================================================
 // Painting
 // ============================================================================
-static void drawScrew (Graphics& g, Point<float> c, float r, float angle)
+void ModUnit::paintTitle (Graphics& g)
 {
-    g.setColour (Colours::black.withAlpha (0.6f));
-    g.fillEllipse (Rectangle<float> (r * 2.4f, r * 2.4f).withCentre (c.translated (0.4f, 0.8f)));
-    ColourGradient head (Colour (0xffe9edf3), c.x - r, c.y - r, Colour (0xff3c424d), c.x + r, c.y + r, false);
-    g.setGradientFill (head);
-    g.fillEllipse (Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c));
-    g.setColour (Colours::black.withAlpha (0.5f));
-    g.drawEllipse (Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c), 0.6f);
-    g.setColour (Colour (0xff20242b));
-    for (float a : { angle, angle + MathConstants<float>::halfPi })
-        g.drawLine (Line<float> (polarPt (c, r * 0.72f, a), polarPt (c, r * 0.72f, a + MathConstants<float>::pi)), r * 0.32f);
+    const auto t = titleArea.toFloat();
+    card::paintChromeTitle (g, "MOD", { t.getX() + 14.0f, 18.0f, t.getWidth() - 18.0f, 28.0f }, 24.0f, 1.0f);
+    g.setFont (card::monoFont (7.5f));
+    g.setColour (card::muted);
+    g.drawText ("SOURCES", Rectangle<float> (t.getX() + 15.0f, 46.0f, t.getWidth() - 16.0f, 11.0f), Justification::centredLeft, false);
+
+    const bool active = proc.engine.modMeters.active.load (std::memory_order_relaxed);
+    card::dotGlow (g, { t.getX() + 18.0f, 74.0f }, 2.4f, card::ice, active ? 1.0f : 0.0f);
+    g.setFont (card::monoFont (7.0f));
+    g.setColour (active ? card::text2 : card::muted.withAlpha (0.7f));
+    g.drawText ("ACTIVE", Rectangle<float> (t.getX() + 26.0f, 68.0f, t.getWidth() - 27.0f, 12.0f), Justification::centredLeft, false);
+
+    // divider between the title and the sources
+    ColourGradient div (card::ice.withAlpha (0.0f), 0.0f, 14.0f, card::ice.withAlpha (0.0f), 0.0f, (float) kHeight - 14.0f, false);
+    div.addColour (0.5, card::ice.withAlpha (0.16f));
+    g.setGradientFill (div);
+    g.fillRect (t.getRight() - 6.0f, 14.0f, 1.0f, (float) kHeight - 28.0f);
 }
 
-void ModUnit::paintChassis (Graphics& g)
+Rectangle<float> ModUnit::seqPlot() const
 {
-    const auto b = getLocalBounds().toFloat();
-    g.fillAll (Colour (0xff07090d));
-
-    // rack ears (lighter, rougher metal with oval slots)
-    for (auto ear : { b.withWidth ((float) kEar), b.withLeft (b.getRight() - (float) kEar) })
-    {
-        ColourGradient eg (Colour (0xff2a2e36), ear.getX(), 0.0f, Colour (0xff15181d), ear.getRight(), 0.0f, false);
-        g.setGradientFill (eg);
-        g.fillRect (ear);
-        for (float y : { 20.0f, 76.0f })
-        {
-            auto slot = Rectangle<float> (7.0f, 13.0f).withCentre ({ ear.getCentreX(), y });
-            g.setColour (Colour (0xff030406));
-            g.fillRoundedRectangle (slot, 3.5f);
-            g.setColour (Colours::white.withAlpha (0.10f));
-            g.drawRoundedRectangle (slot.translated (0.0f, 0.6f), 3.5f, 0.6f);
-        }
-    }
-
-    // faceplate: black anodised, brushed
-    auto face = b.withTrimmedLeft ((float) kEar).withTrimmedRight ((float) kEar);
-    ColourGradient fg (Colour (0xff1b1e25), 0.0f, face.getY(), Colour (0xff0d0f13), 0.0f, face.getBottom(), false);
-    g.setGradientFill (fg);
-    g.fillRect (face);
-    Random rnd (0x6d6f64);
-    for (float y = face.getY() + 1.0f; y < face.getBottom(); y += 1.5f)
-    {
-        g.setColour (Colours::white.withAlpha (0.012f + 0.018f * rnd.nextFloat()));
-        g.drawHorizontalLine ((int) y, face.getX(), face.getRight());
-    }
-    g.setColour (Colours::white.withAlpha (0.10f));
-    g.drawHorizontalLine (0, face.getX(), face.getRight());
-    g.setColour (Colours::black.withAlpha (0.8f));
-    g.drawHorizontalLine (getHeight() - 1, face.getX(), face.getRight());
-
-    // screws in the corners
-    for (auto c : { Point<float> (face.getX() + 9.0f, 10.0f), Point<float> (face.getX() + 9.0f, b.getBottom() - 10.0f),
-                    Point<float> (face.getRight() - 9.0f, 10.0f), Point<float> (face.getRight() - 9.0f, b.getBottom() - 10.0f) })
-        drawScrew (g, c, 4.2f, 0.35f + c.x * 0.01f);
-
-    // title block
-    const auto title = Rectangle<float> ((float) kEar + 6.0f, 20.0f, (float) kTitleW - 8.0f, 30.0f);
-    theme::drawChromeText (g, "MOD", title, theme::stencilFont (22.0f), Justification::centredLeft, 0.6f);
-    g.setFont (theme::monoLabel (9.0f));
-    g.setColour (theme::accent);
-    g.drawText ("SOURCES", title.translated (0.0f, 26.0f).withHeight (11.0f), Justification::centredLeft, false);
-    const bool active = proc.engine.modMeters.active.load (std::memory_order_relaxed);
-    theme::drawLed (g, { (float) kEar + 13.0f, 76.0f }, 3.2f, theme::ledGreen, active, 0.8f);
-    g.setFont (theme::monoLabel (8.0f));
-    g.setColour (theme::silverDim);
-    g.drawText ("ACTIVE", Rectangle<float> ((float) kEar + 21.0f, 71.0f, 50.0f, 10.0f), Justification::centredLeft, false);
+    return sections[3].display.toFloat().reduced (5.0f, 6.0f);
 }
 
 void ModUnit::paintDisplay (Graphics& g, const Section& sec)
 {
     const auto d = sec.display.toFloat();
     const auto col = modSourceColour (sec.source);
+    constexpr float corner = 7.0f;
+    card::paintScreen (g, d, corner, col);
 
-    // black glass with a bevel
-    theme::drawSocket (g, d.expanded (2.0f), 4.0f);
-    g.setColour (Colour (0xff03060a));
-    g.fillRoundedRectangle (d, 3.0f);
-    g.setColour (col.withAlpha (0.07f));
-    for (int i = 1; i < 4; ++i) g.drawHorizontalLine ((int) (d.getY() + d.getHeight() * (float) i / 4.0f), d.getX() + 2.0f, d.getRight() - 2.0f);
-    for (int i = 1; i < 6; ++i) g.drawVerticalLine ((int) (d.getX() + d.getWidth() * (float) i / 6.0f), d.getY() + 2.0f, d.getBottom() - 2.0f);
+    Path clip;
+    clip.addRoundedRectangle (d.reduced (1.0f), corner - 1.0f);
+    g.saveState();
+    g.reduceClipRegion (clip);
 
-    const auto plot = d.reduced (4.0f, 5.0f);
+    // faint grid
+    g.setColour (col.withAlpha (0.06f));
+    for (int i = 1; i < 4; ++i) g.fillRect (d.getX() + 2.0f, d.getY() + d.getHeight() * (float) i / 4.0f, d.getWidth() - 4.0f, 1.0f);
+    for (int i = 1; i < 6; ++i) g.fillRect (d.getX() + d.getWidth() * (float) i / 6.0f, d.getY() + 2.0f, 1.0f, d.getHeight() - 4.0f);
+
+    const auto plot = d.reduced (5.0f, 6.0f);
     auto yOf = [&] (float v, bool bipolar) { return bipolar ? plot.getCentreY() - v * plot.getHeight() * 0.5f : plot.getBottom() - v * plot.getHeight(); };
-    auto glowStroke = [&] (const Path& p)
-    {
-        g.setColour (col.withAlpha (0.22f));
-        g.strokePath (p, PathStrokeType (3.5f, PathStrokeType::curved, PathStrokeType::rounded));
-        g.setColour (col);
-        g.strokePath (p, PathStrokeType (1.3f, PathStrokeType::curved, PathStrokeType::rounded));
-    };
 
     const auto& ms = proc.getModSources();
-    g.setFont (theme::monoLabel (7.5f));
     if (sec.source <= 1)
     {
         const auto& l = ms.lfo[(size_t) sec.source];
         Path wave;
-        const int n = 64;
+        const int n = 72;
         for (int i = 0; i <= n; ++i)
         {
             const double ph = (double) i / n;
             const float v = l.shape == LfoShape::SampleHold
                               ? ModSourceEngine::lfoShape (l.shape, 0.0, (juce::int64) (ph * 7.999), sec.source)
                               : ModSourceEngine::lfoShape (l.shape, ph, 0, sec.source);
-            const Point<float> p (plot.getX() + plot.getWidth() * (float) ph, yOf (v * 0.92f, true));
+            const Point<float> p (plot.getX() + plot.getWidth() * (float) ph, yOf (v * 0.9f, true));
             if (i == 0) wave.startNewSubPath (p); else wave.lineTo (p);
         }
-        glowStroke (wave);
+        card::strokeGlow (g, wave, col.withAlpha (0.9f), 1.2f, 1.0f);
         const float ph = proc.getLfoPhase (sec.source);
         const float v = proc.getModSourceValue (sec.source);
-        const Point<float> dot (plot.getX() + plot.getWidth() * ph, yOf (v * 0.92f, true));
-        g.setColour (col.withAlpha (0.35f));
-        g.fillEllipse (Rectangle<float> (9.0f, 9.0f).withCentre (dot));
-        g.setColour (Colours::white);
-        g.fillEllipse (Rectangle<float> (3.6f, 3.6f).withCentre (dot));
-        g.setColour (col.withAlpha (0.8f));
-        g.drawText (lfoShapeName (l.shape), d.reduced (3.0f, 1.0f).withHeight (9.0f), Justification::centredLeft, false);
+        const Point<float> dot (plot.getX() + plot.getWidth() * ph, yOf (v * 0.9f, true));
+        // playhead line + glowing dot
+        g.setColour (col.withAlpha (0.18f));
+        g.fillRect (dot.x - 0.5f, d.getY() + 2.0f, 1.0f, d.getHeight() - 4.0f);
+        card::dotGlow (g, dot, 2.4f, col, 1.0f);
     }
     else if (sec.source == (int) ModSourceId::Env)
     {
         Path area, line;
         const int n = (int) envHistory.size();
+        const auto p2 = plot.withTrimmedRight (8.0f);
         for (int i = 0; i < n; ++i)
         {
             const float v = envHistory[(size_t) ((envPos + i) % n)];
-            const Point<float> p (plot.getX() + plot.getWidth() * (float) i / (float) (n - 1), yOf (jlimit (0.0f, 1.0f, v), false));
+            const Point<float> p (p2.getX() + p2.getWidth() * (float) i / (float) (n - 1), yOf (jlimit (0.0f, 1.0f, v), false));
             if (i == 0) { line.startNewSubPath (p); area.startNewSubPath (p.x, plot.getBottom()); }
             else line.lineTo (p);
             area.lineTo (p);
         }
-        area.lineTo (plot.getRight(), plot.getBottom());
+        area.lineTo (p2.getRight(), plot.getBottom());
         area.closeSubPath();
-        g.setColour (col.withAlpha (0.18f));
+        g.setGradientFill (ColourGradient (col.withAlpha (0.28f), 0.0f, plot.getY(), col.withAlpha (0.02f), 0.0f, plot.getBottom(), false));
         g.fillPath (area);
-        glowStroke (line);
-        // level LED column at the right edge
-        const float v = proc.getModSourceValue ((int) ModSourceId::Env);
-        for (int k = 0; k < 6; ++k)
-        {
-            const auto led = Rectangle<float> (3.0f, 5.0f).withCentre ({ d.getRight() - 4.0f, d.getBottom() - 6.0f - (float) k * 8.0f });
-            g.setColour (v * 6.0f > (float) k ? col : col.withAlpha (0.12f));
-            g.fillRect (led);
-        }
+        card::strokeGlow (g, line, col, 1.2f, 1.0f);
+        // live level: glowing dot at the head + a slim bar at the right edge
+        const float v = jlimit (0.0f, 1.0f, proc.getModSourceValue ((int) ModSourceId::Env));
+        card::dotGlow (g, { p2.getRight(), yOf (v, false) }, 2.2f, col, 1.0f);
+        const auto bar = Rectangle<float> (plot.getRight() - 2.5f, plot.getY(), 2.5f, plot.getHeight());
+        g.setColour (col.withAlpha (0.10f));
+        g.fillRoundedRectangle (bar, 1.2f);
+        g.setColour (col);
+        g.fillRoundedRectangle (bar.withTop (bar.getBottom() - bar.getHeight() * v), 1.2f);
     }
     else
     {
         const auto& sq = ms.seq;
         const int cur = proc.getSeqStep();
-        const float w = plot.getWidth() / (float) kSeqSteps;
+        const auto sp = seqPlot();
+        const float w = sp.getWidth() / (float) kSeqSteps;
+        const float barH = sp.getHeight() - 5.0f;
         for (int i = 0; i < kSeqSteps; ++i)
         {
             const float v = jlimit (0.0f, 1.0f, sq.steps[(size_t) i]);
-            auto bar = Rectangle<float> (plot.getX() + w * (float) i + 0.8f, plot.getY(), w - 1.6f, plot.getHeight() - 5.0f);
-            g.setColour (col.withAlpha (0.08f));
-            g.fillRect (bar);
+            auto bar = Rectangle<float> (sp.getX() + w * (float) i + 0.8f, sp.getY(), jmax (1.0f, w - 1.6f), barH);
+            g.setColour (col.withAlpha (0.06f));
+            g.fillRoundedRectangle (bar, 1.0f);
             auto fill = bar.withTop (bar.getBottom() - bar.getHeight() * v);
-            g.setColour (i == cur ? col.brighter (0.6f) : col.withAlpha (i % 4 == 0 ? 0.75f : 0.55f));
-            g.fillRect (fill);
-            // step LEDs
-            g.setColour (i == cur ? Colours::white : col.withAlpha (0.18f));
-            g.fillRect (Rectangle<float> (w - 2.6f, 2.0f).withCentre ({ bar.getCentreX(), plot.getBottom() - 1.0f }));
+            if (i == cur)
+            {
+                g.setColour (col.withAlpha (0.25f));
+                g.fillRoundedRectangle (fill.expanded (1.5f), 2.0f);
+                g.setColour (col.brighter (0.5f));
+            }
+            else
+                g.setColour (col.withAlpha (i % 4 == 0 ? 0.80f : 0.55f));
+            g.fillRoundedRectangle (fill, 1.0f);
+            // step dots
+            const Point<float> dp (bar.getCentreX(), sp.getBottom() - 1.0f);
+            if (i == cur) card::dotGlow (g, dp, 1.3f, col, 1.0f);
+            else
+            {
+                g.setColour (col.withAlpha (0.22f));
+                g.fillEllipse (Rectangle<float> (2.0f, 2.0f).withCentre (dp));
+            }
         }
     }
-
-    // glass reflection
-    ColourGradient gloss (Colours::white.withAlpha (0.08f), d.getX(), d.getY(), Colours::white.withAlpha (0.0f), d.getX(), d.getCentreY(), false);
-    g.setGradientFill (gloss);
-    g.fillRoundedRectangle (d.withHeight (d.getHeight() * 0.5f), 3.0f);
+    g.restoreState();
+    card::paintScreenGlass (g, d, corner);
 }
 
 void ModUnit::paintJack (Graphics& g, const Section& sec)
@@ -542,50 +501,32 @@ void ModUnit::paintJack (Graphics& g, const Section& sec)
     const bool hot = hoverJack == sec.source || dragSource == sec.source;
     int count = 0;
     for (auto& a : proc.getModAssignments()) if (a.source == sec.source) ++count;
+    const float v = proc.getModSourceValue (sec.source);
+    const float level = jlimit (0.0f, 1.0f, modSourceIsBipolar (sec.source) ? 0.5f + 0.5f * v : v);
+    const float lit = hot ? 1.0f : (count > 0 ? 0.65f + 0.35f * level : 0.35f);
+    const float R = 8.5f;
 
-    // hex nut
-    Path hex;
-    for (int i = 0; i < 6; ++i)
-    {
-        const auto p = polarPt (c, 12.0f, (float) i * MathConstants<float>::pi / 3.0f + 0.52f);
-        if (i == 0) hex.startNewSubPath (p); else hex.lineTo (p);
-    }
-    hex.closeSubPath();
-    g.setColour (Colours::black.withAlpha (0.55f));
-    g.fillPath (hex, AffineTransform::translation (0.6f, 1.4f));
-    ColourGradient nut (Colour (0xffdfe5ee), c.x - 10.0f, c.y - 10.0f, Colour (0xff3a404b), c.x + 10.0f, c.y + 10.0f, false);
-    g.setGradientFill (nut);
-    g.fillPath (hex);
-    g.setColour (Colours::black.withAlpha (0.45f));
-    g.strokePath (hex, PathStrokeType (0.8f));
-
-    // coloured LED ring (lit when patched / hovered)
-    const float lit = hot ? 1.0f : (count > 0 ? 0.85f : 0.25f);
-    if (lit > 0.5f)
-    {
-        ColourGradient halo (col.withAlpha (0.45f * lit), c.x, c.y, col.withAlpha (0.0f), c.x + 20.0f, c.y, true);
-        g.setGradientFill (halo);
-        g.fillEllipse (Rectangle<float> (40.0f, 40.0f).withCentre (c));
-    }
-    g.setColour (Colour (0xff0b0d11));
-    g.fillEllipse (Rectangle<float> (16.0f, 16.0f).withCentre (c));
-    g.setColour (col.withAlpha (lit));
-    g.drawEllipse (Rectangle<float> (14.0f, 14.0f).withCentre (c), 2.2f);
-
-    // the socket (empty while the cable is being dragged out)
-    g.setColour (Colour (0xff010203));
+    // halo
+    ColourGradient halo (col.withAlpha (0.40f * lit), c.x, c.y, col.withAlpha (0.0f), c.x + R * 2.3f, c.y, true);
+    g.setGradientFill (halo);
+    g.fillEllipse (Rectangle<float> (R * 4.6f, R * 4.6f).withCentre (c));
+    // dark disc + glowing ring
+    ColourGradient disc (Colour (0xff121a28), c.x, c.y - R, Colour (0xff060a11), c.x, c.y + R, false);
+    g.setGradientFill (disc);
+    g.fillEllipse (Rectangle<float> (R * 2.0f, R * 2.0f).withCentre (c));
+    Path ring;
+    ring.addEllipse (Rectangle<float> (R * 2.0f - 2.0f, R * 2.0f - 2.0f).withCentre (c));
+    card::strokeGlow (g, ring, col.withAlpha (0.45f + 0.55f * lit), 1.5f, lit);
+    // socket: the core lights up while the source is patched / hovered (empty while the cable is out)
+    g.setColour (Colour (0xff020306));
     g.fillEllipse (Rectangle<float> (7.0f, 7.0f).withCentre (c));
     if (dragSource != sec.source)
-    {
-        g.setColour (Colours::white.withAlpha (0.25f));
-        g.fillEllipse (Rectangle<float> (2.0f, 2.0f).withCentre (c.translated (-1.2f, -1.2f)));
-    }
+        card::dotGlow (g, c, 2.2f, col, count > 0 || hot ? 0.6f + 0.4f * level : 0.25f);
 
-    g.setFont (theme::monoLabel (8.0f));
-    g.setColour (count > 0 ? col : theme::silverDim);
-    g.drawText (countText (sec.source), Rectangle<float> (c.x - 14.0f, c.y + 15.0f, 28.0f, 10.0f), Justification::centred, false);
-    g.setColour (theme::silverDim.withAlpha (0.8f));
-    g.drawText ("OUT", Rectangle<float> (c.x - 14.0f, c.y - 25.0f, 28.0f, 9.0f), Justification::centred, false);
+    g.setFont (card::monoFont (7.0f));
+    g.setColour (count > 0 ? col : card::muted);
+    g.drawText (count > 0 ? countText (sec.source) : String ("OUT"), Rectangle<float> (c.x - R - 30.0f, c.y - 5.0f, 24.0f, 10.0f),
+                Justification::centredRight, false);
 }
 
 void ModUnit::paintSection (Graphics& g, const Section& sec)
@@ -593,54 +534,112 @@ void ModUnit::paintSection (Graphics& g, const Section& sec)
     const auto a = sec.area.toFloat();
     const auto col = modSourceColour (sec.source);
 
-    // engraved separator on the left
-    g.setColour (Colours::black.withAlpha (0.75f));
-    g.drawVerticalLine ((int) a.getX(), a.getY() + 2.0f, a.getBottom() - 2.0f);
-    g.setColour (Colours::white.withAlpha (0.06f));
-    g.drawVerticalLine ((int) a.getX() + 1, a.getY() + 2.0f, a.getBottom() - 2.0f);
+    // hairline divider on the left (not before the first section: the title divider is there)
+    if (sec.source > 0)
+    {
+        ColourGradient div (card::ice.withAlpha (0.0f), 0.0f, a.getY() + 8.0f, card::ice.withAlpha (0.0f), 0.0f, a.getBottom() - 8.0f, false);
+        div.addColour (0.5, card::ice.withAlpha (0.10f));
+        g.setGradientFill (div);
+        g.fillRect (a.getX(), a.getY() + 8.0f, 1.0f, a.getHeight() - 16.0f);
+    }
 
-    // header: label + LED + ice-blue rule
+    // header: glowing source dot + name + a hairline in the source colour
     const float v = proc.getModSourceValue (sec.source);
     const float level = modSourceIsBipolar (sec.source) ? 0.5f + 0.5f * v : v;
-    theme::drawLed (g, { a.getX() + 12.0f, a.getY() + 7.5f }, 2.6f, col, level > 0.02f, jlimit (0.0f, 1.0f, level));
-    g.setFont (theme::monoLabel (9.5f));
-    g.setColour (theme::silver);
-    g.drawText (sec.title, Rectangle<float> (a.getX() + 20.0f, a.getY() + 1.0f, 90.0f, 13.0f), Justification::centredLeft, false);
-    const float textW = GlyphArrangement::getStringWidth (theme::monoLabel (9.5f), sec.title);
-    g.setColour (theme::accent.withAlpha (0.55f));
-    g.fillRect (Rectangle<float> (a.getX() + 26.0f + textW, a.getY() + 7.0f, a.getRight() - (a.getX() + 34.0f + textW), 1.0f));
+    const float hy = (float) kHeadY;
+    card::dotGlow (g, { a.getX() + 15.0f, hy }, 2.3f, col, jlimit (0.15f, 1.0f, level));
+    const auto f = card::monoFont (8.5f, true);
+    g.setFont (f);
+    g.setColour (card::text);
+    g.drawText (sec.title, Rectangle<float> (a.getX() + 23.0f, hy - 7.0f, 80.0f, 14.0f), Justification::centredLeft, false);
+    // hairline from the title to the jack, fading towards the jack
+    const float lx = a.getX() + 23.0f + GlyphArrangement::getStringWidth (f, sec.title) + 8.0f;
+    const float rx = (float) sec.jack.getX() - 26.0f;
+    if (rx > lx)
+    {
+        ColourGradient hl (col.withAlpha (0.30f), lx, 0.0f, col.withAlpha (0.05f), rx, 0.0f, false);
+        g.setGradientFill (hl);
+        g.fillRect (lx, hy, rx - lx, 1.0f);
+    }
 
     paintDisplay (g, sec);
     paintJack (g, sec);
 
     if (sec.source <= 1)
     {
+        // FREE | SYNC segmented pill
         const bool sync = proc.getModSources().lfo[(size_t) sec.source].sync;
         const auto r = syncButtons[sec.source].toFloat();
-        auto half = r.withWidth (r.getWidth() * 0.5f - 1.0f);
+        const float rad = r.getHeight() * 0.5f;
+        g.setColour (card::bg);
+        g.fillRoundedRectangle (r, rad);
+        g.setColour (card::line);
+        g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
         for (int k = 0; k < 2; ++k)
         {
             const bool on = (k == 1) == sync;
-            const auto bb = k == 0 ? half : half.withX (r.getCentreX() + 1.0f);
-            g.setColour (Colour (0xff07090c));
-            g.fillRoundedRectangle (bb, 2.5f);
-            g.setColour (on ? col.withAlpha (0.22f) : Colours::white.withAlpha (0.03f));
-            g.fillRoundedRectangle (bb.reduced (1.0f), 2.0f);
-            g.setColour (on ? col : Colours::white.withAlpha (0.12f));
-            g.drawRoundedRectangle (bb.reduced (0.5f), 2.5f, 0.8f);
-            g.setFont (theme::monoLabel (8.0f));
-            g.setColour (on ? theme::silver : theme::silverDim.withAlpha (0.6f));
-            g.drawText (k == 0 ? "FREE" : "SYNC", bb, Justification::centred, false);
+            auto seg = k == 0 ? r.withWidth (r.getWidth() * 0.5f) : r.withLeft (r.getCentreX());
+            if (on)
+            {
+                const auto sr = seg.reduced (1.5f);
+                g.setColour (col.withAlpha (0.16f));
+                g.fillRoundedRectangle (sr.expanded (1.0f), rad);
+                g.setColour (col.withAlpha (0.30f));
+                g.fillRoundedRectangle (sr, sr.getHeight() * 0.5f);
+                g.setColour (col.withAlpha (0.8f));
+                g.drawRoundedRectangle (sr, sr.getHeight() * 0.5f, 0.8f);
+            }
+            g.setFont (card::monoFont (6.5f, on));
+            g.setColour (on ? card::text : card::muted);
+            g.drawText (k == 0 ? "FREE" : "SYNC", seg, Justification::centred, false);
         }
     }
 }
 
 void ModUnit::paint (Graphics& g)
 {
-    paintChassis (g);
+    const auto b = getLocalBounds().toFloat();
+    // TrapWin card (the left accent edge in LFO-1 ice blue)
+    {
+        Path shape;
+        shape.addRoundedRectangle (b, kCorner);
+        ColourGradient body (card::card2, 0.0f, b.getY(), Colour (0xff080c14), 0.0f, b.getBottom(), false);
+        body.addColour (0.45, card::card);
+        g.setGradientFill (body);
+        g.fillPath (shape);
+        g.saveState();
+        g.reduceClipRegion (shape);
+        // the four source colours breathe in very faintly from below each section
+        for (auto& s : sections)
+        {
+            const auto a = s.area.toFloat();
+            ColourGradient glow (modSourceColour (s.source).withAlpha (0.05f), a.getCentreX(), b.getBottom(),
+                                 modSourceColour (s.source).withAlpha (0.0f), a.getCentreX(), b.getY(), true);
+            g.setGradientFill (glow);
+            g.fillRect (a.withY (b.getY()).withHeight (b.getHeight()));
+        }
+        ColourGradient sheen (Colours::white.withAlpha (0.035f), 0.0f, b.getY(), Colours::white.withAlpha (0.0f), 0.0f, b.getY() + 30.0f, false);
+        g.setGradientFill (sheen);
+        g.fillRect (b);
+        g.restoreState();
+        g.setColour (card::line);
+        g.drawRoundedRectangle (b.reduced (0.5f), kCorner - 0.5f, 1.0f);
+        ColourGradient top (card::ice.withAlpha (0.0f), b.getX() + kCorner, 0.0f, card::ice.withAlpha (0.0f), b.getRight() - kCorner, 0.0f, false);
+        top.addColour (0.3, card::ice.withAlpha (0.16f));
+        top.addColour (0.7, card::ice.withAlpha (0.10f));
+        g.setGradientFill (top);
+        g.fillRect (b.getX() + kCorner, b.getY() + 0.5f, b.getWidth() - 2.0f * kCorner, 0.8f);
+        // 2 px accent edge on the left
+        const float y0 = b.getY() + kCorner * 0.6f, y1 = b.getBottom() - kCorner * 0.6f;
+        ColourGradient edge (card::ice.withAlpha (0.0f), 0.0f, y0, card::ice.withAlpha (0.0f), 0.0f, y1, false);
+        edge.addColour (0.2, card::ice.withAlpha (0.9f));
+        edge.addColour (0.5, Colour (0xffb07cff).withAlpha (0.9f));
+        edge.addColour (0.8, Colour (0xff5fe0b0).withAlpha (0.9f));
+        g.setGradientFill (edge);
+        g.fillRoundedRectangle (Rectangle<float> (b.getX() + 1.0f, y0, 2.0f, y1 - y0), 1.0f);
+    }
+    paintTitle (g);
     for (auto& s : sections) paintSection (g, s);
-    g.setColour (Colours::black.withAlpha (0.75f));
-    g.drawVerticalLine (kWidth - kEar - 1, 6.0f, (float) kHeight - 6.0f);
 }
 
 // ============================================================================
@@ -655,14 +654,14 @@ int ModUnit::jackAt (Point<int> p) const
 
 int ModUnit::seqStepAt (Point<int> p) const
 {
-    const auto d = sections[3].display.toFloat().reduced (4.0f, 5.0f);
+    const auto d = seqPlot();
     if (! sections[3].display.contains (p)) return -1;
     return jlimit (0, kSeqSteps - 1, (int) ((float) (p.x - d.getX()) / d.getWidth() * (float) kSeqSteps));
 }
 
 void ModUnit::setSeqFromMouse (Point<int> p)
 {
-    const auto d = sections[3].display.toFloat().reduced (4.0f, 5.0f);
+    const auto d = seqPlot();
     const int step = jlimit (0, kSeqSteps - 1, (int) ((float) (p.x - d.getX()) / d.getWidth() * (float) kSeqSteps));
     const float v = jlimit (0.0f, 1.0f, (d.getBottom() - 5.0f - (float) p.y) / (d.getHeight() - 5.0f));
     const float q = (float) roundToInt (v * 16.0f) / 16.0f;
@@ -736,7 +735,7 @@ void ModUnit::mouseMove (const MouseEvent& e)
         hoverJack = j;
         setMouseCursor (j >= 0 ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
         setTooltip (j >= 0 ? String (modSourceName (j)) + ": drag onto any knob to modulate it. Right-click: list / remove."
-                           : String ("MOD SOURCES - drag a jack onto any knob in the rack to modulate it"));
+                           : String ("MOD SOURCES - drag a jack onto any knob in the chain to modulate it"));
         for (auto& s : sections) repaint (s.jack.expanded (16));
     }
 }

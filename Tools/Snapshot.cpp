@@ -2,6 +2,7 @@
 //   EffectorKillaSnapshot <outDir>
 //   EffectorKillaSnapshot --analyzer <outDir>   SPECTRAL VIEW only (analyzer.png)
 //   EffectorKillaSnapshot --wiring <outDir>     editor with SPLIT / MOD / LEARN / SPECTRAL / audition active (wiring.png)
+//   EffectorKillaSnapshot --library <outDir>   FX LIBRARY sidebar (library.png)
 //   EffectorKillaSnapshot --units <outDir>   (rack units + gear list only, Tools/SnapshotUnits.cpp)
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -54,7 +55,18 @@ static int renderPerformerSnapshots (const juce::File& outDir)
         ek::ui::PresetBrowser browser (proc);
         browser.setSize (940, 540);   // the rack area it covers in the editor
         browser.open();
-        write (browser, "browser", 1.0f);
+        // on the TrapWin background, as it sits over the chain in the editor (2x)
+        juce::Image img (juce::Image::ARGB, browser.getWidth() * 2, browser.getHeight() * 2, true);
+        {
+            juce::Graphics g (img);
+            g.fillAll (juce::Colour (0xff04060a));
+            g.drawImageAt (browser.createComponentSnapshot (browser.getLocalBounds(), true, 2.0f), 0, 0);
+        }
+        auto f = outDir.getChildFile ("browser.png");
+        f.deleteFile();
+        juce::FileOutputStream os (f);
+        juce::PNGImageFormat().writeImageToStream (img, os);
+        std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
     }
     return 0;
 }
@@ -380,12 +392,30 @@ static int renderFaceplatesSpace (const juce::File& outDir)
 
 // --mod: the MOD unit on its own (mod_unit.png, mod_unit_2x.png, mod_ring_demo.png)
 #include "ui/rack/ModUnit.h"
+#include "ui/rack/CardStyle.h"
 static void writePng (const juce::Image& img, const juce::File& f)
 {
     f.deleteFile();
     juce::FileOutputStream os (f);
     juce::PNGImageFormat().writeImageToStream (img, os);
     std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
+}
+
+// A component on the TrapWin background (#04060A) with some padding, so rounded cards read as on screen.
+static juce::Image onBackdrop (juce::Component& c, float scale, int pad)
+{
+    const int w = c.getWidth() + 2 * pad, h = c.getHeight() + 2 * pad;
+    juce::Image img (juce::Image::ARGB, juce::roundToInt ((float) w * scale), juce::roundToInt ((float) h * scale), true);
+    juce::Graphics g (img);
+    g.fillAll (juce::Colour (0xff04060a));
+    g.addTransform (juce::AffineTransform::scale (scale));
+    juce::ColourGradient glow (juce::Colour (0xff4676c4).withAlpha (0.10f), (float) w * 0.5f, 0.0f,
+                               juce::Colour (0xff4676c4).withAlpha (0.0f), (float) w * 0.5f, (float) h * 1.2f, true);
+    g.setGradientFill (glow);
+    g.fillRect (0, 0, w, h);
+    g.drawImage (c.createComponentSnapshot (c.getLocalBounds(), true, scale),
+                 juce::Rectangle<float> ((float) pad, (float) pad, (float) c.getWidth(), (float) c.getHeight()));
+    return img;
 }
 
 // MOD unit on its own: a few patched sources, the sources running, plus knobs with modulation rings.
@@ -425,14 +455,16 @@ static int snapshotModUnit (const juce::File& outDir)
         if (b % 2 == 0) unit.tick();
     }
     unit.refresh();
-    writePng (unit.createComponentSnapshot (unit.getLocalBounds(), true, 1.0f), outDir.getChildFile ("mod_unit.png"));
-    writePng (unit.createComponentSnapshot (unit.getLocalBounds(), true, 2.0f), outDir.getChildFile ("mod_unit_2x.png"));
+    writePng (onBackdrop (unit, 2.0f, 12), outDir.getChildFile ("mod_unit.png"));
+    unit.setBounds (0, 0, ek::ui::ModUnit::kMinWidth, ek::ui::ModUnit::kHeight);   // narrowest supported width
+    writePng (onBackdrop (unit, 2.0f, 12), outDir.getChildFile ("mod_unit_700.png"));
 
     // knob rings (what RackView draws with paintModRing) + a patch cable
-    juce::Image demo (juce::Image::ARGB, 420, 110, true);
+    juce::Image demo (juce::Image::ARGB, 840, 220, true);
     {
         juce::Graphics g (demo);
-        g.fillAll (juce::Colour (0xff12151b));
+        g.addTransform (juce::AffineTransform::scale (2.0f));
+        g.fillAll (juce::Colour (0xff0a0f18));
         const float bases[] = { 0.5f, 0.3f, 0.7f, 0.2f };
         const float depths[] = { 0.35f, 0.5f, -0.4f, 0.6f };
         for (int s = 0; s < 4; ++s)
@@ -440,7 +472,7 @@ static int snapshotModUnit (const juce::File& outDir)
             const auto kb = juce::Rectangle<float> (40.0f, 40.0f).withCentre ({ 50.0f + 85.0f * (float) s, 50.0f });
             ek::ui::paintModRing (g, kb, bases[s], depths[s], ek::ui::modSourceColour (s), ek::modSourceIsBipolar (s),
                                   juce::jlimit (0.0f, 1.0f, bases[s] + depths[s] * 0.6f));
-            ek::theme::drawKnob (g, kb.getCentre(), 20.0f, ek::theme::knobStart + (ek::theme::knobEnd - ek::theme::knobStart) * bases[s]);
+            ek::card::paintKnob (g, kb.getCentre(), 15.0f, bases[s], juce::Colour (0xff9fc3ff));
         }
         ek::ui::paintPatchCable (g, { 360.0f, 20.0f }, { 400.0f, 90.0f }, ek::ui::modSourceColour (1));
     }
@@ -478,7 +510,22 @@ static int snapshotSplitUnit (const juce::File& outDir)
     ek::ui::SplitUnit unit (proc);
     unit.setBounds (0, 0, ek::ui::SplitUnit::width, ek::ui::SplitUnit::height);
     unit.tick();
-    auto img = unit.createComponentSnapshot (unit.getLocalBounds(), true, 2.0f);
+    // second strip: PARALLEL at a narrower width (the strip adapts to the column)
+    EffectorKillaAudioProcessor proc2;
+    proc2.prepareToPlay (48000.0, 512);
+    proc2.loadFactory (9, 2);
+    proc2.insertSplit (1);
+    ek::ui::SplitUnit unit2 (proc2);
+    unit2.setBounds (0, 0, 640, ek::ui::SplitUnit::height);
+    unit2.tick();
+    const int pad = 12;
+    juce::Image img (juce::Image::ARGB, (ek::ui::SplitUnit::width + 2 * pad) * 2, (2 * ek::ui::SplitUnit::height + 3 * pad) * 2, true);
+    {
+        juce::Graphics g (img);
+        g.fillAll (juce::Colour (0xff04060a));
+        g.drawImageAt (onBackdrop (unit, 2.0f, pad).getClippedImage ({ 0, 0, (ek::ui::SplitUnit::width + 2 * pad) * 2, (ek::ui::SplitUnit::height + pad) * 2 }), 0, 0);
+        g.drawImageAt (unit2.createComponentSnapshot (unit2.getLocalBounds(), true, 2.0f), pad * 2, (ek::ui::SplitUnit::height + 2 * pad) * 2);
+    }
     auto f = outDir.getChildFile ("split_unit.png");
     f.deleteFile();
     juce::FileOutputStream os (f);
@@ -487,6 +534,32 @@ static int snapshotSplitUnit (const juce::File& outDir)
     return 0;
 }
 
+
+#include "ui/rack/GearList.h"
+// --library: the FX LIBRARY sidebar (220 x 812) - normal (one chip hovered) and the drop-to-remove state, side by side.
+static int snapshotLibrary (const juce::File& outDir)
+{
+    EffectorKillaAudioProcessor proc;
+    proc.prepareToPlay (48000.0, 512);
+    ek::ui::GearList lib (proc);
+    lib.setSize (ek::ui::GearList::preferredWidth, 812);
+    const int pad = 16, w = ek::ui::GearList::preferredWidth, h = 812;
+    juce::Image out (juce::Image::ARGB, (3 * w + 4 * pad) * 2, (h + 2 * pad) * 2, true);
+    {
+        juce::Graphics g (out);
+        g.fillAll (juce::Colour (0xff04060a));
+        lib.setSnapshotState (false, ek::EffectType::ThroughTheWall);
+        g.drawImageAt (onBackdrop (lib, 2.0f, pad).getClippedImage ({ 0, 0, (w + 2 * pad) * 2, (h + 2 * pad) * 2 }), 0, 0);
+        lib.setFilter ("space");
+        lib.setSnapshotState (false, ek::EffectType::None);
+        g.drawImageAt (lib.createComponentSnapshot (lib.getLocalBounds(), true, 2.0f), (w + 2 * pad) * 2, pad * 2);
+        lib.setFilter ({});
+        lib.setSnapshotState (true, ek::EffectType::None);
+        g.drawImageAt (lib.createComponentSnapshot (lib.getLocalBounds(), true, 2.0f), (2 * w + 3 * pad) * 2, pad * 2);
+    }
+    writePng (out, outDir.getChildFile ("library.png"));
+    return 0;
+}
 
 #include "engine/TestSignals.h"
 #include "ui/rack/SpectrumOverlay.h"
@@ -610,6 +683,7 @@ int main (int argc, char** argv)
         { "--faceplates-space", renderFaceplatesSpace },
         { "--mod", snapshotModUnit },
         { "--split", snapshotSplitUnit },
+        { "--library", snapshotLibrary },
         { "--analyzer", renderAnalyzer },
         { "--wiring", renderWiring },
     };

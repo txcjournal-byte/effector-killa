@@ -190,7 +190,7 @@ void SpectrumOverlay::paintSpectrum (juce::Graphics& g, juce::Rectangle<float> a
     };
 
     // faint decade ticks (100 Hz, 1 kHz, 10 kHz)
-    g.setColour (juce::Colours::white.withAlpha (0.05f * opacity));
+    g.setColour (juce::Colour (0xff9fc3ff).withAlpha (0.06f * opacity));
     for (float hz : { 100.0f, 1000.0f, 10000.0f })
         g.drawVerticalLine ((int) std::round (xOf (hz)), area.getY() + area.getHeight() * 0.35f, area.getBottom());
 
@@ -219,26 +219,28 @@ void SpectrumOverlay::paintSpectrum (juce::Graphics& g, juce::Rectangle<float> a
 
     const auto before = beforeColour(), after = afterColour();
 
-    // BEFORE: faint grey fill + thin line
+    // BEFORE: muted #8794AB at low alpha (faint fill + thin line)
     {
         auto fill = makePath (SpectrumAnalyzer::Before, true);
-        g.setGradientFill (juce::ColourGradient (before.withAlpha (0.10f * opacity), 0.0f, area.getY(),
+        g.setGradientFill (juce::ColourGradient (before.withAlpha (0.07f * opacity), 0.0f, area.getY(),
                                                  before.withAlpha (0.0f), 0.0f, area.getBottom(), false));
         g.fillPath (fill);
-        g.setColour (before.withAlpha (0.42f * opacity));
+        g.setColour (before.withAlpha (0.38f * opacity));
         g.strokePath (makePath (SpectrumAnalyzer::Before, false), juce::PathStrokeType (1.0f, juce::PathStrokeType::curved));
     }
 
-    // AFTER: ice-blue glow + line
+    // AFTER: #9FC3FF with a layered ice-blue glow (TrapWin glow rgba(70,118,196,.5) underneath)
     {
         auto fill = makePath (SpectrumAnalyzer::After, true);
-        g.setGradientFill (juce::ColourGradient (after.withAlpha (0.20f * opacity), 0.0f, area.getY(),
+        g.setGradientFill (juce::ColourGradient (after.withAlpha (0.18f * opacity), 0.0f, area.getY(),
                                                  after.withAlpha (0.0f), 0.0f, area.getBottom(), false));
         g.fillPath (fill);
         auto line = makePath (SpectrumAnalyzer::After, false);
-        g.setColour (after.withAlpha (0.16f * opacity));
-        g.strokePath (line, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved));
-        g.setColour (after.withAlpha (0.85f * opacity));
+        g.setColour (juce::Colour (0xff4676c4).withAlpha (0.10f * opacity));
+        g.strokePath (line, juce::PathStrokeType (7.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour (after.withAlpha (0.18f * opacity));
+        g.strokePath (line, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour (after.withAlpha (0.92f * opacity));
         g.strokePath (line, juce::PathStrokeType (1.3f, juce::PathStrokeType::curved));
     }
 }
