@@ -1,74 +1,115 @@
 // Renders the editor to PNG files - checks the UI without a DAW.
 //   EffectorKillaSnapshot <outDir>
-//   EffectorKillaSnapshot --faceplates <outDir>   (rack faceplates of the colour group at 2x + contact sheet)
+//   EffectorKillaSnapshot --faceplates <outDir>   (contact sheet of the colour-group faceplates)
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ui/Theme.h"
 #include "ui/rack/Faceplates.h"
 
-static void writePng (const juce::Image& img, const juce::File& f)
+// Renders the Cassette Plug..Slap faceplates at 2x with a fake live State (+ mock knobs on top,
+// the way RackView places them) and their 264x41 miniatures into one contact sheet.
+static int renderFaceplatesColor (const juce::File& outDir)
 {
-    f.deleteFile();
-    juce::FileOutputStream os (f);
-    juce::PNGImageFormat().writeImageToStream (img, os);
-    std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
-}
-
-// Renders each colour-group faceplate (full size + miniature) at 2x with a fake live State.
-static int renderFaceplates (const juce::File& outDir)
-{
-    using ek::EffectType;
-    namespace fp = ek::faceplate;
+    using namespace ek;
+    using namespace juce;
     const EffectType types[] = { EffectType::CassettePlug, EffectType::Menace, EffectType::Brainrot, EffectType::ThroughTheWall,
                                  EffectType::ToneUp, EffectType::Squeeze, EffectType::Overcooked, EffectType::Slap };
-    auto fakeState = [] (EffectType t)
+    constexpr float sc = 2.0f, W = 898.0f, H = 140.0f, gap = 18.0f, mW = 264.0f, mH = 41.0f;
+    const int miniCols = 3, miniRows = 4;
+    const float sheetW = 24.0f + W + 24.0f;
+    const float sheetH = 40.0f + 8.0f * (H + gap) + 30.0f + (float) miniRows * (mH + 12.0f) + 20.0f;
+    Image img (Image::ARGB, (int) (sheetW * sc), (int) (sheetH * sc), true);
+    Graphics g (img);
+    g.addTransform (AffineTransform::scale (sc));
+    g.fillAll (Colour (0xff07090d));
+    g.setColour (theme::silverDim);
+    g.setFont (theme::monoLabel (11.0f));
+    g.drawText ("FACEPLATES - COLOR GROUP (2x, fake live state, mock knobs)", Rectangle<float> (24.0f, 10.0f, W, 20.0f), Justification::centredLeft);
+
+    auto fakeState = [&] (EffectType t, int variant)
     {
-        fp::State s;
-        s.timeSec = 1.37;
-        s.outLevel = 0.6f;
-        for (int i = 0; i < 8; ++i) s.params[(size_t) i] = ek::effectInfo (t).params[(size_t) i].defaultNorm();
+        faceplate::State s;
+        const auto& info = effectInfo (t);
+        for (int i = 0; i < kNumParams; ++i) s.params[(size_t) i] = info.params[(size_t) i].defaultNorm();
+        auto setReal = [&] (int i, float v) { s.params[(size_t) i] = info.params[(size_t) i].fromReal (v); };
+        s.timeSec = 1.37 + variant * 0.61;
+        s.beats = 5.3 + variant * 1.1;
+        s.inLevel = 0.4f; s.outLevel = 0.5f;
         switch (t)
         {
-            case EffectType::CassettePlug:   s.params[1] = 0.55f; s.params[4] = 0.4f; break;
-            case EffectType::Menace:         s.params[0] = 0.0f; s.params[1] = 0.72f; break;
-            case EffectType::Brainrot:       s.params[0] = 4.0f / 12.0f; s.params[1] = 0.45f; break;
-            case EffectType::ThroughTheWall: s.params[0] = 0.2f; s.params[1] = 0.55f; s.params[2] = 0.6f; break;
-            case EffectType::ToneUp:         s.params = { 0.3f, 0.65f, 0.4f, 0.4f, 0.62f, 0.5f, 0.72f, 0.55f }; break;
-            case EffectType::Squeeze:        s.gainReductionDb = 6.5f; break;
-            case EffectType::Overcooked:     s.bands = { 0.85f, 0.55f, 0.3f }; break;
-            case EffectType::Slap:           s.params[0] = 0.8f; s.params[1] = 0.35f; s.transientHit = true; break;
+            case EffectType::CassettePlug:   setReal (1, 0.55f); setReal (4, 0.4f); break;
+            case EffectType::Menace:         setReal (0, 0.0f); setReal (1, variant == 0 ? 0.72f : 0.45f); break;
+            case EffectType::Brainrot:       setReal (0, variant == 0 ? 8.0f : 6.0f); setReal (1, 11000.0f); break;
+            case EffectType::ThroughTheWall: setReal (0, variant == 0 ? 1.0f : 3.0f); setReal (1, 1800.0f); setReal (2, 0.6f); break;
+            case EffectType::ToneUp:         setReal (0, 40.0f); setReal (1, 3.0f); setReal (2, -2.5f); setReal (3, 300.0f);
+                                             setReal (4, 4.0f); setReal (5, 3000.0f); setReal (6, 2.5f); setReal (7, 0.5f); break;
+            case EffectType::Squeeze:        s.gainReductionDb = variant == 0 ? 6.5f : 3.0f; setReal (1, 4.0f); break;
+            case EffectType::Overcooked:     s.bands = { 0.85f, 0.55f, 0.3f }; setReal (0, 0.6f); break;
+            case EffectType::Slap:           setReal (0, 0.6f); setReal (1, -0.3f); s.transientHit = variant == 0; break;
             default: break;
         }
         return s;
     };
 
-    const float sc = 2.0f;
-    const int plateW = 898, plateH = 140, miniW = 264, miniH = 41, pad = 14;
-    juce::Image sheet (juce::Image::RGB, (int) ((plateW + miniW + pad * 3) * sc), (int) ((pad + 8 * (plateH + pad)) * sc), true);
-    juce::Graphics sg (sheet);
-    sg.fillAll (juce::Colour (0xff0c0d10));
-    sg.addTransform (juce::AffineTransform::scale (sc));
-
-    int row = 0;
+    float y = 40.0f;
     for (auto t : types)
     {
-        const auto s = fakeState (t);
-        for (int mini = 0; mini < 2; ++mini)
+        const Rectangle<float> plate (24.0f, y, W, H);
+        const auto s = fakeState (t, 0);
+        faceplate::paintFaceplate (g, t, plate, s, false);
+        // mock knob row, as RackView would place it (label above, value below)
+        const auto ka = faceplate::knobArea (t, plate);
+        const auto pal = faceplate::palette (t);
+        const auto& info = effectInfo (t);
+        int used = 0;
+        for (auto& p : info.params) used += p.used ? 1 : 0;
+        const int n = used + (info.mixParam < 0 ? 1 : 0);
+        const float cw = jmin (78.0f, ka.getWidth() / (float) jmax (1, n));
+        int k = 0;
+        for (int i = 0; i < kNumParams && k < n; ++i)
         {
-            const int w = mini ? miniW : plateW, h = mini ? miniH : plateH;
-            juce::Image img (juce::Image::ARGB, (int) (w * sc), (int) (h * sc), true);
-            {
-                juce::Graphics g (img);
-                g.addTransform (juce::AffineTransform::scale (sc));
-                fp::paintFaceplate (g, t, { 0.0f, 0.0f, (float) w, (float) h }, s, mini != 0);
-            }
-            writePng (img, outDir.getChildFile ("fp_" + ek::effectInfo (t).id + (mini ? "_mini" : "") + ".png"));
+            if (! info.params[(size_t) i].used) continue;
+            const auto cell = Rectangle<float> (ka.getX() + cw * (float) k, ka.getY(), cw, ka.getHeight());
+            g.setColour (pal.ink.withAlpha (0.8f));
+            g.setFont (theme::monoLabel (8.5f));
+            g.drawText (info.params[(size_t) i].name, cell.withHeight (14.0f), Justification::centred);
+            theme::drawKnob (g, cell.getCentre().translated (0.0f, -2.0f), 19.0f, -1.0f + 0.3f * (float) k);
+            g.setColour (pal.ink.withAlpha (0.8f));
+            g.setFont (theme::monoLabel (8.5f));
+            g.drawText (info.params[(size_t) i].format (info.params[(size_t) i].toReal (s.params[(size_t) i])),
+                        cell.withTop (cell.getBottom() - 16.0f), Justification::centred);
+            ++k;
         }
-        const float y = (float) (pad + row * (plateH + pad));
-        fp::paintFaceplate (sg, t, { (float) pad, y, (float) plateW, (float) plateH }, s, false);
-        fp::paintFaceplate (sg, t, { (float) (pad * 2 + plateW), y + (plateH - miniH) * 0.5f, (float) miniW, (float) miniH }, s, true);
-        ++row;
+        y += H + gap;
     }
-    writePng (sheet, outDir.getChildFile ("faceplates_color.png"));
+
+    g.setColour (theme::silverDim);
+    g.setFont (theme::monoLabel (11.0f));
+    g.drawText ("MINIATURES (264 x 41)  -  last row: powered off, solo-dimmed, reduce motion", Rectangle<float> (24.0f, y, W, 20.0f), Justification::centredLeft);
+    y += 26.0f;
+    for (int i = 0; i < 8; ++i)
+    {
+        const int c = i % miniCols, r = i / miniCols;
+        const Rectangle<float> plate (24.0f + (float) c * (mW + 26.0f), y + (float) r * (mH + 12.0f), mW, mH);
+        faceplate::paintFaceplate (g, types[i], plate, fakeState (types[i], 1), true);
+    }
+    for (int i = 0; i < 3; ++i)
+    {
+        const auto t = types[i == 0 ? 1 : (i == 1 ? 5 : 0)];
+        const Rectangle<float> plate (24.0f + (float) i * (mW + 26.0f), y + 3.0f * (mH + 12.0f), mW, mH);
+        auto s = fakeState (t, 1);
+        if (i == 0) s.powered = false;
+        if (i == 1) s.soloDimmed = true;
+        if (i == 2) s.reduceMotion = true;
+        faceplate::paintFaceplate (g, t, plate, s, true);
+    }
+
+    auto f = outDir.getChildFile ("faceplates_color.png");
+    f.deleteFile();
+    FileOutputStream os (f);
+    PNGImageFormat png;
+    png.writeImageToStream (img, os);
+    std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
     return 0;
 }
 
@@ -79,7 +120,7 @@ int main (int argc, char** argv)
     {
         const juce::File dir (argc > 2 ? juce::String (argv[2]) : juce::File::getCurrentWorkingDirectory().getFullPathName());
         dir.createDirectory();
-        return renderFaceplates (dir);
+        return renderFaceplatesColor (dir);
     }
     const juce::File outDir (argc > 1 ? juce::String (argv[1]) : juce::File::getCurrentWorkingDirectory().getFullPathName());
     outDir.createDirectory();

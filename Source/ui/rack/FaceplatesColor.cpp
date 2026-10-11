@@ -1,57 +1,50 @@
+// Hardware faceplates of the "colour" group: Cassette Plug, Menace, Brainrot, Through The Wall, Tone Up,
+// Squeeze, Overcooked and Slap (DESIGN-RACK.md section 6). Original panel designs, no product copies.
+//
+// Drawing is split in two layers:
+//  - a static layer (material, texture, ears, screws, name sticker, printing, LCD glass) that is rendered
+//    once per type / size / pixel scale into an image cache, so the per-frame cost stays tiny;
+//  - the live element (reels, LEDs, meters, curves) that is drawn every frame from the State snapshot.
+// knobArea() is left calm on purpose: RackView places the real knob components on top of it.
 #include "Faceplates.h"
 #include "../Theme.h"
+#include <functional>
 #include <map>
 
-// Faceplates of the "colour" group: CassettePlug, Menace, Brainrot, ThroughTheWall, ToneUp, Squeeze,
-// Overcooked, Slap (DESIGN-RACK.md section 6).
-//
-// Every plate is split into a static layer (material, ears, screws, name, printing, LCD bezel) that is
-// rendered once per type/size/scale into a cached image, and a live layer (reels, LEDs, meters,
-// curves) that is drawn on top every frame from the State snapshot.
-
 namespace ek::faceplate
+{
+namespace
 {
 using namespace juce;
 namespace th = ek::theme;
 
-namespace
-{
 // ---------------------------------------------------------------------------------------------
-// palette / identity
+// identity / palette
 // ---------------------------------------------------------------------------------------------
 Colour col (uint32 argb) { return Colour (argb); }
 
-struct Identity { const char* type; const char* model; };
+struct Look
+{
+    Colour plate, plateDark, ink, accent, led;
+    const char* name;       // big name on the panel
+    const char* type;       // small category print under the name
+    const char* model;      // engraved model line above the knob row
+    bool lightPanel;        // dark ink on a light panel
+};
 
-Identity identity (EffectType t)
+Look look (EffectType t)
 {
     switch (t)
     {
-        case EffectType::CassettePlug:   return { "TAPE / TUBE SATURATION", "CP-77" };
-        case EffectType::Menace:         return { "DISTORTION", "MN-4" };
-        case EffectType::Brainrot:       return { "BITCRUSHER / LO-FI", "BR-8" };
-        case EffectType::ThroughTheWall: return { "RESONANT FILTER", "TW-6" };
-        case EffectType::ToneUp:         return { "5-BAND EQUALIZER", "TU-5" };
-        case EffectType::Squeeze:        return { "COMPRESSOR", "SQ-2" };
-        case EffectType::Overcooked:     return { "3-BAND UP / DOWN DYNAMICS", "OC-3" };
-        case EffectType::Slap:           return { "TRANSIENT SHAPER", "SL-1" };
-        default:                         return { "", "" };
-    }
-}
-
-String displayName (EffectType t)
-{
-    switch (t)
-    {
-        case EffectType::CassettePlug:   return "Cassette Plug";
-        case EffectType::Menace:         return "MENACE";
-        case EffectType::Brainrot:       return "BRAINROT";
-        case EffectType::ThroughTheWall: return "Through The Wall";
-        case EffectType::ToneUp:         return "Tone Up";
-        case EffectType::Squeeze:        return "Squeeze";
-        case EffectType::Overcooked:     return "OVERCOOKED";
-        case EffectType::Slap:           return "SLAP!";
-        default:                         return {};
+        case EffectType::CassettePlug:   return { col (0xffe8dcc2), col (0xffc9b48f), col (0xff4a2e1c), col (0xffc9552a), col (0xffffc861), "CASSETTE PLUG",    "SATURATION", "TW-01  TAPE / TUBE DRIVE",       true };
+        case EffectType::Menace:         return { col (0xff161618), col (0xff0a0a0b), col (0xffeceef2), col (0xffd8222f), col (0xffff2e3e), "MENACE",           "DISTORTION", "TW-02  FOUR-MODE DISTORTION",    false };
+        case EffectType::Brainrot:       return { col (0xff1d6a3b), col (0xff0f3d22), col (0xfff2f5ee), col (0xffd6b25a), col (0xff3dff6e), "BRAINROT",         "LO-FI",      "TW-03  BIT / RATE REDUCER",      false };
+        case EffectType::ThroughTheWall: return { col (0xff1d2c55), col (0xff111a36), col (0xfff0f3fa), col (0xff9fc3ff), col (0xff9fc3ff), "THROUGH THE WALL", "FILTER",     "TW-04  MULTIMODE FILTER",        false };
+        case EffectType::ToneUp:         return { col (0xffc9ced6), col (0xff9aa1ad), col (0xff15171b), col (0xff2f6fd6), col (0xff3dff6e), "TONE UP",          "EQUALIZER",  "TW-05  5-BAND EQUALIZER",        true };
+        case EffectType::Squeeze:        return { col (0xff24262b), col (0xff16171a), col (0xffdfe3e8), col (0xff3dff6e), col (0xff3dff6e), "SQUEEZE",          "COMPRESSOR", "TW-06  PARALLEL COMPRESSOR",     false };
+        case EffectType::Overcooked:     return { col (0xffd9661f), col (0xffa8481a), col (0xff2a1206), col (0xfffff0d8), col (0xffffc861), "OVERCOOKED",       "MULTIBAND",  "TW-07  3-BAND UP / DOWN DYNAMICS", true };
+        case EffectType::Slap:           return { col (0xffe6c229), col (0xffb39414), col (0xff0e0e0e), col (0xff0e0e0e), col (0xffff2e3e), "SLAP!",            "TRANSIENT",  "TW-08  TRANSIENT SHAPER",        true };
+        default:                         return { col (0xff24262b), col (0xff15161a), Colours::white, col (0xff9fc3ff), col (0xff3dff6e), "", "", "", false };
     }
 }
 
@@ -60,23 +53,88 @@ float realParam (EffectType t, const State& s, int i)
     return effectInfo (t).params[(size_t) i].toReal (s.params[(size_t) i]);
 }
 
+const String& midDot()
+{
+    static const String d (CharPointer_UTF8 ("\xc2\xb7"));
+    return d;
+}
+
+// ---------------------------------------------------------------------------------------------
+// text helpers
+// ---------------------------------------------------------------------------------------------
+Font nameFont (float h) { return th::stencilFont (h); }
+Font smallFont (float h) { return th::monoLabel (h); }
+
+// font squeezed horizontally so that `s` fits into maxW
+Font fitted (Font f, const String& s, float maxW)
+{
+    const float w = GlyphArrangement::getStringWidth (f, s);
+    if (w > maxW && w > 0.0f) f = f.withHorizontalScale (f.getHorizontalScale() * maxW / w);
+    return f;
+}
+
+void text (Graphics& g, const String& s, Rectangle<float> r, Font f, Colour c, Justification j)
+{
+    g.setFont (f);
+    g.setColour (c);
+    g.drawText (s, r, j, false);
+}
+
+// "printed" text with a soft debossed edge (light below on light panels, dark above on dark ones)
+void printed (Graphics& g, const String& s, Rectangle<float> r, Font f, Colour c, Justification j, bool lightPanel)
+{
+    g.setFont (f);
+    g.setColour ((lightPanel ? Colours::white : Colours::black).withAlpha (lightPanel ? 0.40f : 0.55f));
+    g.drawText (s, r.translated (0.0f, lightPanel ? 0.8f : 1.0f), j, false);
+    g.setColour (c);
+    g.drawText (s, r, j, false);
+}
+
+Path textPath (const String& s, Font f, float x, float baseline)
+{
+    GlyphArrangement ga;
+    ga.addLineOfText (f, s, x, baseline);
+    Path p;
+    ga.createPath (p);
+    return p;
+}
+
+// name glyphs centred (or left aligned) in a box; returns the outline so callers can style it
+Path namePath (const String& s, Font f, Rectangle<float> box, bool centred, float capRatio = 0.36f)
+{
+    const float w = GlyphArrangement::getStringWidth (f, s);
+    const float x = centred ? box.getCentreX() - w * 0.5f : box.getX();
+    return textPath (s, f, x, box.getCentreY() + f.getHeight() * capRatio);
+}
+
 // ---------------------------------------------------------------------------------------------
 // materials
 // ---------------------------------------------------------------------------------------------
-void lacquer (Graphics& g, Rectangle<float> r, Colour c, float corner, float gloss)
+void lacquer (Graphics& g, Rectangle<float> r, Colour c, float gloss)
 {
     ColourGradient gr (c.brighter (0.12f), 0.0f, r.getY(), c.darker (0.22f), 0.0f, r.getBottom(), false);
     gr.addColour (0.18, c.brighter (0.04f));
     gr.addColour (0.65, c);
     g.setGradientFill (gr);
-    g.fillRoundedRectangle (r, corner);
+    g.fillRect (r);
 
-    if (gloss > 0.0f) // broad soft sheen across the upper left
+    if (gloss > 0.0f)
     {
+        // broad soft clear-coat sheen across the upper left + a diagonal specular streak
         ColourGradient sheen (Colours::white.withAlpha (0.13f * gloss), r.getX() + r.getWidth() * 0.18f, r.getY(),
                               Colours::white.withAlpha (0.0f), r.getX() + r.getWidth() * 0.42f, r.getBottom(), false);
         g.setGradientFill (sheen);
-        g.fillRoundedRectangle (r, corner);
+        g.fillRect (r);
+        Path streak;
+        const float w = r.getWidth(), h = r.getHeight();
+        streak.startNewSubPath (r.getX() + w * 0.36f, r.getY());
+        streak.lineTo (r.getX() + w * 0.43f, r.getY());
+        streak.lineTo (r.getX() + w * 0.43f - h * 0.9f, r.getBottom());
+        streak.lineTo (r.getX() + w * 0.36f - h * 0.9f, r.getBottom());
+        streak.closeSubPath();
+        ColourGradient sg (Colours::white.withAlpha (0.06f * gloss), 0.0f, r.getY(), Colours::white.withAlpha (0.0f), 0.0f, r.getBottom(), false);
+        g.setGradientFill (sg);
+        g.fillPath (streak);
     }
 }
 
@@ -97,131 +155,758 @@ void brushed (Graphics& g, Rectangle<float> r, int seed, float alpha, float step
     Random rnd (seed);
     for (float y = r.getY(); y < r.getBottom(); y += step)
     {
-        const float x0 = r.getX() + rnd.nextFloat() * r.getWidth() * 0.5f - r.getWidth() * 0.2f;
-        const float len = r.getWidth() * (0.35f + rnd.nextFloat() * 0.9f);
-        const float a = rnd.nextFloat() * alpha;
-        g.setColour ((rnd.nextFloat() < 0.55f ? Colours::white : Colours::black).withAlpha (a));
-        const float xa = jmax (r.getX(), x0), xb = jmin (r.getRight(), x0 + len);
-        if (xb > xa) g.fillRect (xa, y, xb - xa, step * 0.6f);
+        for (int k = 0; k < 2; ++k)
+        {
+            const float x0 = r.getX() + rnd.nextFloat() * r.getWidth() * 0.8f - r.getWidth() * 0.2f;
+            const float len = r.getWidth() * (0.25f + rnd.nextFloat() * 0.8f);
+            const float a = rnd.nextFloat() * alpha;
+            g.setColour ((rnd.nextFloat() < 0.55f ? Colours::white : Colours::black).withAlpha (a));
+            const float xa = jmax (r.getX(), x0), xb = jmin (r.getRight(), x0 + len);
+            if (xb > xa) g.fillRect (xa, y, xb - xa, step * 0.6f);
+        }
     }
 }
 
-void plateEdges (Graphics& g, Rectangle<float> r, float corner, float strength = 1.0f)
+void hazardStripes (Graphics& g, Rectangle<float> b, float period, Colour red, int seed)
 {
-    g.setColour (Colours::white.withAlpha (0.30f * strength));
-    g.fillRect (r.getX() + corner, r.getY() + 0.6f, r.getWidth() - 2.0f * corner, 1.0f);
-    g.setColour (Colours::black.withAlpha (0.40f * strength));
-    g.fillRect (r.getX() + corner, r.getBottom() - 1.6f, r.getWidth() - 2.0f * corner, 1.0f);
-    g.setColour (Colours::black.withAlpha (0.75f));
+    Graphics::ScopedSaveState ss (g);
+    g.reduceClipRegion (b.toNearestInt());
+    g.setColour (red);
+    g.fillRect (b);
+    g.setColour (col (0xff0c0c0d));
+    for (float x = b.getX() - b.getHeight() - period; x < b.getRight() + b.getHeight(); x += period)
+    {
+        Path s;
+        s.startNewSubPath (x, b.getBottom());
+        s.lineTo (x + b.getHeight(), b.getY());
+        s.lineTo (x + b.getHeight() + period * 0.5f, b.getY());
+        s.lineTo (x + period * 0.5f, b.getBottom());
+        s.closeSubPath();
+        g.fillPath (s);
+    }
+    // worn paint
+    speckle (g, b, seed, (int) (b.getWidth() * b.getHeight() / 8.0f), Colours::white, Colours::black, 0.22f, 0.9f);
+}
+
+void pcbTraces (Graphics& g, Rectangle<float> r, int seed, int count, float alpha)
+{
+    Random rnd (seed);
+    const auto trace = col (0xff3fb466).withAlpha (alpha);
+    const auto gold = col (0xffd6b25a);
+    for (int i = 0; i < count; ++i)
+    {
+        Path path;
+        float x = r.getX() + rnd.nextFloat() * r.getWidth();
+        float y = r.getY() + rnd.nextFloat() * r.getHeight();
+        const Point<float> start (x, y);
+        path.startNewSubPath (x, y);
+        const int segs = 2 + rnd.nextInt (3);
+        bool horiz = rnd.nextBool();
+        for (int s = 0; s < segs; ++s)
+        {
+            const float len = 10.0f + rnd.nextFloat() * 60.0f;
+            const float dir = rnd.nextBool() ? 1.0f : -1.0f;
+            if (horiz) x = jlimit (r.getX(), r.getRight(), x + dir * len);
+            else       y = jlimit (r.getY(), r.getBottom(), y + dir * len * 0.4f);
+            path.lineTo (x, y);
+            if (s + 1 < segs) // 45 degree chamfer into the next segment
+            {
+                const float d = 4.0f;
+                x = jlimit (r.getX(), r.getRight(), x + (rnd.nextBool() ? d : -d));
+                y = jlimit (r.getY(), r.getBottom(), y + (rnd.nextBool() ? d : -d));
+                path.lineTo (x, y);
+            }
+            horiz = ! horiz;
+        }
+        // copper under solder mask: darker edge, lighter core
+        g.setColour (col (0xff0b2a16).withAlpha (alpha * 0.8f));
+        g.strokePath (path, PathStrokeType (2.2f, PathStrokeType::mitered, PathStrokeType::rounded), AffineTransform::translation (0.0f, 0.6f));
+        g.setColour (trace);
+        g.strokePath (path, PathStrokeType (1.4f, PathStrokeType::mitered, PathStrokeType::rounded));
+        for (auto pt : { start, Point<float> (x, y) })   // pads / vias at both ends
+        {
+            g.setColour (gold.withAlpha (jmin (1.0f, alpha * 1.4f)));
+            g.fillEllipse (Rectangle<float> (4.2f, 4.2f).withCentre (pt));
+            g.setColour (col (0xff0d2a17).withAlpha (jmin (1.0f, alpha + 0.3f)));
+            g.fillEllipse (Rectangle<float> (1.6f, 1.6f).withCentre (pt));
+        }
+    }
+}
+
+void halftone (Graphics& g, Rectangle<float> r, Point<float> focus, float radius, float step, Colour c)
+{
+    g.setColour (c);
+    int row = 0;
+    for (float y = r.getY(); y < r.getBottom(); y += step, ++row)
+        for (float x = r.getX() + ((row & 1) ? step * 0.5f : 0.0f); x < r.getRight(); x += step)
+        {
+            const float d = focus.getDistanceFrom ({ x, y }) / radius;
+            if (d >= 1.0f) continue;
+            const float s = step * 0.62f * (1.0f - d);
+            g.fillEllipse (Rectangle<float> (s, s).withCentre ({ x, y }));
+        }
+}
+
+// whole-panel material, clipped to the plate
+void paintMaterial (Graphics& g, EffectType t, const Look& lk, Rectangle<float> p, bool mini)
+{
+    const float area = p.getWidth() * p.getHeight();
+    switch (t)
+    {
+        case EffectType::CassettePlug:
+            // cream lacquer with a fine paper-like grain
+            lacquer (g, p, lk.plate, 1.0f);
+            speckle (g, p, 11, (int) (area / 9.0f), Colours::white, col (0xff7a5a32), 0.10f, 0.9f);
+            break;
+
+        case EffectType::Menace:
+        {
+            // black anodised aluminium: fine brushing + a cold vignette
+            lacquer (g, p, lk.plate, 0.35f);
+            brushed (g, p, 21, 0.05f, 0.6f);
+            speckle (g, p, 22, (int) (area / 14.0f), Colours::white, Colours::black, 0.07f, 0.8f);
+            ColourGradient vign (Colours::black.withAlpha (0.0f), p.getCentreX(), p.getCentreY(), Colours::black.withAlpha (0.35f), p.getX(), p.getY(), true);
+            g.setGradientFill (vign);
+            g.fillRect (p);
+            break;
+        }
+
+        case EffectType::Brainrot:
+        {
+            // green solder mask over FR4 with copper traces; traces stay faint behind the knob row
+            lacquer (g, p, lk.plate, 0.5f);
+            speckle (g, p, 31, (int) (area / 12.0f), col (0xff7fe0a0), col (0xff0b2a16), 0.10f, 0.8f);
+            // keep the traces away from printed text, displays and the knob row
+            RectangleList<int> outside (p.toNearestInt());
+            Rectangle<float> calm;
+            if (mini)
+            {
+                outside.subtract (Rectangle<float> (p.getX() + 10.0f, p.getY() + 2.0f, 150.0f, 25.0f).toNearestInt());
+                outside.subtract (Rectangle<float> (p.getX() + 10.0f, p.getBottom() - 14.0f, 112.0f, 12.0f).toNearestInt());
+                outside.subtract (Rectangle<float> (p.getRight() - 101.0f, p.getY() + 3.0f, 90.0f, p.getHeight() - 6.0f).toNearestInt());
+            }
+            else
+            {
+                calm = knobArea (t, p).expanded (2.0f, 0.0f);
+                outside.subtract (calm.toNearestInt());
+                outside.subtract (nameArea (p).expanded (4.0f, 5.0f).toNearestInt());
+                outside.subtract (liveArea (t, p).expanded (4.0f, 4.0f).toNearestInt());
+                outside.subtract (Rectangle<float> (knobArea (t, p).getX() - 2.0f, p.getY() + 10.0f, 640.0f, 22.0f).toNearestInt());
+                outside.subtract (presetLcdArea (p).expanded (6.0f).toNearestInt());
+            }
+            {
+                Graphics::ScopedSaveState ss (g);
+                g.reduceClipRegion (outside);
+                pcbTraces (g, p, mini ? 32 : 33, mini ? 26 : 80, mini ? 0.45f : 0.55f);
+            }
+            if (! mini)
+            {
+                Graphics::ScopedSaveState ss (g);
+                g.reduceClipRegion (calm.toNearestInt());
+                pcbTraces (g, calm, 34, 22, 0.12f);
+            }
+            break;
+        }
+
+        case EffectType::ThroughTheWall:
+        {
+            // navy lacquer with a faint brick wall printed into it, fading out towards the knobs
+            lacquer (g, p, lk.plate, 0.8f);
+            speckle (g, p, 41, (int) (area / 12.0f), Colours::white, Colours::black, 0.07f, 0.8f);
+            const float bh = mini ? 7.0f : 11.0f, bw = mini ? 20.0f : 32.0f;
+            int row = 0;
+            for (float y = p.getY() + 2.0f; y < p.getBottom(); y += bh, ++row)
+            {
+                g.setColour (Colours::black.withAlpha (0.10f));
+                g.fillRect (p.getX(), y + 0.8f, p.getWidth(), 0.8f);
+                g.setColour (Colours::white.withAlpha (0.05f));
+                g.fillRect (p.getX(), y, p.getWidth(), 0.8f);
+                for (float x = p.getX() + ((row & 1) ? bw * 0.5f : 0.0f); x < p.getRight(); x += bw)
+                    g.fillRect (x, y, 0.8f, bh);
+            }
+            ColourGradient fade (lk.plate.withAlpha (0.0f), p.getX() + p.getWidth() * 0.05f, 0.0f, lk.plate.withAlpha (0.9f), p.getX() + p.getWidth() * 0.55f, 0.0f, false);
+            g.setGradientFill (fade);
+            g.fillRect (p.withTrimmedLeft (p.getWidth() * 0.05f));
+            ColourGradient glow (th::accentDeep.withAlpha (0.18f), p.getX() + p.getWidth() * 0.12f, p.getBottom(),
+                                 th::accentDeep.withAlpha (0.0f), p.getX() + p.getWidth() * 0.45f, p.getY(), true);
+            g.setGradientFill (glow);
+            g.fillRect (p);
+            break;
+        }
+
+        case EffectType::ToneUp:
+        {
+            // light brushed aluminium with an anisotropic highlight band
+            lacquer (g, p, lk.plate, 0.0f);
+            brushed (g, p, 51, 0.16f, 0.45f);
+            ColourGradient band (Colours::white.withAlpha (0.0f), p.getX(), p.getY(), Colours::white.withAlpha (0.0f), p.getRight(), p.getY(), false);
+            band.addColour (0.28, Colours::white.withAlpha (0.20f));
+            band.addColour (0.40, Colours::white.withAlpha (0.02f));
+            band.addColour (0.72, Colours::white.withAlpha (0.12f));
+            g.setGradientFill (band);
+            g.fillRect (p);
+            break;
+        }
+
+        case EffectType::Squeeze:
+        {
+            // graphite powder coat
+            lacquer (g, p, lk.plate, 0.4f);
+            speckle (g, p, 61, (int) (area / 5.0f), Colours::white, Colours::black, 0.07f, 0.7f);
+            ColourGradient vign (Colours::black.withAlpha (0.0f), p.getCentreX(), p.getCentreY(), Colours::black.withAlpha (0.25f), p.getX(), p.getY(), true);
+            g.setGradientFill (vign);
+            g.fillRect (p);
+            break;
+        }
+
+        case EffectType::Overcooked:
+            // glossy orange enamel
+            lacquer (g, p, lk.plate, 1.0f);
+            speckle (g, p, 71, (int) (area / 10.0f), Colours::white, col (0xff5a1a00), 0.08f, 0.8f);
+            break;
+
+        case EffectType::Slap:
+            // yellow enamel with comic halftone dots in the corners
+            lacquer (g, p, lk.plate, 0.9f);
+            speckle (g, p, 81, (int) (area / 12.0f), Colours::white, col (0xff6a5200), 0.08f, 0.8f);
+            if (mini)
+                halftone (g, p, p.getBottomRight(), 90.0f, 4.0f, lk.ink.withAlpha (0.14f));
+            else
+            {
+                halftone (g, p, { p.getRight() - 30.0f, p.getBottom() }, 170.0f, 5.0f, lk.ink.withAlpha (0.10f));
+                halftone (g, p, { p.getX() + 190.0f, p.getY() + 6.0f }, 110.0f, 5.0f, lk.ink.withAlpha (0.07f));
+            }
+            break;
+
+        default:
+            lacquer (g, p, lk.plate, 0.5f);
+            break;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// hardware: ears, screws, LCD glass, bevel
+// ---------------------------------------------------------------------------------------------
+void paintScrew (Graphics& g, Point<float> c, float rad, float angle)
+{
+    g.setColour (Colours::black.withAlpha (0.45f));
+    g.fillEllipse (Rectangle<float> (rad * 2.3f, rad * 2.3f).withCentre (c.translated (0.0f, rad * 0.25f)));
+    ColourGradient head (col (0xfff4f7fc), c.x - rad * 0.5f, c.y - rad * 0.7f, col (0xff4a5160), c.x + rad * 0.6f, c.y + rad * 0.9f, true);
+    head.addColour (0.55, col (0xffaab2c2));
+    g.setGradientFill (head);
+    g.fillEllipse (Rectangle<float> (rad * 2.0f, rad * 2.0f).withCentre (c));
+    g.setColour (Colours::black.withAlpha (0.5f));
+    g.drawEllipse (Rectangle<float> (rad * 2.0f, rad * 2.0f).withCentre (c), 0.5f);
+    // cross recess
+    const float l = rad * 0.62f, w = rad * 0.30f;
+    for (int k = 0; k < 2; ++k)
+    {
+        const float a = angle + (float) k * MathConstants<float>::halfPi;
+        const Point<float> d (std::cos (a) * l, std::sin (a) * l);
+        g.setColour (Colours::white.withAlpha (0.55f));
+        g.drawLine ({ c - d, c + d }, w * 0.5f);
+        g.setColour (col (0xff1a1d24));
+        g.drawLine ({ (c - d).translated (-0.25f, -0.35f), (c + d).translated (-0.25f, -0.35f) }, w);
+    }
+    g.setColour (Colours::white.withAlpha (0.6f));
+    g.fillEllipse (Rectangle<float> (rad * 0.5f, rad * 0.35f).withCentre (c.translated (-rad * 0.45f, -rad * 0.55f)));
+}
+
+void paintEar (Graphics& g, EffectType t, Rectangle<float> ear, bool left, const Look& lk, bool mini)
+{
+    if (t == EffectType::Menace) // hazard tape wrapped over the ears
+        hazardStripes (g, ear, mini ? 8.0f : 16.0f, lk.accent, left ? 24 : 25);
+
+    // the ear is the folded steel flange: slightly darker, with a bend highlight towards the panel
+    g.setColour (Colours::black.withAlpha (0.16f));
+    g.fillRect (ear);
+    const float bx = left ? ear.getRight() - 1.0f : ear.getX();
+    g.setColour (Colours::white.withAlpha (lk.lightPanel ? 0.35f : 0.12f));
+    g.fillRect (bx, ear.getY() + 2.0f, 0.7f, ear.getHeight() - 4.0f);
+    g.setColour (Colours::black.withAlpha (0.35f));
+    g.fillRect (left ? bx - 1.0f : bx + 0.7f, ear.getY() + 2.0f, 1.0f, ear.getHeight() - 4.0f);
+
+    Random rnd ((int) t * 131 + (left ? 0 : 7));
+    const float slotW = mini ? 4.6f : ear.getWidth() * 0.62f;
+    const float slotH = mini ? 3.0f : 9.0f;
+    const float inset = mini ? 7.0f : 20.0f;
+    for (int i = 0; i < 2; ++i)
+    {
+        const float cy = i == 0 ? ear.getY() + inset : ear.getBottom() - inset;
+        const auto slot = Rectangle<float> (slotW, slotH).withCentre ({ ear.getCentreX() + (left ? -0.5f : 0.5f), cy });
+        g.setColour (Colours::white.withAlpha (lk.lightPanel ? 0.4f : 0.12f));
+        g.fillRoundedRectangle (slot.translated (0.0f, 0.8f), slotH * 0.5f);
+        g.setColour (col (0xff020203));
+        g.fillRoundedRectangle (slot, slotH * 0.5f);
+        if (! mini) // chrome rack screw sitting in the oval slot, slightly off-centre like a real mounted unit
+            paintScrew (g, { slot.getCentreX() + (rnd.nextFloat() - 0.5f) * 3.0f, cy }, 5.6f, rnd.nextFloat() * 3.1f);
+    }
+}
+
+void paintLcdFrame (Graphics& g, Rectangle<float> r)
+{
+    // empty LCD glass for the unit preset display (the program name is drawn by RackView)
+    g.setColour (Colours::black.withAlpha (0.5f));
+    g.fillRoundedRectangle (r.expanded (3.0f).translated (0.0f, 1.0f), 4.0f);
+    ColourGradient bezel (col (0xff3a3f4a), 0.0f, r.getY() - 3.0f, col (0xff0b0c10), 0.0f, r.getBottom() + 3.0f, false);
+    g.setGradientFill (bezel);
+    g.fillRoundedRectangle (r.expanded (2.5f), 3.5f);
+    g.setColour (Colours::white.withAlpha (0.18f));
+    g.drawRoundedRectangle (r.expanded (2.5f).reduced (0.4f), 3.5f, 0.6f);
+    const Colour glass (0xff060a10);
+    ColourGradient gl (glass.brighter (0.25f), 0.0f, r.getY(), glass, 0.0f, r.getBottom(), false);
+    g.setGradientFill (gl);
+    g.fillRoundedRectangle (r, 2.0f);
+    ColourGradient sh (Colours::black.withAlpha (0.6f), 0.0f, r.getY(), Colours::transparentBlack, 0.0f, r.getY() + 5.0f, false);
+    g.setGradientFill (sh);
+    g.fillRoundedRectangle (r, 2.0f);
+    Path refl;
+    refl.startNewSubPath (r.getX(), r.getY());
+    refl.lineTo (r.getX() + r.getWidth() * 0.62f, r.getY());
+    refl.lineTo (r.getX() + r.getWidth() * 0.38f, r.getBottom());
+    refl.lineTo (r.getX(), r.getBottom());
+    refl.closeSubPath();
+    ColourGradient rg (Colours::white.withAlpha (0.08f), r.getX(), r.getY(), Colours::white.withAlpha (0.0f), r.getX() + r.getWidth() * 0.35f, r.getBottom(), false);
+    g.setGradientFill (rg);
+    g.fillPath (refl);
+}
+
+void paintBevel (Graphics& g, Rectangle<float> r, bool lightPanel, float corner)
+{
+    g.setColour (Colours::white.withAlpha (lightPanel ? 0.50f : 0.20f));
+    g.fillRect (r.getX() + corner, r.getY(), r.getWidth() - 2.0f * corner, 1.0f);
+    g.setColour (Colours::black.withAlpha (0.55f));
+    g.fillRect (r.getX() + corner, r.getBottom() - 1.0f, r.getWidth() - 2.0f * corner, 1.0f);
+    g.setColour (Colours::black.withAlpha (lightPanel ? 0.45f : 0.35f));
     g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.0f);
 }
 
 // ---------------------------------------------------------------------------------------------
-// hardware: screws, ears, LCD bezel, recessed windows
+// name sticker / frame per effect + small print
 // ---------------------------------------------------------------------------------------------
-void screw (Graphics& g, Point<float> c, float r, float angle)
+void paintSmallPrint (Graphics& g, const Look& lk, Rectangle<float> r, float h)
 {
-    g.setColour (Colours::black.withAlpha (0.45f));
-    g.fillEllipse (Rectangle<float> (r * 2.3f, r * 2.3f).withCentre (c.translated (0.5f, 0.9f)));
-    ColourGradient head (col (0xfff4f6f9), c.x - r * 0.45f, c.y - r * 0.55f, col (0xff5c626b), c.x + r * 0.9f, c.y + r * 0.9f, true);
-    g.setGradientFill (head);
-    g.fillEllipse (Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c));
-    g.setColour (Colours::black.withAlpha (0.55f));
-    g.drawEllipse (Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c), 0.6f);
-
-    Path cross;
-    cross.addRoundedRectangle (-r * 0.66f, -r * 0.14f, r * 1.32f, r * 0.28f, r * 0.08f);
-    cross.addRoundedRectangle (-r * 0.14f, -r * 0.66f, r * 0.28f, r * 1.32f, r * 0.08f);
-    const auto tf = AffineTransform::rotation (angle).translated (c);
-    g.setColour (Colours::white.withAlpha (0.45f));
-    g.fillPath (cross, tf.translated (0.0f, 0.55f));
-    g.setColour (col (0xff23262b));
-    g.fillPath (cross, tf);
+    // "SATURATION  ·  ✦TRAPWIN" under the name; TRAPWIN gets a tiny 4-point sparkle
+    const Font f = smallFont (h).boldened();
+    const Colour c = lk.ink.withAlpha (lk.lightPanel ? 0.85f : 0.78f);
+    const String type (lk.type);
+    const float tw = GlyphArrangement::getStringWidth (f, type);
+    printed (g, type, r, f, c, Justification::centredLeft, lk.lightPanel);
+    const float dotX = r.getX() + tw + h * 0.9f;
+    g.setColour (lk.lightPanel ? lk.ink.withAlpha (0.7f) : lk.accent.withAlpha (0.9f));
+    g.fillEllipse (Rectangle<float> (h * 0.28f, h * 0.28f).withCentre ({ dotX, r.getCentreY() }));
+    const float bx = dotX + h * 0.9f;
+    Path sp;
+    const Point<float> sc (bx + h * 0.35f, r.getCentreY());
+    const float s1 = h * 0.42f, s2 = h * 0.1f;
+    sp.startNewSubPath (sc.x, sc.y - s1);
+    sp.quadraticTo (sc.x + s2, sc.y - s2, sc.x + s1, sc.y);
+    sp.quadraticTo (sc.x + s2, sc.y + s2, sc.x, sc.y + s1);
+    sp.quadraticTo (sc.x - s2, sc.y + s2, sc.x - s1, sc.y);
+    sp.quadraticTo (sc.x - s2, sc.y - s2, sc.x, sc.y - s1);
+    g.setColour (lk.lightPanel ? lk.ink.withAlpha (0.8f) : th::silver);
+    g.fillPath (sp);
+    printed (g, "TRAPWIN", r.withLeft (bx + h * 0.95f), f, c, Justification::centredLeft, lk.lightPanel);
 }
 
-constexpr float earW = 17.0f;
-
-void ears (Graphics& g, Rectangle<float> p, Colour slotRim, bool hazard = false)
+void paintName (Graphics& g, EffectType t, const Look& lk, Rectangle<float> area, bool mini)
 {
-    Random rnd (77);
-    for (int side = 0; side < 2; ++side)
+    const String name (lk.name);
+    const float k = mini ? 0.58f : 1.0f;                       // size factor for the miniature
+    auto box = area.removeFromTop (mini ? 22.0f : 36.0f);
+
+    switch (t)
     {
-        auto e = side == 0 ? p.withWidth (earW) : p.withLeft (p.getRight() - earW);
-
-        if (hazard) // Menace: hazard tape on the ears
+        case EffectType::CassettePlug:
         {
-            Graphics::ScopedSaveState ss (g);
-            g.reduceClipRegion (e.toNearestInt());
-            g.setColour (col (0xffc8202c));
-            g.fillRect (e);
-            g.setColour (col (0xff0e0e10));
-            for (float y = e.getY() - 30.0f; y < e.getBottom() + 30.0f; y += 16.0f)
+            // cream paper label with a double brown frame, like a cassette J-card spine
+            const Colour brown = lk.ink, orange = lk.accent, mustard = col (0xffd9a23a);
+            Font f = fitted (nameFont (27.0f * k), name, box.getWidth() - 26.0f * k);
+            const auto label = box.withWidth (jmin (box.getWidth(), GlyphArrangement::getStringWidth (f, name) + 30.0f * k));
+            g.setColour (Colours::black.withAlpha (0.22f));
+            g.fillRoundedRectangle (label.translated (0.0f, 1.2f), 4.0f * k);
+            ColourGradient paper (col (0xfffbf4e4), 0.0f, label.getY(), col (0xffeadfc6), 0.0f, label.getBottom(), false);
+            g.setGradientFill (paper);
+            g.fillRoundedRectangle (label, 4.0f * k);
+            // retro colour bands on the label's left edge
+            const Colour bands[] = { orange, mustard, brown };
+            for (int i = 0; i < 3; ++i)
             {
-                Path stripe;
-                stripe.startNewSubPath (e.getX() - 4.0f, y);
-                stripe.lineTo (e.getRight() + 4.0f, y - 22.0f);
-                stripe.lineTo (e.getRight() + 4.0f, y - 14.0f);
-                stripe.lineTo (e.getX() - 4.0f, y + 8.0f);
-                stripe.closeSubPath();
-                g.fillPath (stripe);
+                g.setColour (bands[i]);
+                g.fillRect (label.getX() + (2.5f + (float) i * 3.0f) * k, label.getY() + 2.5f * k, 2.0f * k, label.getHeight() - 5.0f * k);
             }
-            speckle (g, e, 31 + side, 140, Colours::white, Colours::black, 0.18f, 0.8f);
-        }
-        else
-        {
-            g.setColour (Colours::black.withAlpha (0.10f));
-            g.fillRect (e);
+            g.setColour (brown);
+            g.drawRoundedRectangle (label.reduced (0.8f), 3.5f * k, mini ? 0.9f : 1.5f);
+            if (! mini) g.drawRoundedRectangle (label.reduced (3.5f), 2.0f, 0.5f);
+            auto p = namePath (name, f, label.withTrimmedLeft (11.0f * k), true);
+            g.setColour (brown);
+            g.fillPath (p);
+            break;
         }
 
-        // fold / seam between ear and the main panel
-        const float sx = side == 0 ? e.getRight() : e.getX();
-        g.setColour (Colours::black.withAlpha (0.45f));
-        g.fillRect (sx - 0.5f, p.getY() + 2.0f, 1.0f, p.getHeight() - 4.0f);
-        g.setColour (Colours::white.withAlpha (0.18f));
-        g.fillRect (sx + (side == 0 ? 0.5f : -1.5f), p.getY() + 2.0f, 1.0f, p.getHeight() - 4.0f);
-
-        for (int k = 0; k < 2; ++k)
+        case EffectType::Menace:
         {
-            const Point<float> c (e.getCentreX(), k == 0 ? p.getY() + 21.0f : p.getBottom() - 21.0f);
-            auto slot = Rectangle<float> (12.0f, 19.0f).withCentre (c);
-            g.setColour (slotRim.withAlpha (0.9f));
-            g.fillRoundedRectangle (slot.expanded (1.0f), 6.5f);
-            ColourGradient hole (col (0xff050506), 0.0f, slot.getY(), col (0xff1d1f23), 0.0f, slot.getBottom(), false);
-            g.setGradientFill (hole);
-            g.fillRoundedRectangle (slot, 6.0f);
-            g.setColour (Colours::white.withAlpha (0.16f));
-            g.drawRoundedRectangle (slot.expanded (0.6f).translated (0.0f, 0.5f), 6.4f, 0.6f);
-            screw (g, c.translated (0.0f, k == 0 ? 2.5f : -2.0f), 4.6f, 0.35f + rnd.nextFloat() * 1.2f);
+            // red bar + white stencil name with a hard drop shadow
+            g.setColour (lk.accent);
+            g.fillRect (box.getX(), box.getY() + 3.0f * k, 5.0f * k, box.getHeight() - 6.0f * k);
+            Font f = fitted (nameFont (33.0f * k), name, box.getWidth() - 14.0f * k);
+            auto p = namePath (name, f, box.withTrimmedLeft (12.0f * k), false);
+            g.setColour (Colours::black.withAlpha (0.75f));
+            g.fillPath (p, AffineTransform::translation (1.5f * k, 1.8f * k));
+            ColourGradient metal (col (0xffffffff), 0.0f, box.getY(), col (0xffb9bec8), 0.0f, box.getBottom(), false);
+            g.setGradientFill (metal);
+            g.fillPath (p);
+            break;
         }
+
+        case EffectType::Brainrot:
+        {
+            // silkscreen component outline (U1) with a pin-1 dot
+            const Colour silk = lk.ink;
+            Font f = fitted (nameFont (28.0f * k), name, box.getWidth() - 24.0f * k);
+            const auto outline = box.withWidth (jmin (box.getWidth(), GlyphArrangement::getStringWidth (f, name) + 30.0f * k));
+            g.setColour (lk.plateDark.darker (0.3f).withAlpha (0.85f));
+            g.fillRect (outline.reduced (1.0f));
+            g.setColour (silk);
+            g.drawRect (outline, mini ? 0.8f : 1.2f);
+            g.fillEllipse (outline.getX() + 3.5f * k, outline.getY() + 3.5f * k, 3.0f * k, 3.0f * k);
+            if (! mini)
+            {
+                text (g, "U1", { outline.getRight() + 3.0f, outline.getY() - 1.0f, 18.0f, 9.0f }, smallFont (7.0f), silk.withAlpha (0.8f), Justification::centredLeft);
+                // pin stubs along the top and bottom edge
+                for (float x = outline.getX() + 12.0f; x < outline.getRight() - 8.0f; x += 9.0f)
+                {
+                    g.setColour (lk.accent.withAlpha (0.9f));
+                    g.fillRect (x, outline.getY() - 3.5f, 3.0f, 2.5f);
+                    g.fillRect (x, outline.getBottom() + 1.0f, 3.0f, 2.5f);
+                }
+            }
+            auto p = namePath (name, f, outline, true);
+            g.setColour (silk);
+            g.fillPath (p);
+            break;
+        }
+
+        case EffectType::ThroughTheWall:
+        {
+            // white name, ice-blue fading rule underneath
+            Font f = fitted (nameFont (30.0f * k), name, box.getWidth() - 2.0f);
+            auto p = namePath (name, f, box.translated (0.0f, -1.0f * k), false);
+            g.setColour (Colours::black.withAlpha (0.45f));
+            g.fillPath (p, AffineTransform::translation (0.0f, 1.2f * k));
+            g.setColour (lk.ink);
+            g.fillPath (p);
+            const float w = GlyphArrangement::getStringWidth (f, name);
+            ColourGradient line (lk.accent, box.getX(), 0.0f, lk.accent.withAlpha (0.0f), box.getX() + w, 0.0f, false);
+            g.setGradientFill (line);
+            g.fillRect (box.getX(), box.getBottom() - 1.0f * k, w, 1.4f * k);
+            break;
+        }
+
+        case EffectType::ToneUp:
+        {
+            // engraved black name + five band colour chips
+            Font f = fitted (nameFont (33.0f * k), name, box.getWidth() - 4.0f);
+            auto p = namePath (name, f, box.translated (0.0f, -2.0f * k), false);
+            g.setColour (Colours::white.withAlpha (0.7f));
+            g.fillPath (p, AffineTransform::translation (0.0f, 1.0f));
+            g.setColour (lk.ink);
+            g.fillPath (p);
+            const Colour bands[] = { col (0xffd8352f), col (0xffeb8a24), col (0xffe9c429), col (0xff35a85a), col (0xff2f6fd6) };
+            for (int i = 0; i < 5; ++i)
+            {
+                g.setColour (bands[i]);
+                g.fillRect (box.getX() + (float) i * 18.0f * k, box.getBottom() - 1.5f * k, 15.0f * k, 2.4f * k);
+            }
+            break;
+        }
+
+        case EffectType::Squeeze:
+        {
+            // recessed black inlay with a green status dot
+            Font f = fitted (nameFont (27.0f * k), name, box.getWidth() - 40.0f * k);
+            const auto inlay = box.withWidth (jmin (box.getWidth(), GlyphArrangement::getStringWidth (f, name) + 42.0f * k));
+            g.setColour (Colours::white.withAlpha (0.10f));
+            g.fillRoundedRectangle (inlay.expanded (1.0f).translated (0.0f, 1.0f), 3.0f * k);
+            g.setColour (col (0xff0d0e10));
+            g.fillRoundedRectangle (inlay, 3.0f * k);
+            ColourGradient sh (Colours::black.withAlpha (0.6f), 0.0f, inlay.getY(), Colours::transparentBlack, 0.0f, inlay.getY() + 6.0f * k, false);
+            g.setGradientFill (sh);
+            g.fillRoundedRectangle (inlay, 3.0f * k);
+            auto p = namePath (name, f, inlay.withTrimmedLeft (11.0f * k), false);
+            g.setColour (lk.ink);
+            g.fillPath (p);
+            const Point<float> dot (inlay.getRight() - 12.0f * k, inlay.getCentreY());
+            g.setColour (lk.accent.withAlpha (0.25f));
+            g.fillEllipse (Rectangle<float> (9.0f * k, 9.0f * k).withCentre (dot));
+            g.setColour (lk.accent);
+            g.fillEllipse (Rectangle<float> (4.5f * k, 4.5f * k).withCentre (dot));
+            break;
+        }
+
+        case EffectType::Overcooked:
+        {
+            // dark burnt sticker with a cream keyline
+            Font f = fitted (nameFont (28.0f * k), name, box.getWidth() - 22.0f * k);
+            const auto sticker = box.withWidth (jmin (box.getWidth(), GlyphArrangement::getStringWidth (f, name) + 26.0f * k));
+            g.setColour (Colours::black.withAlpha (0.3f));
+            g.fillRoundedRectangle (sticker.translated (1.0f * k, 1.5f * k), 4.0f * k);
+            ColourGradient burnt (col (0xff3a1a0a), 0.0f, sticker.getY(), lk.ink, 0.0f, sticker.getBottom(), false);
+            g.setGradientFill (burnt);
+            g.fillRoundedRectangle (sticker, 4.0f * k);
+            g.setColour (lk.accent.withAlpha (0.8f));
+            g.drawRoundedRectangle (sticker.reduced (2.5f * k), 2.5f * k, mini ? 0.6f : 0.8f);
+            auto p = namePath (name, f, sticker, true);
+            ColourGradient heat (col (0xffffe9c4), 0.0f, sticker.getY(), col (0xffffb259), 0.0f, sticker.getBottom(), false);
+            g.setGradientFill (heat);
+            g.fillPath (p);
+            break;
+        }
+
+        case EffectType::Slap:
+        {
+            // black sticker slapped on slightly askew, yellow print
+            Font f = nameFont (31.0f * k);
+            const auto sticker = Rectangle<float> (box.getX(), box.getY() + 1.0f * k,
+                                                   GlyphArrangement::getStringWidth (f, name) + 26.0f * k, box.getHeight() - 1.0f * k);
+            const auto rot = AffineTransform::rotation (-0.045f, sticker.getCentreX(), sticker.getCentreY());
+            Path sp; sp.addRoundedRectangle (sticker, 3.0f * k);
+            g.setColour (Colours::black.withAlpha (0.28f));
+            g.fillPath (sp, rot.translated (2.0f * k, 2.0f * k));
+            g.setColour (lk.ink);
+            g.fillPath (sp, rot);
+            Path frame; frame.addRoundedRectangle (sticker.reduced (2.5f * k), 2.0f * k);
+            g.setColour (lk.plate);
+            g.strokePath (frame, PathStrokeType (mini ? 0.6f : 0.8f), rot);
+            auto p = namePath (name, f, sticker, true);
+            g.fillPath (p, rot);
+            break;
+        }
+
+        default: break;
+    }
+
+    if (! mini)
+        paintSmallPrint (g, lk, area.withHeight (13.0f).translated (0.0f, 2.0f), 9.5f);
+}
+
+// ---------------------------------------------------------------------------------------------
+// per-effect panel printing in the strip above the knob row (right of the model line)
+// ---------------------------------------------------------------------------------------------
+Rectangle<float> decorBand (EffectType t, Rectangle<float> p)
+{
+    const auto ka = knobArea (t, p);
+    const float x = ka.getX() + 188.0f;
+    return { x, p.getY() + 13.0f, presetLcdArea (p).getX() - 18.0f - x, 18.0f };
+}
+
+void paintDecor (Graphics& g, EffectType t, const Look& lk, Rectangle<float> p)
+{
+    const auto tb = decorBand (t, p);
+    switch (t)
+    {
+        case EffectType::CassettePlug:
+        {
+            // three retro stripes running towards the LCD
+            const Colour cs[] = { lk.accent, col (0xffd9a23a), lk.ink };
+            for (int i = 0; i < 3; ++i)
+            {
+                g.setColour (cs[i].withAlpha (0.92f));
+                g.fillRect (tb.getX(), tb.getCentreY() - 4.0f + (float) i * 3.6f, tb.getWidth(), 2.2f);
+            }
+            break;
+        }
+        case EffectType::Menace:
+        {
+            auto band = tb.reduced (0.0f, 2.0f);
+            g.setColour (Colours::black.withAlpha (0.6f));
+            g.fillRect (band.expanded (1.0f));
+            hazardStripes (g, band, 14.0f, lk.accent, 23);
+            g.setColour (Colours::white.withAlpha (0.14f));
+            g.fillRect (band.getX(), band.getY(), band.getWidth(), 0.8f);
+            break;
+        }
+        case EffectType::Brainrot:
+        {
+            text (g, "REV 1.3  //  DO NOT BEND", tb, smallFont (8.0f), lk.ink.withAlpha (0.75f), Justification::centredLeft);
+            for (int i = 0; i < 4; ++i) // tiny SMD resistors
+            {
+                auto rr = Rectangle<float> (10.0f, 5.0f).withCentre ({ tb.getRight() - 8.0f - (float) i * 16.0f, tb.getCentreY() });
+                g.setColour (col (0xff1a1a1a)); g.fillRect (rr);
+                g.setColour (col (0xffd8d8d8)); g.fillRect (rr.withWidth (2.0f)); g.fillRect (rr.withLeft (rr.getRight() - 2.0f));
+            }
+            break;
+        }
+        case EffectType::ToneUp:
+        {
+            // printed log frequency ruler
+            const auto ink = lk.ink;
+            g.setColour (ink.withAlpha (0.5f));
+            g.fillRect (tb.getX(), tb.getBottom() - 4.0f, tb.getWidth(), 0.8f);
+            auto xOf = [&] (float f) { return tb.getX() + tb.getWidth() * std::log (f / 20.0f) / std::log (1000.0f); };
+            const float freqs[] = { 20, 100, 1000, 10000, 20000 };
+            const char* lbl[] = { "20", "100", "1k", "10k", "20k" };
+            for (int i = 0; i < 5; ++i)
+            {
+                const float x = xOf (freqs[i]);
+                g.setColour (ink.withAlpha (0.5f));
+                g.fillRect (x - 0.4f, tb.getBottom() - 8.0f, 0.8f, 5.0f);
+                text (g, lbl[i], { x - 14.0f, tb.getY() - 2.0f, 28.0f, 10.0f }, smallFont (7.0f), ink.withAlpha (0.6f),
+                      i == 0 ? Justification::centredLeft : (i == 4 ? Justification::centredRight : Justification::centred));
+            }
+            for (float dec : { 10.0f, 100.0f, 1000.0f })
+                for (int m = 2; m < 10; ++m)
+                {
+                    const float f = dec * (float) m;
+                    if (f < 20.0f || f > 20000.0f) continue;
+                    g.setColour (ink.withAlpha (0.28f));
+                    g.fillRect (xOf (f) - 0.3f, tb.getBottom() - 6.0f, 0.6f, 2.5f);
+                }
+            break;
+        }
+        case EffectType::Squeeze:
+        {
+            // green pin-stripe along the top of the panel
+            const float x0 = p.getX() + 24.0f, x1 = p.getRight() - 24.0f;
+            g.setColour (lk.accent.withAlpha (0.12f));
+            g.fillRect (x0, p.getY() + 4.5f, x1 - x0, 3.0f);
+            g.setColour (lk.accent.withAlpha (0.6f));
+            g.fillRect (x0, p.getY() + 5.5f, x1 - x0, 1.0f);
+            break;
+        }
+        case EffectType::Overcooked:
+        {
+            // stamped cooling vents
+            auto b = tb.reduced (0.0f, 2.0f);
+            const float slotW = 5.0f, gap = 5.0f;
+            for (float x = b.getX(); x + slotW <= b.getRight(); x += slotW + gap)
+            {
+                auto s = Rectangle<float> (x, b.getY(), slotW, b.getHeight());
+                g.setColour (Colours::white.withAlpha (0.28f));
+                g.fillRoundedRectangle (s.translated (0.0f, 1.0f), slotW * 0.5f);
+                ColourGradient hole (col (0xff0d0502), 0.0f, s.getY(), col (0xff3a1606), 0.0f, s.getBottom(), false);
+                g.setGradientFill (hole);
+                g.fillRoundedRectangle (s, slotW * 0.5f);
+            }
+            break;
+        }
+        case EffectType::Slap:
+        {
+            // chevrons punching towards the LCD
+            for (float x = tb.getX(); x + 12.0f < tb.getRight(); x += 15.0f)
+            {
+                Path ch;
+                ch.startNewSubPath (x, tb.getY() + 2.0f);
+                ch.lineTo (x + 5.0f, tb.getY() + 2.0f);
+                ch.lineTo (x + 11.0f, tb.getCentreY());
+                ch.lineTo (x + 5.0f, tb.getBottom() - 2.0f);
+                ch.lineTo (x, tb.getBottom() - 2.0f);
+                ch.lineTo (x + 6.0f, tb.getCentreY());
+                ch.closeSubPath();
+                const float fade = (x - tb.getX()) / tb.getWidth();
+                g.setColour (lk.ink.withAlpha (0.10f + 0.75f * fade * fade));
+                g.fillPath (ch);
+            }
+            break;
+        }
+        case EffectType::ThroughTheWall:
+        default:
+            break;
     }
 }
 
-void lcdFrame (Graphics& g, Rectangle<float> r)
+// trim along the foot of the panel (outside the knob values)
+void paintFoot (Graphics& g, EffectType t, const Look& lk, Rectangle<float> p, bool mini)
 {
-    // recessed bezel: shadow on top, catch light on the bottom lip
-    g.setColour (Colours::black.withAlpha (0.35f));
-    g.fillRoundedRectangle (r.expanded (4.0f), 5.0f);
-    g.setColour (Colours::white.withAlpha (0.22f));
-    g.fillRoundedRectangle (r.expanded (4.0f).withTrimmedTop (r.getHeight() + 6.5f), 3.0f);
-    ColourGradient bez (col (0xff1a1b1f), 0.0f, r.getY() - 3.0f, col (0xff3a3c42), 0.0f, r.getBottom() + 3.0f, false);
-    g.setGradientFill (bez);
-    g.fillRoundedRectangle (r.expanded (3.0f), 4.0f);
-    ColourGradient glass (col (0xff0c1214), 0.0f, r.getY(), col (0xff050708), 0.0f, r.getBottom(), false);
-    g.setGradientFill (glass);
-    g.fillRoundedRectangle (r, 2.0f);
-    g.setColour (Colours::black.withAlpha (0.8f));
-    g.fillRect (r.getX() + 1.0f, r.getY(), r.getWidth() - 2.0f, 1.2f);
-    // faint diagonal reflection
-    Path refl;
-    refl.startNewSubPath (r.getX() + r.getWidth() * 0.55f, r.getY());
-    refl.lineTo (r.getX() + r.getWidth() * 0.72f, r.getY());
-    refl.lineTo (r.getX() + r.getWidth() * 0.64f, r.getBottom());
-    refl.lineTo (r.getX() + r.getWidth() * 0.47f, r.getBottom());
-    refl.closeSubPath();
-    g.setColour (Colours::white.withAlpha (0.035f));
-    g.fillPath (refl);
+    const float earW = mini ? 8.0f : 18.0f;
+    const float x0 = p.getX() + earW + 2.0f, x1 = p.getRight() - earW - 2.0f;
+    switch (t)
+    {
+        case EffectType::CassettePlug:
+        {
+            const Colour cs[] = { lk.accent, col (0xffd9a23a), lk.ink };
+            const float h = mini ? 0.8f : 1.3f, step = mini ? 1.2f : 2.4f;
+            for (int i = 0; i < 3; ++i)
+            {
+                g.setColour (cs[i].withAlpha (0.9f));
+                g.fillRect (x0, p.getBottom() - (mini ? 4.2f : 8.5f) + (float) i * step, x1 - x0, h);
+            }
+            break;
+        }
+        case EffectType::Menace:
+            if (mini) hazardStripes (g, { x0, p.getBottom() - 3.5f, x1 - x0, 3.5f }, 8.0f, lk.accent, 26);
+            break;
+        case EffectType::Brainrot:
+            // gold edge-connector fingers
+            for (float x = x0 + (mini ? 6.0f : 20.0f); x < x1 - (mini ? 6.0f : 20.0f); x += mini ? 5.0f : 9.0f)
+            {
+                g.setColour (lk.accent.withAlpha (0.85f));
+                g.fillRoundedRectangle (x, p.getBottom() - (mini ? 2.5f : 4.5f), mini ? 3.0f : 5.0f, 6.0f, 1.0f);
+            }
+            break;
+        case EffectType::Slap:
+            g.setColour (lk.ink);
+            g.fillRect (x0 - 2.0f, p.getBottom() - (mini ? 3.0f : 5.0f), x1 - x0 + 4.0f, mini ? 3.0f : 5.0f);
+            break;
+        default: break;
+    }
 }
 
+// ---------------------------------------------------------------------------------------------
+// static layer
+// ---------------------------------------------------------------------------------------------
+Rectangle<float> miniLiveArea (Rectangle<float> plate)
+{
+    return { plate.getRight() - 8.0f - 6.0f - 84.0f, plate.getY() + 6.0f, 84.0f, plate.getHeight() - 12.0f };
+}
+
+void paintStatic (Graphics& g, EffectType t, Rectangle<float> p, bool mini)
+{
+    const auto lk = look (t);
+    const float corner = mini ? 2.0f : 3.0f;
+    {
+        Graphics::ScopedSaveState ss (g);
+        Path clip; clip.addRoundedRectangle (p, corner);
+        g.reduceClipRegion (clip);
+        paintMaterial (g, t, lk, p, mini);
+        const float earW = mini ? 8.0f : 18.0f;
+        paintEar (g, t, p.withWidth (earW), true, lk, mini);
+        paintEar (g, t, p.withLeft (p.getRight() - earW), false, lk, mini);
+        paintFoot (g, t, lk, p, mini);
+
+        if (mini)
+        {
+            const auto inner = p.reduced (earW + 4.0f, 0.0f);
+            paintName (g, t, lk, Rectangle<float> (inner.getX(), p.getY() + 3.0f, inner.getWidth() * 0.6f, 24.0f), true);
+            printed (g, String (lk.type) + "  TRAPWIN", Rectangle<float> (inner.getX(), p.getBottom() - 13.0f, 110.0f, 10.0f),
+                     smallFont (7.0f).boldened(), lk.ink.withAlpha (0.7f), Justification::centredLeft, lk.lightPanel);
+        }
+        else
+        {
+            paintName (g, t, lk, nameArea (p), false);
+            paintDecor (g, t, lk, p);
+
+            // engraved model line above the knob row (faint, so the knob area stays calm)
+            const auto ka = knobArea (t, p);
+            printed (g, lk.model, Rectangle<float> (ka.getX() + 2.0f, p.getY() + 14.0f, 190.0f, 12.0f), smallFont (8.5f),
+                     lk.ink.withAlpha (lk.lightPanel ? 0.60f : 0.42f), Justification::centredLeft, lk.lightPanel);
+
+            // engraved divider between the identity block and the knob row
+            const float dx = ka.getX() - 7.0f;
+            g.setColour (Colours::black.withAlpha (lk.lightPanel ? 0.28f : 0.45f));
+            g.fillRect (dx, p.getY() + 14.0f, 1.0f, p.getHeight() - 28.0f);
+            g.setColour (Colours::white.withAlpha (lk.lightPanel ? 0.40f : 0.08f));
+            g.fillRect (dx + 1.0f, p.getY() + 14.0f, 0.8f, p.getHeight() - 28.0f);
+
+            paintLcdFrame (g, presetLcdArea (p));
+        }
+    }
+    paintBevel (g, p, lk.lightPanel, corner);
+}
+
+// ---------------------------------------------------------------------------------------------
+// live-element helpers
+// ---------------------------------------------------------------------------------------------
 // dark recessed window used by displays and meters
 void window (Graphics& g, Rectangle<float> r, Colour glassTop, Colour glassBottom, float corner = 3.0f)
 {
@@ -260,589 +945,6 @@ void glowLed (Graphics& g, Point<float> c, float r, Colour colour, float amount)
     {
         g.setColour (Colour (0xff0a0a08).withAlpha (0.75f * (1.0f - amount)));
         g.fillEllipse (Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c));
-    }
-}
-
-// ---------------------------------------------------------------------------------------------
-// printing
-// ---------------------------------------------------------------------------------------------
-Font nameFont (float h) { return th::stencilFont (h); }
-Font smallFont (float h) { return th::monoLabel (h); }
-
-void text (Graphics& g, const String& s, Rectangle<float> r, Font f, Colour c, Justification j)
-{
-    g.setFont (f);
-    g.setColour (c);
-    g.drawFittedText (s, r.toNearestInt(), j, 1, 0.6f);
-}
-
-// printed text with a 1px catch light below (engraved / screen printed on a lit surface)
-void engraved (Graphics& g, const String& s, Rectangle<float> r, Font f, Colour c, Justification j, float hi = 0.35f)
-{
-    g.setFont (f);
-    g.setColour (Colours::white.withAlpha (hi));
-    g.drawFittedText (s, r.translated (0.0f, 1.0f).toNearestInt(), j, 1, 0.6f);
-    g.setColour (c);
-    g.drawFittedText (s, r.toNearestInt(), j, 1, 0.6f);
-}
-
-// "SATURATION ................ TRAPWIN  CP-77" under the name
-void typeRow (Graphics& g, Rectangle<float> r, EffectType t, Colour ink, Colour accent)
-{
-    const auto id = identity (t);
-    text (g, id.type, r, smallFont (8.5f), ink.withAlpha (0.85f), Justification::centredLeft);
-    auto right = r.removeFromRight (78.0f);
-    text (g, String ("TRAPWIN  ") + id.model, right, smallFont (7.5f).boldened(), accent, Justification::centredRight);
-}
-
-void knobBay (Graphics& g, Rectangle<float> r, Colour ink, float alpha)
-{
-    g.setColour (ink.withAlpha (alpha));
-    g.drawRoundedRectangle (r.reduced (1.0f), 4.0f, 0.8f);
-    // corner registration ticks
-    const float t = 5.0f;
-    g.setColour (ink.withAlpha (alpha * 1.8f));
-    for (auto c : { r.reduced (1.0f).getTopLeft(), r.reduced (1.0f).getTopRight(), r.reduced (1.0f).getBottomLeft(), r.reduced (1.0f).getBottomRight() })
-    {
-        const float sx = c.x < r.getCentreX() ? 1.0f : -1.0f, sy = c.y < r.getCentreY() ? 1.0f : -1.0f;
-        g.fillRect (jmin (c.x, c.x + sx * t), c.y - 0.4f, t, 0.8f);
-        g.fillRect (c.x - 0.4f, jmin (c.y, c.y + sy * t), 0.8f, t);
-    }
-}
-
-Rectangle<float> topBand (Rectangle<float> p)
-{
-    const auto lcd = presetLcdArea (p);
-    const float x = p.getX() + 256.0f;
-    return { x, p.getY() + 13.0f, lcd.getX() - 18.0f - x, 20.0f };
-}
-
-// miniature (264 x 41) layout
-Rectangle<float> miniName (Rectangle<float> p) { return { p.getX() + 9.0f, p.getY() + 3.0f, 150.0f, p.getHeight() - 6.0f }; }
-Rectangle<float> miniLive (Rectangle<float> p) { return { p.getRight() - 9.0f - 88.0f, p.getY() + 6.0f, 88.0f, p.getHeight() - 12.0f }; }
-
-// ---------------------------------------------------------------------------------------------
-// static layers per effect
-// ---------------------------------------------------------------------------------------------
-void staticCassette (Graphics& g, Rectangle<float> p, bool mini)
-{
-    const auto cream = col (0xffe8dcc2), brown = col (0xff4a2e1c), orange = col (0xffc9552a), mustard = col (0xffd9a23a);
-    lacquer (g, p, cream, 3.0f, 1.0f);
-    speckle (g, p, 11, (int) (p.getWidth() * p.getHeight() / 9.0f), Colours::white, col (0xff7a5a32), 0.10f, 0.9f);
-
-    // retro stripes running across the plate
-    auto stripes = [&] (float y, float x0, float x1, float h)
-    {
-        const Colour cs[] = { orange, mustard, brown };
-        for (int i = 0; i < 3; ++i)
-        {
-            g.setColour (cs[i].withAlpha (0.92f));
-            g.fillRect (x0, y + (float) i * (h + 1.5f), x1 - x0, h);
-        }
-    };
-
-    if (mini)
-    {
-        stripes (p.getBottom() - 9.0f, p.getX(), p.getRight(), 1.6f);
-        auto n = miniName (p).withTrimmedBottom (6.0f);
-        engraved (g, displayName (EffectType::CassettePlug), n, nameFont (19.0f), brown, Justification::centredLeft, 0.5f);
-        plateEdges (g, p, 3.0f, 0.8f);
-        return;
-    }
-
-    ears (g, p, col (0xffcbb995));
-    const auto na = nameArea (p);
-    stripes (p.getY() + 23.0f, na.getRight() + 8.0f, presetLcdArea (p).getX() - 14.0f, 2.2f);
-    stripes (p.getBottom() - 12.0f, p.getX() + earW + 4.0f, p.getRight() - earW - 4.0f, 1.4f);
-
-    // label: brown frame with the name in brown on cream
-    auto label = na.withHeight (36.0f);
-    g.setColour (col (0xfff3ead6));
-    g.fillRoundedRectangle (label, 4.0f);
-    g.setColour (brown);
-    g.drawRoundedRectangle (label.reduced (1.0f), 3.5f, 1.6f);
-    g.drawRoundedRectangle (label.reduced (3.5f), 2.0f, 0.6f);
-    text (g, displayName (EffectType::CassettePlug), label.reduced (10.0f, 3.0f).translated (0.0f, 0.5f), nameFont (26.0f), brown, Justification::centred);
-    typeRow (g, na.withTrimmedTop (39.0f), EffectType::CassettePlug, brown, orange.darker (0.2f));
-
-    knobBay (g, knobArea (EffectType::CassettePlug, p), brown, 0.22f);
-    lcdFrame (g, presetLcdArea (p));
-    plateEdges (g, p, 3.0f);
-}
-
-void staticMenace (Graphics& g, Rectangle<float> p, bool mini)
-{
-    const auto black = col (0xff161618), red = col (0xffd8222f), white = col (0xffeceef2);
-    lacquer (g, p, black, 3.0f, 0.4f);
-    brushed (g, p, 21, 0.05f, 0.7f);
-    speckle (g, p, 22, (int) (p.getWidth() * p.getHeight() / 14.0f), Colours::white, Colours::black, 0.08f, 0.8f);
-
-    auto hazardBand = [&] (Rectangle<float> b, float period)
-    {
-        Graphics::ScopedSaveState ss (g);
-        g.reduceClipRegion (b.toNearestInt());
-        g.setColour (red);
-        g.fillRect (b);
-        g.setColour (col (0xff0c0c0d));
-        for (float x = b.getX() - b.getHeight(); x < b.getRight() + b.getHeight(); x += period)
-        {
-            Path s;
-            s.startNewSubPath (x, b.getBottom());
-            s.lineTo (x + b.getHeight(), b.getY());
-            s.lineTo (x + b.getHeight() + period * 0.5f, b.getY());
-            s.lineTo (x + period * 0.5f, b.getBottom());
-            s.closeSubPath();
-            g.fillPath (s);
-        }
-        speckle (g, b, 23, (int) (b.getWidth() * b.getHeight() / 10.0f), Colours::white, Colours::black, 0.22f, 0.9f);
-        g.setColour (Colours::black.withAlpha (0.7f));
-        g.drawRect (b, 1.0f);
-        g.setColour (Colours::white.withAlpha (0.12f));
-        g.fillRect (b.getX(), b.getY() + 1.0f, b.getWidth(), 1.0f);
-    };
-
-    if (mini)
-    {
-        hazardBand (p.withHeight (5.0f).withY (p.getBottom() - 5.0f), 10.0f);
-        auto n = miniName (p).withTrimmedBottom (4.0f);
-        g.setColour (red);
-        g.fillRect (n.getX(), n.getY() + 7.0f, 3.0f, n.getHeight() - 14.0f);
-        text (g, displayName (EffectType::Menace), n.withTrimmedLeft (8.0f), nameFont (20.0f), white, Justification::centredLeft);
-        plateEdges (g, p, 3.0f, 0.6f);
-        return;
-    }
-
-    ears (g, p, col (0xff2a2a2e), true);
-    hazardBand (topBand (p), 14.0f);
-    const auto na = nameArea (p);
-    // red bar + white stencil name
-    g.setColour (red);
-    g.fillRect (na.getX(), na.getY() + 3.0f, 5.0f, 30.0f);
-    auto nr = na.withHeight (36.0f).withTrimmedLeft (12.0f);
-    g.setColour (Colours::black.withAlpha (0.6f));
-    g.setFont (nameFont (31.0f));
-    g.drawFittedText (displayName (EffectType::Menace), nr.translated (1.5f, 1.5f).toNearestInt(), Justification::centredLeft, 1, 0.6f);
-    text (g, displayName (EffectType::Menace), nr, nameFont (31.0f), white, Justification::centredLeft);
-    typeRow (g, na.withTrimmedTop (39.0f), EffectType::Menace, red.brighter (0.25f), white.withAlpha (0.6f));
-
-    knobBay (g, knobArea (EffectType::Menace, p), white, 0.09f);
-    lcdFrame (g, presetLcdArea (p));
-    plateEdges (g, p, 3.0f, 0.7f);
-}
-
-void pcbTraces (Graphics& g, Rectangle<float> r, int seed, int count, float alpha)
-{
-    Random rnd (seed);
-    const auto trace = col (0xff35a35c).withAlpha (alpha);
-    const auto gold = col (0xffd6b25a);
-    for (int i = 0; i < count; ++i)
-    {
-        Path path;
-        float x = r.getX() + rnd.nextFloat() * r.getWidth();
-        float y = r.getY() + rnd.nextFloat() * r.getHeight();
-        path.startNewSubPath (x, y);
-        const int segs = 2 + rnd.nextInt (3);
-        bool horiz = rnd.nextBool();
-        for (int s = 0; s < segs; ++s)
-        {
-            const float len = 10.0f + rnd.nextFloat() * 60.0f;
-            const float dir = rnd.nextBool() ? 1.0f : -1.0f;
-            if (horiz) x = jlimit (r.getX(), r.getRight(), x + dir * len);
-            else       y = jlimit (r.getY(), r.getBottom(), y + dir * len * 0.4f);
-            // 45 degree chamfer into the next segment
-            const float d = 4.0f;
-            path.lineTo (x, y);
-            if (s + 1 < segs)
-            {
-                x = jlimit (r.getX(), r.getRight(), x + (rnd.nextBool() ? d : -d));
-                y = jlimit (r.getY(), r.getBottom(), y + (rnd.nextBool() ? d : -d));
-                path.lineTo (x, y);
-            }
-            horiz = ! horiz;
-        }
-        g.setColour (trace);
-        g.strokePath (path, PathStrokeType (1.4f, PathStrokeType::mitered, PathStrokeType::rounded));
-        // pad / via at the end
-        g.setColour (gold.withAlpha (alpha * 1.1f));
-        g.fillEllipse (Rectangle<float> (4.2f, 4.2f).withCentre ({ x, y }));
-        g.setColour (col (0xff0d2a17).withAlpha (alpha + 0.2f));
-        g.fillEllipse (Rectangle<float> (1.6f, 1.6f).withCentre ({ x, y }));
-    }
-}
-
-void staticBrainrot (Graphics& g, Rectangle<float> p, bool mini)
-{
-    const auto pcb = col (0xff1d6a3b), silk = col (0xfff2f5ee), gold = col (0xffd6b25a);
-    lacquer (g, p, pcb, 3.0f, 0.5f);
-    speckle (g, p, 31, (int) (p.getWidth() * p.getHeight() / 12.0f), col (0xff7fe0a0), col (0xff0b2a16), 0.10f, 0.8f);
-
-    if (mini)
-    {
-        pcbTraces (g, p, 32, 26, 0.45f);
-        auto n = miniName (p).withTrimmedBottom (4.0f);
-        text (g, displayName (EffectType::Brainrot), n.withTrimmedLeft (2.0f), nameFont (19.0f), silk, Justification::centredLeft);
-        plateEdges (g, p, 3.0f, 0.6f);
-        return;
-    }
-
-    const auto ka = knobArea (EffectType::Brainrot, p);
-    {
-        // dense traces outside the knob bay, faint ones inside
-        Graphics::ScopedSaveState ss (g);
-        RectangleList<int> outside (p.toNearestInt());
-        outside.subtract (ka.toNearestInt());
-        g.reduceClipRegion (outside);
-        pcbTraces (g, p, 33, 70, 0.55f);
-    }
-    {
-        Graphics::ScopedSaveState ss (g);
-        g.reduceClipRegion (ka.toNearestInt());
-        pcbTraces (g, ka, 34, 26, 0.18f);
-    }
-
-    // gold edge-connector fingers along the bottom edge
-    for (float x = p.getX() + 40.0f; x < p.getRight() - 40.0f; x += 9.0f)
-    {
-        g.setColour (gold.withAlpha (0.85f));
-        g.fillRoundedRectangle (x, p.getBottom() - 5.0f, 5.0f, 6.0f, 1.0f);
-    }
-
-    ears (g, p, gold.darker (0.2f));
-
-    const auto na = nameArea (p);
-    auto nr = na.withHeight (36.0f);
-    // silkscreen component outline around the name
-    g.setColour (pcb.darker (0.35f).withAlpha (0.85f));
-    g.fillRect (nr.reduced (1.0f));
-    g.setColour (silk);
-    g.drawRect (nr, 1.2f);
-    g.fillEllipse (nr.getX() + 4.0f, nr.getY() + 4.0f, 3.0f, 3.0f); // pin-1 dot
-    text (g, displayName (EffectType::Brainrot), nr.reduced (12.0f, 2.0f), nameFont (28.0f), silk, Justification::centred);
-    text (g, "U1", { nr.getRight() - 18.0f, nr.getY() - 9.0f, 18.0f, 8.0f }, smallFont (7.0f), silk.withAlpha (0.8f), Justification::centredRight);
-    typeRow (g, na.withTrimmedTop (39.0f), EffectType::Brainrot, silk, gold);
-
-    // silkscreen markings in the top band
-    const auto tb = topBand (p);
-    text (g, "REV 1.3   //   LO-FI ENGINE   //   DO NOT BEND", tb, smallFont (8.0f), silk.withAlpha (0.75f), Justification::centredLeft);
-    for (int i = 0; i < 4; ++i) // tiny SMD resistors
-    {
-        auto rr = Rectangle<float> (10.0f, 5.0f).withCentre ({ tb.getRight() - 12.0f - (float) i * 16.0f, tb.getCentreY() });
-        g.setColour (col (0xff1a1a1a)); g.fillRect (rr);
-        g.setColour (col (0xffd8d8d8)); g.fillRect (rr.withWidth (2.0f)); g.fillRect (rr.withLeft (rr.getRight() - 2.0f));
-    }
-
-    knobBay (g, ka, silk, 0.28f);
-    lcdFrame (g, presetLcdArea (p));
-    plateEdges (g, p, 3.0f, 0.7f);
-}
-
-void staticThroughTheWall (Graphics& g, Rectangle<float> p, bool mini)
-{
-    const auto navy = col (0xff1d2c55), white = col (0xfff0f3fa), ice = col (0xff9fc3ff);
-    lacquer (g, p, navy, 3.0f, 0.8f);
-    speckle (g, p, 41, (int) (p.getWidth() * p.getHeight() / 12.0f), Colours::white, Colours::black, 0.07f, 0.8f);
-
-    // faint brick wall printed into the lacquer
-    {
-        const float bh = mini ? 7.0f : 11.0f, bw = mini ? 20.0f : 32.0f;
-        g.setColour (Colours::white.withAlpha (0.045f));
-        int row = 0;
-        for (float y = p.getY() + 2.0f; y < p.getBottom(); y += bh, ++row)
-        {
-            g.fillRect (p.getX(), y, p.getWidth(), 0.8f);
-            for (float x = p.getX() + ((row & 1) ? bw * 0.5f : 0.0f); x < p.getRight(); x += bw)
-                g.fillRect (x, y, 0.8f, bh);
-        }
-        ColourGradient fade (navy.withAlpha (0.0f), p.getX(), 0.0f, navy.withAlpha (0.85f), p.getX() + p.getWidth() * 0.6f, 0.0f, false);
-        g.setGradientFill (fade);
-        g.fillRect (p.withTrimmedLeft (p.getWidth() * 0.2f));
-    }
-
-    if (mini)
-    {
-        auto n = miniName (p);
-        text (g, displayName (EffectType::ThroughTheWall), n.withTrimmedBottom (4.0f), nameFont (17.0f), white, Justification::centredLeft);
-        g.setColour (ice.withAlpha (0.8f));
-        g.fillRect (n.getX(), n.getBottom() - 6.0f, 60.0f, 1.2f);
-        plateEdges (g, p, 3.0f, 0.7f);
-        return;
-    }
-
-    ears (g, p, navy.darker (0.4f));
-    const auto na = nameArea (p);
-    auto nr = na.withHeight (34.0f);
-    text (g, displayName (EffectType::ThroughTheWall), nr, nameFont (26.0f), white, Justification::centredLeft);
-    ColourGradient line (ice, na.getX(), 0.0f, ice.withAlpha (0.0f), na.getRight(), 0.0f, false);
-    g.setGradientFill (line);
-    g.fillRect (na.getX(), na.getY() + 36.0f, na.getWidth(), 1.4f);
-    typeRow (g, na.withTrimmedTop (39.0f), EffectType::ThroughTheWall, white.withAlpha (0.8f), ice);
-
-    // top band: printed response legend
-    const auto tb = topBand (p);
-    const char* types[] = { "LP12", "LP24", "HP", "BP", "NOTCH", "COMB" };
-    float x = tb.getX();
-    for (auto* tname : types)
-    {
-        text (g, tname, { x, tb.getY(), 44.0f, tb.getHeight() }, smallFont (8.0f), white.withAlpha (0.45f), Justification::centredLeft);
-        x += 46.0f;
-    }
-
-    knobBay (g, knobArea (EffectType::ThroughTheWall, p), white, 0.12f);
-    lcdFrame (g, presetLcdArea (p));
-    plateEdges (g, p, 3.0f, 0.8f);
-}
-
-void staticToneUp (Graphics& g, Rectangle<float> p, bool mini)
-{
-    const auto alu = col (0xffc9ced6), ink = col (0xff15171b);
-    lacquer (g, p, alu, 3.0f, 0.0f);
-    brushed (g, p, 51, 0.22f, 0.45f);
-    // anodised sheen band
-    ColourGradient sheen (Colours::white.withAlpha (0.0f), p.getX(), p.getY(), Colours::white.withAlpha (0.0f), p.getRight(), p.getY(), false);
-    sheen.addColour (0.3, Colours::white.withAlpha (0.16f));
-    sheen.addColour (0.42, Colours::white.withAlpha (0.0f));
-    sheen.addColour (0.75, Colours::white.withAlpha (0.10f));
-    g.setGradientFill (sheen);
-    g.fillRoundedRectangle (p, 3.0f);
-
-    const Colour bands[] = { col (0xffd8352f), col (0xffeb8a24), col (0xffe9c429), col (0xff35a85a), col (0xff2f6fd6) };
-
-    if (mini)
-    {
-        auto n = miniName (p);
-        engraved (g, displayName (EffectType::ToneUp), n.withTrimmedBottom (5.0f), nameFont (19.0f), ink, Justification::centredLeft, 0.6f);
-        for (int i = 0; i < 5; ++i)
-        {
-            g.setColour (bands[i]);
-            g.fillRect (n.getX() + (float) i * 12.0f, n.getBottom() - 4.0f, 10.0f, 2.0f);
-        }
-        plateEdges (g, p, 3.0f, 0.9f);
-        return;
-    }
-
-    ears (g, p, alu.darker (0.3f));
-    const auto na = nameArea (p);
-    engraved (g, displayName (EffectType::ToneUp), na.withHeight (34.0f), nameFont (30.0f), ink, Justification::centredLeft, 0.7f);
-    for (int i = 0; i < 5; ++i)
-    {
-        g.setColour (bands[i]);
-        g.fillRect (na.getX() + (float) i * 18.0f, na.getY() + 35.5f, 15.0f, 2.2f);
-    }
-    typeRow (g, na.withTrimmedTop (39.0f), EffectType::ToneUp, ink, ink.withAlpha (0.65f));
-
-    // top band: printed frequency ruler
-    const auto tb = topBand (p);
-    g.setColour (ink.withAlpha (0.55f));
-    g.fillRect (tb.getX(), tb.getBottom() - 6.0f, tb.getWidth(), 0.8f);
-    const float freqs[] = { 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000 };
-    const char* lbl[] = { "20", "50", "100", "200", "500", "1k", "2k", "5k", "10k", "20k" };
-    for (int i = 0; i < 10; ++i)
-    {
-        const float x = tb.getX() + tb.getWidth() * std::log (freqs[i] / 20.0f) / std::log (1000.0f);
-        g.fillRect (x - 0.4f, tb.getBottom() - 9.0f, 0.8f, 6.0f);
-        text (g, lbl[i], { x - 14.0f, tb.getY() - 1.0f, 28.0f, 10.0f }, smallFont (7.0f), ink.withAlpha (0.6f),
-              i == 0 ? Justification::centredLeft : (i == 9 ? Justification::centredRight : Justification::centred));
-    }
-    for (int d = 1; d < 9; ++d) // minor log ticks
-        for (int k = 2; k < 10; ++k)
-        {
-            const float f = (float) k * std::pow (10.0f, (float) (d / 3 + 1));
-            if (f < 20.0f || f > 20000.0f || d > 3) continue;
-            const float x = tb.getX() + tb.getWidth() * std::log (f / 20.0f) / std::log (1000.0f);
-            g.setColour (ink.withAlpha (0.25f));
-            g.fillRect (x - 0.3f, tb.getBottom() - 7.5f, 0.6f, 3.0f);
-        }
-
-    knobBay (g, knobArea (EffectType::ToneUp, p), ink, 0.14f);
-    lcdFrame (g, presetLcdArea (p));
-    plateEdges (g, p, 3.0f, 1.0f);
-}
-
-void staticSqueeze (Graphics& g, Rectangle<float> p, bool mini)
-{
-    const auto graphite = col (0xff24262b), green = col (0xff3dff6e), light = col (0xffdfe3e8);
-    lacquer (g, p, graphite, 3.0f, 0.5f);
-    speckle (g, p, 61, (int) (p.getWidth() * p.getHeight() / 5.0f), Colours::white, Colours::black, 0.07f, 0.8f); // powder coat
-
-    if (mini)
-    {
-        g.setColour (green.withAlpha (0.7f));
-        g.fillRect (p.getX() + 3.0f, p.getY() + 3.0f, p.getWidth() - 6.0f, 0.9f);
-        auto n = miniName (p);
-        text (g, displayName (EffectType::Squeeze), n.withTrimmedBottom (4.0f), nameFont (19.0f), light, Justification::centredLeft);
-        g.setColour (green);
-        g.fillEllipse (n.getX() + 84.0f, n.getCentreY() - 4.5f, 4.0f, 4.0f);
-        plateEdges (g, p, 3.0f, 0.6f);
-        return;
-    }
-
-    ears (g, p, col (0xff3a3d44));
-    // green pin-stripe through the panel
-    g.setColour (green.withAlpha (0.55f));
-    g.fillRect (p.getX() + earW + 6.0f, p.getY() + 6.0f, p.getWidth() - 2.0f * earW - 12.0f, 1.0f);
-    g.setColour (green.withAlpha (0.12f));
-    g.fillRect (p.getX() + earW + 6.0f, p.getY() + 5.0f, p.getWidth() - 2.0f * earW - 12.0f, 3.0f);
-
-    const auto na = nameArea (p);
-    // recessed black name inlay
-    auto inlay = na.withHeight (35.0f);
-    g.setColour (Colours::white.withAlpha (0.10f));
-    g.fillRoundedRectangle (inlay.expanded (1.0f).translated (0.0f, 1.0f), 3.0f);
-    g.setColour (col (0xff0d0e10));
-    g.fillRoundedRectangle (inlay, 3.0f);
-    text (g, displayName (EffectType::Squeeze), inlay.reduced (12.0f, 2.0f), nameFont (27.0f), light, Justification::centredLeft);
-    g.setColour (green);
-    g.fillEllipse (inlay.getRight() - 14.0f, inlay.getCentreY() - 2.5f, 5.0f, 5.0f);
-    typeRow (g, na.withTrimmedTop (39.0f), EffectType::Squeeze, light.withAlpha (0.8f), green);
-
-    const auto tb = topBand (p);
-    text (g, "VARIABLE RATIO  \xc2\xb7  PARALLEL MIX  \xc2\xb7  SOFT KNEE", tb, smallFont (8.0f), light.withAlpha (0.4f), Justification::centredLeft);
-
-    knobBay (g, knobArea (EffectType::Squeeze, p), green, 0.16f);
-    lcdFrame (g, presetLcdArea (p));
-    plateEdges (g, p, 3.0f, 0.7f);
-}
-
-void staticOvercooked (Graphics& g, Rectangle<float> p, bool mini)
-{
-    const auto orange = col (0xffd9661f), dark = col (0xff2a1206), cream = col (0xfffff0d8);
-    lacquer (g, p, orange, 3.0f, 1.0f);
-    speckle (g, p, 71, (int) (p.getWidth() * p.getHeight() / 10.0f), Colours::white, col (0xff5a1a00), 0.08f, 0.8f);
-
-    auto vents = [&] (Rectangle<float> b, float slotW, float gap)
-    {
-        for (float x = b.getX(); x + slotW <= b.getRight(); x += slotW + gap)
-        {
-            auto s = Rectangle<float> (x, b.getY(), slotW, b.getHeight());
-            g.setColour (Colours::white.withAlpha (0.25f));
-            g.fillRoundedRectangle (s.translated (0.0f, 1.0f), slotW * 0.5f);
-            ColourGradient hole (col (0xff0d0502), 0.0f, s.getY(), col (0xff3a1606), 0.0f, s.getBottom(), false);
-            g.setGradientFill (hole);
-            g.fillRoundedRectangle (s, slotW * 0.5f);
-        }
-    };
-
-    if (mini)
-    {
-        auto n = miniName (p);
-        auto sticker = n.withWidth (128.0f).reduced (0.0f, 4.0f);
-        g.setColour (dark);
-        g.fillRoundedRectangle (sticker, 3.0f);
-        text (g, displayName (EffectType::Overcooked), sticker.reduced (6.0f, 1.0f), nameFont (17.0f), cream, Justification::centred);
-        plateEdges (g, p, 3.0f, 0.8f);
-        return;
-    }
-
-    ears (g, p, orange.darker (0.35f));
-    const auto tb = topBand (p);
-    vents (tb.reduced (0.0f, 2.0f), 6.0f, 6.0f);
-
-    const auto na = nameArea (p);
-    auto sticker = na.withHeight (36.0f);
-    g.setColour (Colours::black.withAlpha (0.3f));
-    g.fillRoundedRectangle (sticker.translated (1.0f, 1.5f), 4.0f);
-    g.setColour (dark);
-    g.fillRoundedRectangle (sticker, 4.0f);
-    g.setColour (cream.withAlpha (0.8f));
-    g.drawRoundedRectangle (sticker.reduced (2.5f), 2.5f, 0.8f);
-    text (g, displayName (EffectType::Overcooked), sticker.reduced (10.0f, 2.0f).translated (0.0f, 0.5f), nameFont (27.0f), cream, Justification::centred);
-    typeRow (g, na.withTrimmedTop (39.0f), EffectType::Overcooked, dark, cream);
-
-    knobBay (g, knobArea (EffectType::Overcooked, p), dark, 0.22f);
-    lcdFrame (g, presetLcdArea (p));
-    plateEdges (g, p, 3.0f, 0.9f);
-}
-
-void halftone (Graphics& g, Rectangle<float> r, Point<float> focus, float radius, float step, Colour c)
-{
-    for (float y = r.getY(); y < r.getBottom(); y += step)
-        for (float x = r.getX() + (std::fmod ((y - r.getY()) / step, 2.0f) < 1.0f ? 0.0f : step * 0.5f); x < r.getRight(); x += step)
-        {
-            const float d = focus.getDistanceFrom ({ x, y }) / radius;
-            if (d >= 1.0f) continue;
-            const float s = step * 0.62f * (1.0f - d);
-            g.setColour (c);
-            g.fillEllipse (Rectangle<float> (s, s).withCentre ({ x, y }));
-        }
-}
-
-void staticSlap (Graphics& g, Rectangle<float> p, bool mini)
-{
-    const auto yellow = col (0xffe6c229), black = col (0xff0e0e0e);
-    lacquer (g, p, yellow, 3.0f, 0.9f);
-    speckle (g, p, 81, (int) (p.getWidth() * p.getHeight() / 12.0f), Colours::white, col (0xff6a5200), 0.08f, 0.8f);
-
-    if (mini)
-    {
-        halftone (g, p, p.getBottomRight(), 90.0f, 4.0f, black.withAlpha (0.18f));
-        auto n = miniName (p);
-        auto sticker = Rectangle<float> (n.getX(), n.getY() + 3.0f, 70.0f, n.getHeight() - 6.0f);
-        Graphics::ScopedSaveState ss (g);
-        g.addTransform (AffineTransform::rotation (-0.05f, sticker.getCentreX(), sticker.getCentreY()));
-        g.setColour (black);
-        g.fillRoundedRectangle (sticker, 2.0f);
-        text (g, displayName (EffectType::Slap), sticker.reduced (4.0f, 1.0f), nameFont (19.0f), yellow, Justification::centred);
-        return;
-    }
-
-    halftone (g, p, { p.getRight() - 40.0f, p.getBottom() }, 200.0f, 5.0f, black.withAlpha (0.12f));
-    halftone (g, p, { p.getX() + 160.0f, p.getY() + 10.0f }, 120.0f, 5.0f, black.withAlpha (0.08f));
-    ears (g, p, black);
-
-    // black bar along the bottom
-    g.setColour (black);
-    g.fillRect (p.getX() + earW, p.getBottom() - 6.0f, p.getWidth() - 2.0f * earW, 6.0f);
-
-    // chevrons in the top band
-    const auto tb = topBand (p);
-    for (float x = tb.getX(); x + 12.0f < tb.getRight(); x += 16.0f)
-    {
-        Path ch;
-        ch.startNewSubPath (x, tb.getY() + 2.0f);
-        ch.lineTo (x + 6.0f, tb.getY() + 2.0f);
-        ch.lineTo (x + 12.0f, tb.getCentreY());
-        ch.lineTo (x + 6.0f, tb.getBottom() - 2.0f);
-        ch.lineTo (x, tb.getBottom() - 2.0f);
-        ch.lineTo (x + 6.0f, tb.getCentreY());
-        ch.closeSubPath();
-        const float fade = 1.0f - (x - tb.getX()) / tb.getWidth();
-        g.setColour (black.withAlpha (0.12f + 0.75f * fade * fade));
-        g.fillPath (ch);
-    }
-
-    const auto na = nameArea (p);
-    {
-        auto sticker = Rectangle<float> (na.getX(), na.getY() + 1.0f, 128.0f, 35.0f);
-        Graphics::ScopedSaveState ss (g);
-        g.addTransform (AffineTransform::rotation (-0.045f, sticker.getCentreX(), sticker.getCentreY()));
-        g.setColour (Colours::black.withAlpha (0.25f));
-        g.fillRoundedRectangle (sticker.translated (2.0f, 2.0f), 3.0f);
-        g.setColour (black);
-        g.fillRoundedRectangle (sticker, 3.0f);
-        g.setColour (yellow);
-        g.drawRoundedRectangle (sticker.reduced (2.5f), 2.0f, 0.8f);
-        text (g, displayName (EffectType::Slap), sticker.reduced (8.0f, 1.0f), nameFont (30.0f), yellow, Justification::centred);
-    }
-    typeRow (g, na.withTrimmedTop (39.0f), EffectType::Slap, black, black.withAlpha (0.7f));
-
-    knobBay (g, knobArea (EffectType::Slap, p), black, 0.25f);
-    lcdFrame (g, presetLcdArea (p));
-    plateEdges (g, p, 3.0f, 0.9f);
-}
-
-void paintStatic (Graphics& g, EffectType t, Rectangle<float> p, bool mini)
-{
-    switch (t)
-    {
-        case EffectType::CassettePlug:   staticCassette (g, p, mini); break;
-        case EffectType::Menace:         staticMenace (g, p, mini); break;
-        case EffectType::Brainrot:       staticBrainrot (g, p, mini); break;
-        case EffectType::ThroughTheWall: staticThroughTheWall (g, p, mini); break;
-        case EffectType::ToneUp:         staticToneUp (g, p, mini); break;
-        case EffectType::Squeeze:        staticSqueeze (g, p, mini); break;
-        case EffectType::Overcooked:     staticOvercooked (g, p, mini); break;
-        case EffectType::Slap:           staticSlap (g, p, mini); break;
-        default: break;
     }
 }
 
@@ -1006,7 +1108,7 @@ void liveMenace (Graphics& g, Rectangle<float> a, const State& s, bool mini)
 
     // type selector lamps
     const char* types[] = { "FUZZ", "CLIP", "FOLD", "RECT" };
-    const int type = jlimit (0, 3, (int) std::round (s.params[0] * 3.0f));
+    const int type = jlimit (0, 3, roundToInt (realParam (EffectType::Menace, s, 0)));
     auto row = a.withTrimmedLeft (54.0f).withHeight (20.0f).translated (0.0f, 4.0f);
     const float cw = row.getWidth() / 4.0f;
     for (int i = 0; i < 4; ++i)
@@ -1095,7 +1197,7 @@ void liveBrainrot (Graphics& g, Rectangle<float> a, const State& s, bool mini)
 
     bitColumns (inner);
     glassShine (g, disp, 3.0f);
-    text (g, String (bits) + "-BIT  \xc2\xb7  " + String (rate / 1000.0f, rate < 10000.0f ? 1 : 0) + " kHz",
+    text (g, String (bits) + "-BIT  " + midDot() + "  " + String (rate / 1000.0f, rate < 10000.0f ? 1 : 0) + " kHz",
           a.withTrimmedTop (46.0f), smallFont (8.0f), silk, Justification::centredLeft);
     text (g, "MSB  >  LSB", a.withTrimmedTop (46.0f), smallFont (7.0f), silk.withAlpha (0.6f), Justification::centredRight);
 }
@@ -1286,7 +1388,7 @@ void liveSqueeze (Graphics& g, Rectangle<float> a, const State& s, bool mini)
             }
         }
         if (! tiny)
-            text (g, "GR dB", Rectangle<float> (40.0f, 9.0f).withCentre ({ face.getCentreX(), face.getBottom() - 8.0f }), smallFont (7.0f).boldened(), col (0xff1c1c1a), Justification::centred);
+            text (g, "GR dB", Rectangle<float> (face.getX() + 5.0f, face.getBottom() - 12.0f, 40.0f, 9.0f), smallFont (7.0f).boldened(), col (0xff1c1c1a), Justification::centredLeft);
 
         // needle
         const float an = angOf (gr);
@@ -1426,7 +1528,7 @@ void liveSlap (Graphics& g, Rectangle<float> a, const State& s, bool mini)
     window (g, scr, col (0xff161616), col (0xff060606), 3.0f);
     auto plot = scr.reduced (6.0f, 6.0f);
     grid (g, plot, yellow.withAlpha (0.07f), 8, 3);
-    const float atk = s.params[0] * 2.0f - 1.0f, sus = s.params[1] * 2.0f - 1.0f;
+    const float atk = realParam (EffectType::Slap, s, 0), sus = realParam (EffectType::Slap, s, 1);
     auto envAt = [&] (float x, float a1, float s1) // x 0..1
     {
         const float rise = 0.06f;
@@ -1463,16 +1565,17 @@ void liveSlap (Graphics& g, Rectangle<float> a, const State& s, bool mini)
     glassShine (g, scr, 3.0f);
 
     // HIT lamp on a printed starburst
-    const Point<float> c (a.getRight() - 40.0f, a.getCentreY() - 2.0f);
+    const Point<float> c (a.getRight() - 30.0f, a.getCentreY());
     starburst (c, 15.0f, 27.0f, 11, black);
     starburst (c, 10.0f, 18.0f, 11, hit ? col (0xffff6a3a) : yellow.darker (0.05f));
     glowLed (g, c, 6.0f, red, hit ? 1.0f : 0.0f);
-    text (g, "HIT", { c.x + 18.0f, c.y + 12.0f, 26.0f, 12.0f }, nameFont (11.0f), black, Justification::centredLeft);
+    const auto lab = Rectangle<float> (scr.getRight() + 8.0f, a.getCentreY() - 9.0f, c.x - 27.0f - scr.getRight() - 10.0f, 18.0f);
+    text (g, "HIT", lab, nameFont (15.0f), black, Justification::centredRight);
 }
 
 void paintLive (Graphics& g, EffectType t, Rectangle<float> p, const State& s, bool mini)
 {
-    const auto a = mini ? miniLive (p) : liveArea (t, p);
+    const auto a = mini ? miniLiveArea (p) : liveArea (t, p);
     switch (t)
     {
         case EffectType::CassettePlug:   liveCassette (g, a, s, mini); break;
@@ -1488,49 +1591,41 @@ void paintLive (Graphics& g, EffectType t, Rectangle<float> p, const State& s, b
 }
 
 // ---------------------------------------------------------------------------------------------
-// static layer cache (UI thread only)
+// static layer cache (UI thread only), keyed by type / size / pixel scale / miniature
 // ---------------------------------------------------------------------------------------------
-const Image& staticLayer (EffectType t, Rectangle<float> plate, bool mini, float scale)
+const Image& staticLayer (EffectType t, Rectangle<float> plate, float scale, bool mini)
 {
-    static std::map<String, Image> cache;
-    const int w = jmax (1, roundToInt (plate.getWidth() * scale)), h = jmax (1, roundToInt (plate.getHeight() * scale));
-    const String key = String ((int) t) + (mini ? "m" : "f") + String (w) + "x" + String (h);
+    static std::map<int64, Image> cache;
+    const int w = roundToInt (plate.getWidth()), h = roundToInt (plate.getHeight());
+    const int sc = roundToInt (scale * 100.0f);
+    const int64 key = ((int64) t << 48) ^ ((int64) w << 32) ^ ((int64) h << 16) ^ ((int64) sc << 1) ^ (mini ? 1 : 0);
     auto it = cache.find (key);
     if (it != cache.end()) return it->second;
+    if (cache.size() > 96) cache.clear();
 
-    if (cache.size() > 64) cache.clear();
-    Image img (Image::ARGB, w, h, true);
+    Image img (Image::ARGB, jmax (1, roundToInt ((float) w * scale)), jmax (1, roundToInt ((float) h * scale)), true);
     {
         Graphics ig (img);
-        ig.addTransform (AffineTransform::scale ((float) w / plate.getWidth(), (float) h / plate.getHeight()));
-        paintStatic (ig, t, { 0.0f, 0.0f, plate.getWidth(), plate.getHeight() }, mini);
+        ig.addTransform (AffineTransform::scale (scale));
+        paintStatic (ig, t, { 0.0f, 0.0f, (float) w, (float) h }, mini);
     }
-    return cache.emplace (key, img).first->second;
+    return cache.emplace (key, std::move (img)).first->second;
 }
 } // namespace
 
 Palette paletteColorGroup (EffectType t)
 {
-    switch (t)
-    {
-        case EffectType::CassettePlug:   return { col (0xffe8dcc2), col (0xffc9b48f), col (0xff4a2e1c), col (0xffc9552a), col (0xffffc861) };
-        case EffectType::Menace:         return { col (0xff161618), col (0xff0a0a0b), col (0xffeceef2), col (0xffff2e3e), col (0xffff2e3e) };
-        case EffectType::Brainrot:       return { col (0xff1d6a3b), col (0xff0f3d22), col (0xfff2f5ee), col (0xffd6b25a), col (0xff3dff6e) };
-        case EffectType::ThroughTheWall: return { col (0xff1d2c55), col (0xff111a36), col (0xfff0f3fa), col (0xff9fc3ff), col (0xff9fc3ff) };
-        case EffectType::ToneUp:         return { col (0xffc9ced6), col (0xff9aa1ad), col (0xff15171b), col (0xff2f6fd6), col (0xff3dff6e) };
-        case EffectType::Squeeze:        return { col (0xff24262b), col (0xff16171a), col (0xffdfe3e8), col (0xff3dff6e), col (0xff3dff6e) };
-        case EffectType::Overcooked:     return { col (0xffd9661f), col (0xffa8481a), col (0xff2a1206), col (0xfffff0d8), col (0xffffc861) };
-        case EffectType::Slap:           return { col (0xffe6c229), col (0xffb39414), col (0xff0e0e0e), col (0xff0e0e0e), col (0xffff2e3e) };
-        default:                         return { col (0xff24262b), col (0xff15161a), Colours::white, col (0xff9fc3ff), col (0xff3dff6e) };
-    }
+    const auto lk = look (t);
+    return { lk.plate, lk.plateDark, lk.ink, lk.accent, lk.led };
 }
 
 void paintColorGroup (Graphics& g, EffectType t, Rectangle<float> plate, const State& s, bool miniature)
 {
     if (plate.isEmpty()) return;
     const float scale = jlimit (1.0f, 4.0f, g.getInternalContext().getPhysicalPixelScaleFactor());
-    const auto& img = staticLayer (t, plate, miniature, scale);
-    g.drawImage (img, plate, RectanglePlacement::stretchToFit);
+    const auto& img = staticLayer (t, plate, scale, miniature);
+    g.setOpacity (1.0f);   // drawImage uses the current colour's alpha
+    g.drawImage (img, plate);
     paintLive (g, t, plate, s, miniature);
 }
 } // namespace ek::faceplate
