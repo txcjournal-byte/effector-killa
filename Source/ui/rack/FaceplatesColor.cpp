@@ -290,7 +290,8 @@ void paintStatic (Graphics& g, EffectType t, Rectangle<float> p, bool mini)
 
     // muted descriptor above the knob row (no frame: the knob area stays calm)
     const auto ka = knobArea (t, p);
-    text (g, lk.role, { ka.getX() + 4.0f, p.getY() + 13.0f, 300.0f, 20.0f }, mono (8.0f), cMuted.withAlpha (0.75f), Justification::centredLeft);
+    if (ka.getY() < p.getY() + 60.0f)   // full-width card only (compact SPLIT cards have no room for it)
+        text (g, lk.role, { ka.getX() + 4.0f, p.getY() + 13.0f, 300.0f, 20.0f }, mono (8.0f), cMuted.withAlpha (0.75f), Justification::centredLeft);
 
     paintScreenBase (g, liveArea (t, p), lk.accent, screenCorner, true);
 

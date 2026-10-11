@@ -1,11 +1,15 @@
 #pragma once
 
-// Hardware controls that sit on the effect faceplates of the rack units (DESIGN-RACK.md section 6):
-//   RackControl  - one parameter: rotary knob, stepped rotary selector, LED button row or toggle.
-//                  Label above, value window below, tinted from faceplate::palette(type).
-//   SideButton   - 26 x 26 square button of the side strip (menu / power / solo / lock) with a vector icon.
-//   UnitLcd      - small black-glass programme display with a down arrow (unit presets).
-//   MsSwitch     - ST / MID / SIDE push button in the corner of the plate.
+// Controls of the TrapWin effect cards in the CHAIN view (Docs/TRAPWIN-STYLE.md):
+//   RackControl  - one parameter: flat TrapWin knob (accent value arc with glow, white pointer dot),
+//                  stepped knob, vertical segmented pill (2..4 choices) or pill toggle.
+//                  Label above, value below, IBM Plex Mono; colours from faceplate::palette(type).
+//                  Mod rings: the face bounds handed to paintOverlay hug the value arc, so rings drawn
+//                  at face.width / 2 + 3 sit just outside it. A mouse-down on a ring (hitRing) drags
+//                  that assignment's depth instead of the value (onRingDrag).
+//   SideButton   - small round icon pill (menu / power / solo / lock / remove) in the card's top-right row.
+//   UnitLcd      - dark preset pill: accent dot, programme name (Plex Mono), chevron.
+//   MsSwitch     - ST / MID / SIDE as a 3-segment mini pill (click a segment).
 
 #include "Widgets.h"
 #include "Faceplates.h"
@@ -34,7 +38,15 @@ public:
     std::function<void (juce::Graphics&, juce::Rectangle<float> face)> paintOverlay;
     std::function<float()> getEffectiveValue;                      // modulated value (normalised), optional
 
-    // The knob face (or LED block) in local coordinates - the place modulation rings go.
+    // Ring dragging (optional): hitRing (mouse position relative to the knob centre, face radius)
+    // returns an id (e.g. a mod assignment index / a macro range handle) or -1; onRingDrag (id, delta)
+    // applies a change (delta in normalised units), onRingDragEnd (id) finishes it.
+    std::function<int (juce::Point<float> fromCentre, float faceRadius)> hitRing;
+    std::function<void (int id)> onRingDragStart;
+    std::function<void (int id, float deltaDepth)> onRingDrag;
+    std::function<void (int id)> onRingDragEnd;
+
+    // The knob face (or segment block) in local coordinates - the place modulation rings go.
     juce::Rectangle<float> getFaceBounds() const;
     float getNormValue() const noexcept { return value; }
 
@@ -45,6 +57,7 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
     void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+    void mouseMove (const juce::MouseEvent&) override;
 
 private:
     juce::String valueText() const;
@@ -54,6 +67,8 @@ private:
     void setFromUser (float norm, bool asCompleteGesture);
     void showChoiceMenu();
     juce::Rectangle<float> ledRowItem (int i) const;
+    float labelHeight() const;
+    float valueHeight() const;
 
     void paintRotary (juce::Graphics&, bool selector);
     void paintLedRow (juce::Graphics&);
@@ -68,6 +83,8 @@ private:
     float value = 0.0f, defaultValue = 0.0f, dragValue = 0.0f, shownEffective = -1.0f;
     juce::Point<float> lastDrag;
     bool dragging = false, moved = false, gestureOpen = false;
+    int ringDrag = -1;
+    bool ringHover = false;
     juce::String label;
 };
 
@@ -75,7 +92,7 @@ private:
 class SideButton : public juce::Component, public juce::SettableTooltipClient, private juce::Timer
 {
 public:
-    enum class Icon { Menu, Power, Solo, Lock };
+    enum class Icon { Menu, Power, Solo, Lock, Remove };
     SideButton (Icon icon, juce::Colour litColour);
     ~SideButton() override;
 
@@ -88,6 +105,7 @@ public:
     std::function<bool()> isLit;
     std::function<bool()> isEnabledFn;
     bool blinkWhenLit = false;
+    bool dangerHover = false;    // hover tints red (remove)
 
     void tick();
     void paint (juce::Graphics&) override;
@@ -111,6 +129,7 @@ class UnitLcd : public juce::Component, public juce::SettableTooltipClient
 public:
     UnitLcd();
     std::function<void()> onClick;
+    juce::Colour accent { 0xff9fc3ff };
     void setText (const juce::String& t, bool animate);
     void setReduceMotion (bool r) noexcept { reduceMotion = r; }
     void tick();
@@ -128,18 +147,19 @@ class MsSwitch : public juce::Component, public juce::SettableTooltipClient
 {
 public:
     MsSwitch();
-    std::function<int()> getMode;   // 0 ST, 1 MID, 2 SIDE
-    std::function<void()> onClick;
+    std::function<int()> getMode;          // 0 ST, 1 MID, 2 SIDE
+    std::function<void()> onClick;         // legacy: cycle (used when onSelect is not set)
+    std::function<void (int mode)> onSelect;
     ek::faceplate::Palette pal;
     void tick();
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
 
 private:
-    int shown = -1;
+    int segmentAt (juce::Point<float> p) const;
+    int shown = -1, hover = -1;
 };
-
-// Shared look: a hardware rotary knob (shadow, ribbed skirt, black body, chrome cap, pointer).
-void drawRackKnob (juce::Graphics&, juce::Point<float> centre, float radius, float angle, const ek::faceplate::Palette&, bool hot);
 
 } // namespace ek::ui

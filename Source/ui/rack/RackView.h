@@ -1,22 +1,29 @@
 #pragma once
 
-// The rack: hardware units stacked top to bottom (signal flows downwards), DESIGN-RACK.md sections 6, 8, 9.
+// The CHAIN view: TrapWin effect cards stacked top to bottom (signal flows downwards), DESIGN-RACK.md
+// sections 6, 8, 9 with the look of Docs/TRAPWIN-STYLE.md.
 //
-// Unit = 932 x 140: faceplate 898 x 140 (painted by ek::faceplate::paintFaceplate, live State filled from
-// the processor every timer tick) + a 34 px side strip with four 26 x 26 buttons:
-//   MENU (programmes, my unit presets, save, copy / paste, replace, reset, listen up to here, remove),
-//   POWER (green; off keeps tails running), SOLO (yellow, blinks; other units dim), LOCK (red).
-// The real controls sit on the plate inside faceplate::knobArea(): every used parameter + DRY/WET,
-// label above, value below; switch parameters as LED rows / stepped selectors / LED toggles.
-// ST / MID / SIDE switch next to the unit preset LCD (faceplate::presetLcdArea()).
+// Geometry: a 26 px gutter on the left carries the glowing ice-blue SIGNAL LINE (a node per card, a pulse
+// travelling down while audio is present - static when reduce motion is on). Cards fill the rest of the
+// width (any width >= ~680; 852 in the editor, ~1088 without the FX library): faceplate painted by
+// ek::faceplate::paintFaceplate into the whole card (no side strip), real controls on top inside
+// faceplate::knobArea(): every used parameter + DRY/WET, label above, value below; switch parameters as
+// segmented pills / pill toggles. Top-right row (from faceplate::presetLcdArea()):
+//   [ST|MID|SIDE] [ preset name v ] (gear) (POWER) (SOLO) (LOCK) (x)
+//   gear = unit menu (programmes, my unit presets, save, copy / paste, replace, reset, listen up to here,
+//   SPLIT items, remove), POWER (off keeps tails running; hold = LEVEL-MATCHED POWER), SOLO (other cards
+//   dim), LOCK, x = remove.
+// SPLIT: the line forks under the SplitUnit strip into two columns A | B (compact half-width cards:
+// title + live screen on top, pill row, knobs in one or two rows) and merges again (MERGE node).
 //
 // Drag & drop:
-//   gear item  -> top / bottom edge of a unit = insert there (blue line)
-//              -> centre of a unit            = replace it (yellow REPLACE frame)
-//              -> empty shaft under the units = add at the end
-//   unit plate -> drag anywhere outside a control: the unit lifts (shadow), a gap opens where it will land,
-//                 the other units glide out of the way
-//              -> back onto the gear list     = remove
+//   FX chip    -> top / bottom edge of a card = insert there (glowing ice-blue line)
+//              -> centre of a card            = replace it (accent outline + REPLACE pill)
+//              -> the dashed "DROP EFFECTS HERE" card under the chain = add at the end
+//   card       -> drag anywhere outside a control: the card lifts (shadow + glow), a gap opens where it
+//                 will land, the other cards glide out of the way
+//              -> outside the chain: red "DROP ON THE FX LIBRARY TO REMOVE" hint in the gap
+//              -> back onto the FX library    = remove
 //
 // ------------------------------------------------------------------------------------------------
 // KNOB HOOKS (for modulation drag & drop and macro learn, DESIGN-RACK.md section 12)
@@ -66,13 +73,20 @@ public:
     UnitComponent (EffectorKillaAudioProcessor& p, RackView& owner, int slot);
     ~UnitComponent() override;
 
-    static constexpr int width = 932, height = 140, plateWidth = 898, stripWidth = 34;
+    static constexpr int height = 140;           // full-width card
+    static constexpr int compactBelow = 600;     // narrower cards use the compact layout (SPLIT branches)
+    // card height for a width (full: 140, compact: 186 with one knob row, 268 with two)
+    static int idealHeight (ek::EffectType type, int width);
 
     int getSlot() const noexcept { return slot; }
     ek::EffectType getType() const noexcept { return type; }
+    juce::Colour getAccent() const noexcept { return pal.accent; }
+    bool isCompact() const noexcept { return getWidth() < compactBelow; }
+    float getLevel() const noexcept { return juce::jmax (state.inLevel, state.outLevel); }
+    bool isPowered() const noexcept { return state.powered; }
     void tick (double timeSec);
     void setReduceMotion (bool r);
-    void setFlash (float amount);                 // KILL: ice-blue flash 0..1
+    void setFlash (float amount);                 // KILL: ice-blue glow sweep 0..1 (1 = start)
     void setLifted (bool l);                      // hidden in place while it is being dragged
     bool isLifted() const noexcept { return lifted; }
     juce::Image createLiftImage (int shadowMargin);
@@ -95,6 +109,7 @@ private:
     void showPresetMenu (juce::Component* target);
     void showUnitMenu (juce::Component* target);
     void layoutControls();
+    juce::Rectangle<float> statusPillArea() const;
     juce::String currentProgrammeName() const;
 
     EffectorKillaAudioProcessor& proc;
@@ -103,7 +118,7 @@ private:
     const ek::EffectType type;
     const ek::faceplate::Palette pal;
     juce::OwnedArray<RackControl> controls;
-    SideButton menuBtn, powerBtn, soloBtn, lockBtn;
+    SideButton menuBtn, powerBtn, soloBtn, lockBtn, removeBtn;
     UnitLcd lcd;
     MsSwitch msBtn;
 
@@ -115,6 +130,9 @@ private:
     float flash = 0.0f;
     int lastProgramEvents = -1;
     bool lastAudition = false;
+    // MACRO LEARN range drag in progress (committed with one assignMacro() on mouse-up)
+    int macroDragParam = -1, macroDragMacro = -1;
+    float macroDragLo = 0.0f, macroDragHi = 1.0f;
 };
 
 class RackView : public juce::Component, public juce::DragAndDropTarget
@@ -148,7 +166,7 @@ public:
     SplitUnit* getSplitUnit() const noexcept { return splitUnit.get(); }
     int getHoveredSlot() const noexcept { return hoverSlot; }
     void setHoveredSlot (int slot);                       // -1 = none; drives the SPECTRAL VIEW tap
-    void paintSpectrum (juce::Graphics& g, int slot, juce::Rectangle<float> area) const;
+    void paintSpectrum (juce::Graphics& g, int slot, juce::Rectangle<float> area, float opacity = 1.0f) const;
 
     // ---- used by the units ----------------------------------------------------------------------
     void beginUnitDrag (UnitComponent& u, const juce::MouseEvent& e);
@@ -159,6 +177,7 @@ public:
     void resized() override;
     void mouseUp (const juce::MouseEvent&) override;
     void mouseMove (const juce::MouseEvent&) override;
+    void mouseExit (const juce::MouseEvent&) override;
 
     // DragAndDropTarget
     bool isInterestedInDragSource (const SourceDetails&) override;
@@ -170,6 +189,13 @@ public:
     std::function<void (const juce::String&)> onMessage;
     static void showAddMenu (EffectorKillaAudioProcessor& p, juce::Component* target, std::function<void (ek::EffectType)> picked);
 
+    static constexpr int gutter = 26;     // left gutter with the signal line
+
+    // Snapshot tool / tests only: show a drop state without a real drag.
+    //   kind 1 = insert line in front of `slot`, 2 = REPLACE on `slot`, 3 = `slot` lifted with its gap at
+    //   compacted index `gap`, 4 = `slot` lifted and dragged out of the chain (remove hint), 0 = clear.
+    void previewDropState (int kind, int slot, int gap = -1);
+
 private:
     struct DropTarget
     {
@@ -180,6 +206,14 @@ private:
         int branch = -1;   // SPLIT: branch (0 = A, 1 = B) the drop goes to, -1 = serial
         int x = -1, w = -1; // SPLIT: indicator column (-1 = full width)
     };
+    // vertical structure of the chain (independent of animations / drags)
+    struct Layout
+    {
+        int splitY = -1, colTop = -1, colBottom = -1, mergeY = -1, bottom = 0;
+        int colW = 0, xA = 0, xB = 0;
+        bool emptyA = false, emptyB = false;
+    };
+    Layout computeLayout() const;
     DropTarget dropTargetFor (juce::Point<int> pos, bool fromUnit, int fromSlot) const;
     juce::String signature() const;
     juce::Rectangle<int> addZone() const;
@@ -187,16 +221,20 @@ private:
     bool isFull() const;
     int unitX() const;
     int unitWidth() const;
-    int contentBottom() const;                 // bottom of the units (and the split columns)
+    int contentBottom() const;                 // bottom of the units (and the split columns + merge)
     int branchColumnAt (juce::Point<int> pos) const; // SPLIT: 0 = A (left), 1 = B (right)
+    float lineX (int branch) const;            // x of the signal line (branch 1 = column B)
+    float signalLevel() const;
     void layoutTargets (bool snap);
     void endUnitDrag();
+    void paintSignalLine (juce::Graphics&, const Layout&);
+    void paintAddZone (juce::Graphics&);
     UnitComponent* unitForSlot (int slot) const;
 
     EffectorKillaAudioProcessor& proc;
     juce::OwnedArray<UnitComponent> units;
     std::vector<float> animY, targetY;
-    std::vector<int> targetX, targetW;
+    std::vector<int> targetX, targetW, targetH;
     std::unique_ptr<SplitUnit> splitUnit;
     std::unique_ptr<ek::SpectrumOverlay> spectrum;
     int hoverSlot = -1, splitY = -1;
@@ -204,10 +242,14 @@ private:
     juce::String builtFor;
     DropTarget drop;
     int draggingSlot = -1;
+    juce::Rectangle<int> gapRect;              // where the lifted card will land
     bool reduceMotion = false, addHover = false;
     int lastKillEvents = -1;
     double killAnimStart = -1.0;
-    static constexpr int gapY = 4, topMargin = 0, addZoneHeight = 140;
+    float shownLevel = 0.0f;
+    bool lineAnimating = false;
+    static constexpr int gapY = 12, topMargin = 10, addZoneHeight = 128;
+    static constexpr int splitGap = 24, mergeGap = 36, emptyBranchHeight = 120;
 };
 
 } // namespace ek::ui

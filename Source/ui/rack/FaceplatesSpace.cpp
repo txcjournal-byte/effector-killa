@@ -101,6 +101,7 @@ void paintStatic (Graphics& g, EffectType t, Rectangle<float> plate, bool mini)
     cs::paintScreen (g, liveArea (t, plate), screenCorner (false), st.accent);
 
     // hairline between the identity column and the knob row (fades out at both ends)
+    if (knobArea (t, plate).getY() > plate.getY() + 60.0f) return;   // compact SPLIT card: knobs below, no divider
     const float dx = knobArea (t, plate).getX() - 8.0f;
     ColourGradient div (cs::ice.withAlpha (0.0f), 0.0f, plate.getY() + 18.0f, cs::ice.withAlpha (0.0f), 0.0f, plate.getBottom() - 18.0f, false);
     div.addColour (0.5, cs::ice.withAlpha (0.12f));

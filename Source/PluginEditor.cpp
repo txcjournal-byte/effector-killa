@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "ui/rack/CardStyle.h"
+#include "ui/rack/CableStyle.h"
 
 #ifndef JucePlugin_VersionString
  #define JucePlugin_VersionString "1.0.0"   // snapshot tool (not a plugin target)
@@ -61,15 +62,7 @@ void EffectorKillaAudioProcessorEditor::Frame::paint (juce::Graphics& g)
 void EffectorKillaAudioProcessorEditor::CableOverlay::paint (juce::Graphics& g)
 {
     if (source < 0) return;
-    const auto c = ek::ui::modSourceColour (source);
-    if (! target.isEmpty())
-    {
-        g.setColour (c.withAlpha (0.25f));
-        g.fillRoundedRectangle (target.toFloat().expanded (3.0f), 6.0f);
-        g.setColour (c);
-        g.drawRoundedRectangle (target.toFloat().expanded (3.0f), 6.0f, 2.0f);
-    }
-    ek::ui::paintPatchCable (g, from, to, c);
+    ek::ui::cable::paintOverlay (g, ek::ui::modSourceColour (source), from, to, target);   // ui/rack/CableStyle
 }
 
 // ============================================================================================
