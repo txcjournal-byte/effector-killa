@@ -164,6 +164,8 @@ jobs:
           cp MANUAL.md "$D/Docs/TrapWin Effector Manual.md"
           cp EULA.txt "$D/Docs/"
           cp Resources/Fonts/*.txt "$D/Docs/"
+          mkdir -p "$D/Shop"
+          cp Resources/Marketing/*.png "$D/Shop/"
           ls -R trapwin.com
       - uses: actions/upload-artifact@v4
         with:
