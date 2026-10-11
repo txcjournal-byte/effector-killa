@@ -121,7 +121,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          if [ -z "$MACOS_CERT_P12" ]; then echo "No signing secrets - skipping (unsigned build)."; exit 0; fi
+          if [ -z "$MACOS_CERT_P12" ]; then echo "::warning::macOS NOT signed - signing secrets missing (unsigned build)."; exit 0; fi
           KC=build.keychain
           echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
           security create-keychain -p ci "$KC"
@@ -140,8 +140,10 @@ jobs:
           ditto -c -k --keepParent signed TrapWinEffector-macOS-signed.zip
           xcrun notarytool submit TrapWinEffector-macOS-signed.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_APP_PASSWORD" --wait
-          for b in signed/*; do xcrun stapler staple "$b"; done
+          for b in signed/*; do xcrun stapler staple "$b"; xcrun stapler validate "$b"; codesign --verify --deep --strict "$b"; done
+          rm TrapWinEffector-macOS-signed.zip
           ditto -c -k --keepParent signed TrapWinEffector-macOS-signed.zip
+          echo "::notice::macOS signed ($MACOS_SIGN_IDENTITY), notarized and stapled: $(ls signed | tr '\n' ' ')"
 
       - uses: actions/upload-artifact@v4
         if: runner.os == 'macOS'
