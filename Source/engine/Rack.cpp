@@ -8,12 +8,13 @@ namespace ek
 Chain::Chain (const RackConfig& cfg, const PrepareSpec& spec, int fixedLatency) : config (cfg)
 {
     lastSlot = (cfg.screening >= 0 && cfg.screening < kNumSlots) ? cfg.screening : kNumSlots - 1;
+    soloSlot = (cfg.solo >= 0 && cfg.solo < kNumSlots) ? cfg.solo : -1;
 
     // Only the last Red Line of the processed part of the chain may use lookahead,
     // so the fixed latency budget is never exceeded.
     int lookaheadSlot = -1;
     for (int i = 0; i <= lastSlot; ++i)
-        if (cfg.slots[(size_t) i].type == EffectType::RedLine)
+        if (isHeard (i) && cfg.slots[(size_t) i].type == EffectType::RedLine)
             lookaheadSlot = i;
 
     actualLatency = 0;
@@ -33,7 +34,7 @@ Chain::Chain (const RackConfig& cfg, const PrepareSpec& spec, int fixedLatency) 
         s.dryDelay.prepare (s.latency);
         s.otherDelay.prepare (s.latency);
         s.wet.reset (spec.sampleRate, 12.0f, 1.0f);
-        if (i <= lastSlot)
+        if (isHeard (i))
             actualLatency += s.latency;
     }
 
@@ -47,7 +48,8 @@ Chain::Chain (const RackConfig& cfg, const PrepareSpec& spec, int fixedLatency) 
 void Chain::process (float* L, float* R, int n, const RackParams* params, const ProcessContext& ctx) noexcept
 {
     for (int i = 0; i <= lastSlot; ++i)
-        processSlot (slots[(size_t) i], i, L, R, n, params, ctx);
+        if (isHeard (i))
+            processSlot (slots[(size_t) i], i, L, R, n, params, ctx);
 
     pad.processBlock (L, R, n);
 }
@@ -64,10 +66,13 @@ void Chain::processSlot (Slot& s, int index, float* L, float* R, int n, const Ra
         const float target = sp.pause ? 0.0f : clamp01 (sp.mix);
         if (! s.paramsSet) s.wet.snap (target);
         s.wet.setTarget (target);
+        s.paused = sp.pause;
         s.paramsSet = true;
     }
 
-    const bool needFx = s.wet.getTarget() > 0.0f || s.wet.get() > 1.0e-5f;
+    // A paused (powered-off) unit keeps processing in the background, so delay and reverb
+    // tails are still there when it is switched back on. Only MIX = 0 really stops it.
+    const bool needFx = s.paused || s.wet.getTarget() > 0.0f || s.wet.get() > 1.0e-5f;
     if (needFx && ! s.running)
     {
         s.fx->reset(); // restart cleanly, the wet ramp hides the restart

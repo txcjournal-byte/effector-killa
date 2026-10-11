@@ -26,8 +26,9 @@ struct SlotConfig
 struct RackConfig
 {
     std::array<SlotConfig, kNumSlots> slots {};
-    int screening = -1; // -1 = off, else slot index to listen to
-    bool operator== (const RackConfig& o) const noexcept { return slots == o.slots && screening == o.screening; }
+    int screening = -1; // -1 = off, else listen to the chain up to (and including) this slot
+    int solo = -1;      // -1 = off, else listen to this one unit only (all other units bypassed)
+    bool operator== (const RackConfig& o) const noexcept { return slots == o.slots && screening == o.screening && solo == o.solo; }
     bool operator!= (const RackConfig& o) const noexcept { return ! (*this == o); }
 };
 
@@ -67,6 +68,7 @@ private:
         LatencyDelay dryDelay, otherDelay;
         Smoothed wet;
         bool running = true;
+        bool paused = false;
         bool paramsSet = false;
     };
 
@@ -75,6 +77,8 @@ private:
     RackConfig config;
     std::array<Slot, kNumSlots> slots;
     int lastSlot = kNumSlots - 1;
+    int soloSlot = -1;
+    bool isHeard (int i) const noexcept { return i <= lastSlot && (soloSlot < 0 || i == soloSlot); }
     int actualLatency = 0;
     LatencyDelay pad;
     std::vector<float> dryL, dryR, wL, wR, other;

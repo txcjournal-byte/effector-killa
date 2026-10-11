@@ -19,7 +19,16 @@ namespace ParamIDs
     inline const juce::String autoTracking { "auto_tracking" };
     inline const juce::String pocketTv { "pocket_tv" };
     inline const juce::String offAir { "off_air" };
+    inline const juce::String recycle { "recycle" };       // rack output fed back into its input
+    inline const juce::String tempoMode { "tempo_mode" };  // 0 = HOST, 1 = MANUAL (also TAP)
+    inline const juce::String tempoBpm { "tempo_bpm" };
 }
+
+// Live slot info for the host-facing parameter names ("S1: Cassette Plug: Drive").
+struct HostInfo
+{
+    std::array<std::atomic<int>, ek::kNumSlots> type {};
+};
 } // namespace ek
 
 class EffectorKillaAudioProcessor : public juce::AudioProcessor,
@@ -57,6 +66,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     // ---- Effector Killa API (message thread) --------------------------------------------------
+    std::shared_ptr<ek::HostInfo> hostInfo = std::make_shared<ek::HostInfo>();
     juce::AudioProcessorValueTreeState apvts;
     ek::Engine engine;
     ek::PresetBank bank;
@@ -98,10 +108,14 @@ public:
     int findTape (int slot) const;                               // programme matching the slot, or -1
     void ejectSlot (int slot) { setSlotType (slot, ek::EffectType::None); }
     void moveSlot (int from, int to);
+    int insertEffect (int at, ek::EffectType t);   // push the rack down, returns the slot or -1 when full
+    void removeEffect (int slot);                  // remove and close the gap
     void setSlotMs (int slot, ek::MSMode m);
     void setWriteProtect (int slot, bool on);
     void setScreening (int slot); // -1 = off
     int getScreening() const noexcept { return screening; }
+    void setSolo (int slot);      // -1 = off; hear only this unit
+    int getSolo() const noexcept { return solo; }
     void copySlot (int slot);
     void pasteSlot (int slot);
     bool hasSlotClipboard() const noexcept { return slotClipboard.has_value(); }
@@ -130,7 +144,11 @@ public:
     juce::RangedAudioParameter* getParam (const juce::String& id) const { return apvts.getParameter (id); }
     void setParamNorm (const juce::String& id, float v);
 
-    static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
+    static juce::AudioProcessorValueTreeState::ParameterLayout createLayout (std::shared_ptr<ek::HostInfo> info = {});
+
+    // tempo: HOST follows the DAW, MANUAL uses tempo_bpm (TAP sets it)
+    void tapTempo();
+    double getEffectiveBpm() const noexcept { return engine.meters.bpm.load(); }
 
 private:
     void timerCallback() override;
@@ -143,7 +161,7 @@ private:
     ek::ProgramState meta;             // non-parameter program data (types, names, maps, mod ...)
     int lastChannel = 0;
     std::map<int, float> factoryTrims;
-    int screening = -1;
+    int screening = -1, solo = -1;
     int oversampling = 1;
     double currentSampleRate = 44100.0;
     bool applying = false;
@@ -158,6 +176,10 @@ private:
     std::array<std::atomic<float>*, ek::kNumSlots> pMix {}, pPause {};
     std::array<std::atomic<float>*, ek::kNumMacros> pMacro {};
     std::atomic<float>* pIn = nullptr, *pOut = nullptr, *pBlend = nullptr, *pAuto = nullptr, *pPocket = nullptr, *pOffAir = nullptr;
+    std::atomic<float>* pRecycle = nullptr, *pTempoMode = nullptr, *pTempoBpm = nullptr;
+    double freePpq = 0.0;                       // free-running transport for MANUAL tempo
+    std::vector<double> taps;                   // tap tempo timestamps (ms)
+    void updateHostNames();
 
     std::array<std::atomic<int>, ek::kNumMacros> uiGesture {};
     std::array<std::atomic<juce::uint32>, ek::kNumMacros> lastHostMacroChange {};

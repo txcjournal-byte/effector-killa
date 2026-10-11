@@ -20,7 +20,67 @@ juce::String macro (int m)
 }
 } // namespace ek::ParamIDs
 
-juce::AudioProcessorValueTreeState::ParameterLayout EffectorKillaAudioProcessor::createLayout()
+namespace
+{
+// Slot parameters keep fixed IDs (automation never jumps to another parameter), but their
+// names and value texts follow the loaded effect: "S1: Cassette Plug: Drive" = "4.2 dB".
+juce::String slotPrefix (const ek::HostInfo* info, int slot)
+{
+    const auto t = info != nullptr ? (ek::EffectType) info->type[(size_t) slot].load() : ek::EffectType::None;
+    juce::String s = "S" + juce::String (slot + 1) + ": ";
+    if (t != ek::EffectType::None) s << ek::effectInfo (t).name << ": ";
+    return s;
+}
+
+class SlotFloatParam : public juce::AudioParameterFloat
+{
+public:
+    SlotFloatParam (std::shared_ptr<ek::HostInfo> i, int s, int p, const juce::String& id, float def)
+        : juce::AudioParameterFloat (juce::ParameterID { id, 1 },
+                                     "Slot " + juce::String (s + 1) + (p < ek::kNumParams ? " P" + juce::String (p + 1) : juce::String (" Mix")),
+                                     juce::NormalisableRange<float> (0.0f, 1.0f), def),
+          info (std::move (i)), slot (s), param (p) {}
+
+    juce::String getName (int maxLen) const override { return fullName().substring (0, maxLen); }
+
+private:
+    const ek::ParamSpec* spec() const
+    {
+        if (info == nullptr || param >= ek::kNumParams) return nullptr;
+        const auto t = (ek::EffectType) info->type[(size_t) slot].load();
+        if (t == ek::EffectType::None) return nullptr;
+        return &ek::effectInfo (t).params[(size_t) param];
+    }
+    juce::String fullName() const
+    {
+        if (param >= ek::kNumParams) return slotPrefix (info.get(), slot) + "Mix";
+        if (auto* sp = spec()) return slotPrefix (info.get(), slot) + (sp->used ? sp->name : "P" + juce::String (param + 1) + " (unused)");
+        return slotPrefix (info.get(), slot) + "P" + juce::String (param + 1);
+    }
+    juce::String getText (float v, int maxLen) const override
+    {
+        if (param >= ek::kNumParams) return (juce::String (juce::roundToInt (v * 100.0f)) + " %").substring (0, maxLen);
+        if (auto* sp = spec(); sp != nullptr && sp->used) return sp->format (sp->toReal (v)).substring (0, maxLen);
+        return juce::String (v, 3).substring (0, maxLen);
+    }
+    std::shared_ptr<ek::HostInfo> info;
+    int slot, param;
+};
+
+class SlotPowerParam : public juce::AudioParameterBool
+{
+public:
+    SlotPowerParam (std::shared_ptr<ek::HostInfo> i, int s, const juce::String& id)
+        : juce::AudioParameterBool (juce::ParameterID { id, 1 }, "Slot " + juce::String (s + 1) + " Pause", false),
+          info (std::move (i)), slot (s) {}
+    juce::String getName (int maxLen) const override { return (slotPrefix (info.get(), slot) + "Bypass").substring (0, maxLen); }
+private:
+    std::shared_ptr<ek::HostInfo> info;
+    int slot;
+};
+} // namespace
+
+juce::AudioProcessorValueTreeState::ParameterLayout EffectorKillaAudioProcessor::createLayout (std::shared_ptr<ek::HostInfo> info)
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     using FloatParam = juce::AudioParameterFloat;
@@ -32,14 +92,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout EffectorKillaAudioProcessor:
         auto group = std::make_unique<juce::AudioProcessorParameterGroup> (
             "slot" + juce::String (s + 1), "Slot " + juce::String (s + 1), " | ");
         for (int p = 0; p < kNumParams; ++p)
-            group->addChild (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::slotParam (s, p), 1 },
-                                                           "Slot " + juce::String (s + 1) + " P" + juce::String (p + 1),
-                                                           juce::NormalisableRange<float> (0.0f, 1.0f), 0.0f));
-        group->addChild (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::slotMix (s), 1 },
-                                                       "Slot " + juce::String (s + 1) + " Mix",
-                                                       juce::NormalisableRange<float> (0.0f, 1.0f), 1.0f));
-        group->addChild (std::make_unique<BoolParam> (juce::ParameterID { ParamIDs::slotPause (s), 1 },
-                                                      "Slot " + juce::String (s + 1) + " Pause", false));
+            group->addChild (std::make_unique<SlotFloatParam> (info, s, p, ParamIDs::slotParam (s, p), 0.0f));
+        group->addChild (std::make_unique<SlotFloatParam> (info, s, kNumParams, ParamIDs::slotMix (s), 1.0f));
+        group->addChild (std::make_unique<SlotPowerParam> (info, s, ParamIDs::slotPause (s)));
         layout.add (std::move (group));
     }
 
@@ -58,6 +113,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout EffectorKillaAudioProcessor:
     layout.add (std::make_unique<BoolParam> (juce::ParameterID { ParamIDs::autoTracking, 1 }, "Auto Tracking", false));
     layout.add (std::make_unique<BoolParam> (juce::ParameterID { ParamIDs::pocketTv, 1 }, "Pocket TV", false));
     layout.add (std::make_unique<BoolParam> (juce::ParameterID { ParamIDs::offAir, 1 }, "Off Air", false));
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::recycle, 1 }, "Recycle",
+                                              juce::NormalisableRange<float> (0.0f, 1.0f), 0.0f,
+                                              juce::AudioParameterFloatAttributes().withStringFromValueFunction (
+                                                  [] (float v, int) { return juce::String (juce::roundToInt (v * 100.0f)) + " %"; })));
+    layout.add (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { ParamIDs::tempoMode, 1 }, "Tempo Mode",
+                                                              juce::StringArray { "Host", "Manual" }, 0));
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::tempoBpm, 1 }, "Tempo",
+                                              juce::NormalisableRange<float> (40.0f, 300.0f, 0.01f), 120.0f,
+                                              juce::AudioParameterFloatAttributes().withLabel ("BPM")));
     return layout;
 }
 
@@ -66,7 +130,7 @@ EffectorKillaAudioProcessor::EffectorKillaAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts (*this, nullptr, "PARAMS", createLayout())
+      apvts (*this, nullptr, "PARAMS", createLayout (hostInfo))
 {
     for (int s = 0; s < kNumSlots; ++s)
     {
@@ -88,6 +152,9 @@ EffectorKillaAudioProcessor::EffectorKillaAudioProcessor()
     pAuto = apvts.getRawParameterValue (ParamIDs::autoTracking);
     pPocket = apvts.getRawParameterValue (ParamIDs::pocketTv);
     pOffAir = apvts.getRawParameterValue (ParamIDs::offAir);
+    pRecycle = apvts.getRawParameterValue (ParamIDs::recycle);
+    pTempoMode = apvts.getRawParameterValue (ParamIDs::tempoMode);
+    pTempoBpm = apvts.getRawParameterValue (ParamIDs::tempoBpm);
 
     bank.loadFactory (juce::String::fromUTF8 (EKData::factory_json, EKData::factory_jsonSize));
     bank.loadTapes (juce::String::fromUTF8 (EKData::tapes_json, EKData::tapes_jsonSize));
@@ -153,6 +220,7 @@ void EffectorKillaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
     in.global.autoTracking = pAuto->load() > 0.5f;
     in.global.pocketTv = pPocket->load() > 0.5f;
     in.global.offAir = pOffAir->load() > 0.5f;
+    in.global.recycle = pRecycle->load();
 
     ProcessContext ctx;
     ctx.sampleRate = getSampleRate() > 0 ? getSampleRate() : currentSampleRate;
@@ -164,6 +232,18 @@ void EffectorKillaAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer
             if (auto ppq = pos->getPpqPosition()) { ctx.ppq = *ppq; ctx.hostHasPosition = true; }
             ctx.playing = pos->getIsPlaying();
             if (auto ts = pos->getTimeSignature()) { ctx.timeSigNumerator = ts->numerator; ctx.timeSigDenominator = ts->denominator; }
+        }
+    }
+
+    // MANUAL tempo (or TAP): own BPM; follows the host transport position when there is one,
+    // otherwise a free-running position keeps synced LFOs and delays moving.
+    if (pTempoMode->load() > 0.5f)
+    {
+        ctx.bpm = juce::jlimit (40.0, 300.0, (double) pTempoBpm->load());
+        if (! ctx.hostHasPosition || ! ctx.playing)
+        {
+            ctx.ppq = freePpq;
+            freePpq += (double) buffer.getNumSamples() * ctx.beatsPerSample();
         }
     }
 
@@ -221,13 +301,40 @@ void EffectorKillaAudioProcessor::applyProgram (const ProgramState& p, bool undo
     applying = false;
     if (meta.channel >= 0) lastChannel = meta.channel;
     if (screening >= 0 && meta.slots[(size_t) screening].isEmpty()) screening = -1;
+    if (solo >= 0 && meta.slots[(size_t) solo].isEmpty()) solo = -1;
+    updateHostNames();
     pushConfigToEngine();
     pushExtrasToEngine();
     ++programEvents;
     notifyUi();
 }
 
-void EffectorKillaAudioProcessor::pushConfigToEngine() { engine.setRackConfig (meta.rackConfig (screening)); }
+void EffectorKillaAudioProcessor::updateHostNames()
+{
+    bool changed = false;
+    for (int s = 0; s < kNumSlots; ++s)
+    {
+        const int t = (int) meta.slots[(size_t) s].type;
+        if (hostInfo->type[(size_t) s].exchange (t) != t) changed = true;
+    }
+    if (changed)
+        updateHostDisplay (ChangeDetails().withParameterInfoChanged (true));
+}
+
+void EffectorKillaAudioProcessor::tapTempo()
+{
+    const double now = juce::Time::getMillisecondCounterHiRes();
+    if (! taps.empty() && now - taps.back() > 2000.0) taps.clear(); // a pause starts a new tap run
+    taps.push_back (now);
+    if (taps.size() > 6) taps.erase (taps.begin());
+    if (taps.size() < 2) return;
+    const double avg = (taps.back() - taps.front()) / (double) (taps.size() - 1);
+    const double bpm = juce::jlimit (40.0, 300.0, 60000.0 / avg);
+    if (auto* m = apvts.getParameter (ParamIDs::tempoMode)) m->setValueNotifyingHost (1.0f);
+    if (auto* b = apvts.getParameter (ParamIDs::tempoBpm)) b->setValueNotifyingHost (b->convertTo0to1 ((float) bpm));
+}
+
+void EffectorKillaAudioProcessor::pushConfigToEngine() { engine.setRackConfig (meta.rackConfig (screening, solo)); }
 
 void EffectorKillaAudioProcessor::pushExtrasToEngine()
 {
@@ -418,10 +525,10 @@ int EffectorKillaAudioProcessor::findTape (int slot) const
     return -1;
 }
 
-void EffectorKillaAudioProcessor::moveSlot (int from, int to)
+// Reorder slots inside a program; macro mappings and modulation targets follow their slot.
+static void reorderSlots (ek::ProgramState& p, int from, int to)
 {
-    if (from == to || from < 0 || to < 0 || from >= kNumSlots || to >= kNumSlots) return;
-    auto p = captureProgram();
+    using namespace ek;
     std::vector<SlotState> v (p.slots.begin(), p.slots.end());
     std::vector<int> order (kNumSlots);
     std::iota (order.begin(), order.end(), 0);
@@ -440,8 +547,52 @@ void EffectorKillaAudioProcessor::moveSlot (int from, int to)
         if (ModTarget::isSlotParam (*t))
             for (int i = 0; i < kNumSlots; ++i)
                 if (order[(size_t) i] == ModTarget::slotOf (*t)) { *t = ModTarget::slotParam (i, ModTarget::paramOf (*t)); break; }
+}
+
+void EffectorKillaAudioProcessor::moveSlot (int from, int to)
+{
+    if (from == to || from < 0 || to < 0 || from >= kNumSlots || to >= kNumSlots) return;
+    auto p = captureProgram();
+    reorderSlots (p, from, to);
     screening = -1;
+    solo = -1;
     if (selectedSlot == from) selectedSlot = to;
+    applyProgram (p, true);
+}
+
+int EffectorKillaAudioProcessor::insertEffect (int at, EffectType t)
+{
+    if (at < 0 || at >= kNumSlots || t == EffectType::None) return -1;
+    auto p = captureProgram();
+    // free slot: the first empty one at/after the drop point, otherwise the last empty one before it
+    int free = -1;
+    for (int i = at; i < kNumSlots && free < 0; ++i) if (p.slots[(size_t) i].isEmpty()) free = i;
+    for (int i = at - 1; i >= 0 && free < 0; --i) if (p.slots[(size_t) i].isEmpty()) free = i;
+    if (free < 0) return -1; // rack full
+    auto& s = p.slots[(size_t) free];
+    s = SlotState();
+    s.setType (t);
+    const auto& tapes = bank.getTapes (t);
+    if (! tapes.empty()) { s = tapes.front().slot; s.ms = MSMode::Stereo; s.writeProtect = false; }
+    p.maps.erase (std::remove_if (p.maps.begin(), p.maps.end(), [free] (const MacroMapping& m) { return m.slot == free; }), p.maps.end());
+    if (free != at) reorderSlots (p, free, at);
+    screening = -1;
+    solo = -1;
+    selectedSlot = at;
+    applyProgram (p, true);
+    return at;
+}
+
+void EffectorKillaAudioProcessor::removeEffect (int slot)
+{
+    if (slot < 0 || slot >= kNumSlots || meta.slots[(size_t) slot].writeProtect) return;
+    auto p = captureProgram();
+    p.slots[(size_t) slot] = SlotState();
+    p.maps.erase (std::remove_if (p.maps.begin(), p.maps.end(), [slot] (const MacroMapping& m) { return m.slot == slot; }), p.maps.end());
+    reorderSlots (p, slot, kNumSlots - 1);  // close the gap, empty slot goes to the end
+    screening = -1;
+    solo = -1;
+    selectedSlot = -1;
     applyProgram (p, true);
 }
 
@@ -455,6 +606,13 @@ void EffectorKillaAudioProcessor::setSlotMs (int slot, MSMode m)
 void EffectorKillaAudioProcessor::setWriteProtect (int slot, bool on)
 {
     meta.slots[(size_t) slot].writeProtect = on;
+    notifyUi();
+}
+
+void EffectorKillaAudioProcessor::setSolo (int slot)
+{
+    solo = (slot >= 0 && slot < kNumSlots && ! meta.slots[(size_t) slot].isEmpty()) ? slot : -1;
+    pushConfigToEngine();
     notifyUi();
 }
 

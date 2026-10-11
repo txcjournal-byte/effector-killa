@@ -23,6 +23,9 @@ void Engine::prepare (double sr, int maxBlock, int osFactorLog2)
     outGain.reset (sr, 30.0f, 1.0f);
     blend.reset (sr, 30.0f, 1.0f);
     trim.reset (sr, 60.0f, 1.0f);
+    recycleAmt.reset (sr, 50.0f, 0.0f);
+    fbL.fill (0.0f); fbR.fill (0.0f); fbPos = 0; recycleActive = false;
+    dcX[0] = dcX[1] = dcY[0] = dcY[1] = 0.0f;
     offAirRamp.reset ((int) (offAirFadeMs * 0.001 * sr), 0.0f);
     pocketRamp.reset ((int) (0.02 * sr), 0.0f);
 
@@ -82,6 +85,7 @@ void Engine::process (juce::AudioBuffer<float>& buffer, const EngineInput& in, c
 
 void Engine::processChunk (float* L, float* R, int n, const EngineInput& in, const ProcessContext& ctx) noexcept
 {
+    in_recycle = in.global.recycle;
     const ProgramExtras* ex = extras.acquire();
     if (ex == nullptr) ex = &defaultExtras;
 
@@ -150,8 +154,8 @@ void Engine::processChunk (float* L, float* R, int n, const EngineInput& in, con
         for (int p = 0; p < kNumParams; ++p)
             effectiveParams[(size_t) s][(size_t) p].store (eff.slots[(size_t) s].p[(size_t) p], std::memory_order_relaxed);
 
-    // ---- rack ---------------------------------------------------------------------------
-    rack.process (L, R, n, eff, ctx);
+    // ---- rack (+ RECYCLE) -------------------------------------------------------------------
+    processRack (L, R, n, eff, ctx);
 
     // ---- trim + BLEND ------------------------------------------------------------------
     trim.setTarget (dbToGain (ex->trimDb));
@@ -235,6 +239,56 @@ void Engine::processChunk (float* L, float* R, int n, const EngineInput& in, con
     meters.outPeak.store (peak);
     meters.outLevel.store ((float) std::sqrt (sum / (2.0 * n)));
     meters.transient.store (tr);
+}
+
+void Engine::processRack (float* L, float* R, int n, const RackParams& eff, const ProcessContext& ctx) noexcept
+{
+    recycleAmt.setTarget (clamp01 (in_recycle));
+    const bool active = recycleAmt.getTarget() > 0.0f || recycleAmt.get() > 1.0e-5f;
+    if (! active)
+    {
+        if (recycleActive)
+        {
+            fbL.fill (0.0f); fbR.fill (0.0f);
+            dcX[0] = dcX[1] = dcY[0] = dcY[1] = 0.0f;
+            recycleActive = false;
+        }
+        rack.process (L, R, n, eff, ctx);
+        return;
+    }
+    recycleActive = true;
+
+    // Sub-blocks of at most 64 samples: every input sample gets the output from exactly
+    // 64 samples earlier, so the loop time does not depend on the host buffer size.
+    for (int pos = 0; pos < n; pos += kRecycleBlock)
+    {
+        const int m = std::min (kRecycleBlock, n - pos);
+        float* l = L + pos;
+        float* r = R + pos;
+        for (int i = 0; i < m; ++i)
+        {
+            const float a = recycleAmt.next();
+            const float g = 0.97f * a * (2.0f - a); // fast start, still never above unity
+            const int idx = (fbPos + i) % kRecycleBlock;
+            l[i] += g * std::tanh (fbL[(size_t) idx]);
+            r[i] += g * std::tanh (fbR[(size_t) idx]);
+        }
+        ProcessContext sub = ctx;
+        sub.ppq = ctx.ppq + (double) pos * ctx.beatsPerSample();
+        rack.process (l, r, m, eff, sub);
+        for (int i = 0; i < m; ++i)
+        {
+            const int idx = (fbPos + i) % kRecycleBlock;
+            // DC blocker in the loop: no offset can build up, however hot it gets
+            const float xl = std::isfinite (l[i]) ? l[i] : 0.0f;
+            const float xr = std::isfinite (r[i]) ? r[i] : 0.0f;
+            dcY[0] = xl - dcX[0] + 0.995f * dcY[0]; dcX[0] = xl;
+            dcY[1] = xr - dcX[1] + 0.995f * dcY[1]; dcX[1] = xr;
+            fbL[(size_t) idx] = dcY[0];
+            fbR[(size_t) idx] = dcY[1];
+        }
+        fbPos = (fbPos + m) % kRecycleBlock;
+    }
 }
 
 } // namespace ek

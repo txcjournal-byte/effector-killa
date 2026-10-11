@@ -167,7 +167,7 @@ SlotState SlotState::fromVar (const juce::var& v) { return slotFromPresetJson (v
 // ============================================================================
 // ProgramState
 // ============================================================================
-RackConfig ProgramState::rackConfig (int screening) const
+RackConfig ProgramState::rackConfig (int screening, int solo) const
 {
     RackConfig c;
     for (int i = 0; i < kNumSlots; ++i)
@@ -176,6 +176,7 @@ RackConfig ProgramState::rackConfig (int screening) const
         c.slots[(size_t) i].ms = slots[(size_t) i].ms;
     }
     c.screening = screening;
+    c.solo = solo;
     return c;
 }
 

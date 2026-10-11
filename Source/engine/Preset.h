@@ -85,7 +85,7 @@ struct ProgramState
     uint64_t seed = 0;
     juce::StringArray tags;
 
-    RackConfig rackConfig (int screening = -1) const;
+    RackConfig rackConfig (int screening = -1, int solo = -1) const;
     juce::var toVar() const;
     static ProgramState fromVar (const juce::var& v);
     juce::String toJson() const;

@@ -78,6 +78,7 @@ struct ProgramExtras
 struct GlobalParams
 {
     float inGainDb = 0.0f, outGainDb = 0.0f, blend = 1.0f;
+    float recycle = 0.0f; // 0..1: part of the rack output fed back into the rack input
     bool autoTracking = false, pocketTv = false, offAir = false;
 };
 
@@ -147,5 +148,15 @@ private:
     float pocketEnv = 0.0f, pocketAtt = 0.0f, pocketRel = 0.0f;
     float matchDb = 0.0f;
     EnvelopeFollower transientFast, transientSlow;
+
+    // RECYCLE: rack output fed back into the rack input (fixed 64-sample loop + rack latency)
+    static constexpr int kRecycleBlock = 64;
+    void processRack (float* L, float* R, int n, const RackParams& eff, const ProcessContext& ctx) noexcept;
+    Smoothed recycleAmt;
+    std::array<float, kRecycleBlock> fbL {}, fbR {};
+    int fbPos = 0;
+    float dcX[2] {}, dcY[2] {};
+    bool recycleActive = false;
+    float in_recycle = 0.0f;
 };
 } // namespace ek
