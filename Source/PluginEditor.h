@@ -9,14 +9,10 @@
 #include "ui/rack/GearList.h"
 #include "ui/rack/PresetBrowser.h"
 
-// The performer and MOD units are built as standalone components. Until they are merged the
-// editor shows simple fallback panels (ControlPanel.h) in their place.
-#if __has_include("ui/rack/PerformerUnit.h")
- #include "ui/rack/PerformerUnit.h"
- using EkPerformerUnit = ek::ui::PerformerUnit;
-#else
- using EkPerformerUnit = ek::ui::PerformerFallback;
-#endif
+#include "ui/rack/PerformerUnit.h"
+
+// The MOD unit is built as a standalone component. Until it is merged the editor shows a blank
+// placeholder panel (ControlPanel.h) in its place.
 #if __has_include("ui/rack/ModUnit.h")
  #include "ui/rack/ModUnit.h"
  using EkModUnit = ek::ui::ModUnit;
@@ -60,12 +56,13 @@ public:
     void setGearShown (bool shown);     // also narrows / widens the window
     void showBrowser (bool shown);
     bool isBrowserShown() const { return browser.isVisible(); }
-    void setReduceMotion (bool on) { ek::ui::hw::setReduceMotion (on); }
+    void setReduceMotion (bool on);     // settings menu "Reduce motion" (persisted per user)
     bool getReduceMotion() const { return ek::ui::hw::reduceMotion(); }
     void tickAll();                      // also used by the snapshot tool
     ek::ui::RackView& getRackView() noexcept { return rackView; }
     ek::ui::Toolbar& getToolbar() noexcept { return toolbar; }
     ek::ui::ControlUnit& getControlUnit() noexcept { return controlUnit; }
+    ek::ui::PerformerUnit& getPerformer() noexcept { return performer; }  // has its own 30 Hz timer
 
 private:
     // walnut frame + rack shaft with rails (cached)
@@ -78,6 +75,19 @@ private:
     private:
         EffectorKillaAudioProcessor& proc;
         ek::ui::hw::BackgroundCache cache;
+    };
+
+    // short ice-blue flash over the rack after a KILL (DESIGN-RACK.md section 9)
+    class KillFlash : public juce::Component
+    {
+    public:
+        KillFlash() { setInterceptsMouseClicks (false, false); }
+        void trigger();
+        void tick();
+        void paint (juce::Graphics&) override;
+    private:
+        double startMs = -1.0e9;
+        float shown = 0.0f;
     };
 
     void timerCallback() override;
@@ -96,9 +106,10 @@ private:
     Frame frame;
     ek::ui::Toolbar toolbar;
     ek::ui::ControlUnit controlUnit;
-    EkPerformerUnit performer;
+    ek::ui::PerformerUnit performer;
     EkModUnit modUnit;
     juce::Viewport rackViewport;
+    KillFlash killFlash;
     ek::ui::RackView rackView;
     ek::ui::GearList gearList;
     ek::ui::PresetBrowser browser;

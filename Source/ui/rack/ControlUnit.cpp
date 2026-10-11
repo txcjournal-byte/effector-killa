@@ -310,9 +310,10 @@ void ControlUnit::paintStatic (Graphics& g)
     float logoRight = 32.0f;
     if (logo.isValid())
     {
-        const float h = 42.0f, w = h * (float) logo.getWidth() / (float) logo.getHeight();
+        const float h = 44.0f, w = h * (float) logo.getWidth() / (float) logo.getHeight();
         g.setOpacity (1.0f);
-        g.drawImage (logo, Rectangle<float> (32.0f, 7.0f, w, h), RectanglePlacement::centred);
+        g.setImageResamplingQuality (Graphics::highResamplingQuality);
+        g.drawImage (logo, Rectangle<float> (32.0f, 6.0f, w, h), RectanglePlacement::centred);
         logoRight = 32.0f + w;
     }
     // RACK tag (ice blue) and chrome title

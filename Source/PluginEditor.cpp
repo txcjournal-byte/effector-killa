@@ -62,6 +62,34 @@ void EffectorKillaAudioProcessorEditor::Frame::paint (juce::Graphics& g)
 }
 
 // ============================================================================================
+void EffectorKillaAudioProcessorEditor::KillFlash::trigger()
+{
+    if (hw::reduceMotion()) return;
+    startMs = juce::Time::getMillisecondCounterHiRes();
+    tick();
+}
+
+void EffectorKillaAudioProcessorEditor::KillFlash::tick()
+{
+    const double t = (juce::Time::getMillisecondCounterHiRes() - startMs) / 220.0;
+    const float a = t >= 1.0 || t < 0.0 ? 0.0f : (float) (1.0 - t) * (float) (1.0 - t);
+    if (std::abs (a - shown) < 0.002f) return;
+    shown = a;
+    setVisible (a > 0.0f);
+    repaint();
+}
+
+void EffectorKillaAudioProcessorEditor::KillFlash::paint (juce::Graphics& g)
+{
+    if (shown <= 0.0f) return;
+    const auto r = getLocalBounds().toFloat();
+    g.setColour (hw::col::ice.withAlpha (0.16f * shown));
+    g.fillRect (r);
+    g.setColour (hw::col::ice.withAlpha (0.55f * shown));
+    g.drawRect (r.reduced (4.0f), 2.0f);
+}
+
+// ============================================================================================
 EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKillaAudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p), frame (p), toolbar (p), controlUnit (p), performer (p), modUnit (p),
       rackView (p), gearList (p), browser (p)
@@ -79,6 +107,7 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     rackViewport.setScrollBarThickness (8);
     rackViewport.setScrollOnDragMode (juce::Viewport::ScrollOnDragMode::never);
     content.addAndMakeVisible (rackViewport);
+    content.addChildComponent (killFlash);
     content.addAndMakeVisible (gearList);
     content.addChildComponent (browser);
 
@@ -87,6 +116,8 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     toolbar.onSave = [this] { showSaveDialog(); };
     toolbar.onSettings = [this] { showSettingsMenu(); };
     toolbar.onInfo = [this] { showInfoMenu(); };
+    performer.onKillFlash = [this] { killFlash.trigger(); };
+    performer.setReduceMotion (hw::reduceMotion());
     controlUnit.onSetScale = [this] (float s) { setUiScale (s); };
     controlUnit.onToggleGear = [this] { setGearShown (! processor.showGear); };
     controlUnit.isGearShown = [this] { return processor.showGear; };
@@ -178,10 +209,12 @@ void EffectorKillaAudioProcessorEditor::layoutBody()
 
     const auto rack = rackArea();
     rackViewport.setBounds (rack);
+    killFlash.setBounds (rack);
     rackView.setSize (rack.getWidth() - rackViewport.getScrollBarThickness(), juce::jmax (rack.getHeight(), rackView.getIdealHeight()));
     gearList.setVisible (processor.showGear);
     gearList.setBounds (gearArea());
-    browser.setBounds (20, performerArea().getY(), w - 40, rack.getBottom() - performerArea().getY());
+    // the browser covers the rack shaft under the control unit; the gear list stays visible
+    browser.setBounds (shaftArea().getX(), performerArea().getY(), shaftArea().getWidth(), rack.getBottom() - performerArea().getY());
 }
 
 void EffectorKillaAudioProcessorEditor::setGearShown (bool shown)
@@ -215,9 +248,15 @@ void EffectorKillaAudioProcessorEditor::tickAll()
     if (rackView.getHeight() != want) rackView.setSize (rackView.getWidth(), want);
     toolbar.tick();
     controlUnit.tick();
-    tickIfPossible (performer, 0);
-    tickIfPossible (modUnit, 0);
+    tickIfPossible (modUnit, 0);   // (PerformerUnit runs its own timer)
     rackView.tick();
+    killFlash.tick();
+}
+
+void EffectorKillaAudioProcessorEditor::setReduceMotion (bool on)
+{
+    hw::setReduceMotion (on);
+    performer.setReduceMotion (on);
 }
 
 void EffectorKillaAudioProcessorEditor::timerCallback()

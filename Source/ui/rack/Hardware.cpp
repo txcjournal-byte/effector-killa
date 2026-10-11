@@ -424,7 +424,7 @@ void drawSevenSegment (Graphics& g, Rectangle<float> r, const String& text, Colo
         (c.dp ? lit : unlit).addEllipse (dpRect);
         x += w + gap;
     }
-    g.setColour (off);
+    g.setColour (off.withMultipliedAlpha (0.8f));
     g.fillPath (unlit);
     if (glow > 0.0f)
     {
