@@ -68,5 +68,28 @@ int main (int argc, char** argv)
         proc.setParamNorm (ek::ParamIDs::recycle, 0.35f);
         proc.setParamNorm (ek::ParamIDs::tempoMode, 1.0f);
     });
+    // window frame, toolbar and control unit (DESIGN-RACK.md sections 2 - 4)
+    shot ("frame_default", [&] (EffectorKillaAudioProcessorEditor& e)
+    {
+        e.setGearShown (true);
+        proc.loadFactory (9, 2);   // CH10 Night Drive
+    });
+    shot ("frame_nogear", [&] (EffectorKillaAudioProcessorEditor& e)
+    {
+        proc.loadFactory (9, 2);
+        e.setGearShown (false);
+        proc.setParamNorm (ek::ParamIDs::recycle, 0.6f);
+        proc.setParamNorm (ek::ParamIDs::tempoMode, 1.0f);
+        proc.setParamNorm (ek::ParamIDs::pocketTv, 1.0f);
+    });
+    shot ("frame_small_browser", [&] (EffectorKillaAudioProcessorEditor& e)
+    {
+        e.setGearShown (true);
+        proc.setParamNorm (ek::ParamIDs::recycle, 0.0f);
+        proc.setParamNorm (ek::ParamIDs::tempoMode, 0.0f);
+        proc.setParamNorm (ek::ParamIDs::pocketTv, 0.0f);
+        e.setUiScale (0.8f);
+        e.showBrowser (true);
+    });
     return 0;
 }
