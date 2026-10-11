@@ -121,10 +121,11 @@ endif()
 # ---------------------------------------------------------------------------
 if(EK_BUILD_TOOLS)
     juce_add_console_app(EffectorKillaSnapshot PRODUCT_NAME "EffectorKillaSnapshot")
-    target_sources(EffectorKillaSnapshot PRIVATE Tools/Snapshot.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp
+    target_sources(EffectorKillaSnapshot PRIVATE Tools/Snapshot.cpp Tools/SnapshotUnits.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp
         ${EK_ENGINE_SOURCES} ${EK_UI_SOURCES})
     target_include_directories(EffectorKillaSnapshot PRIVATE Source)
     target_compile_definitions(EffectorKillaSnapshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
     target_link_libraries(EffectorKillaSnapshot PRIVATE EffectorKillaData juce::juce_audio_processors juce::juce_gui_extra juce::juce_dsp
         juce::juce_recommended_config_flags)
+
 endif()

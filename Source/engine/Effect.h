@@ -141,6 +141,11 @@ public:
     // Fixed latency after prepare() (never changes with parameters).
     virtual int getLatencySamples() const noexcept { return 0; }
 
+    // UI telemetry, read on the audio thread right after process() (see UnitTaps.h). Additive only:
+    // the defaults mean "nothing to show" and none of these change the audio.
+    virtual float getGainReductionDb() const noexcept { return 0.0f; } // current gain change, <= 0 dB = reduction
+    virtual float getActivity (int /*index*/) const noexcept { return 0.0f; } // effect-specific 0..1 activity
+
     float getNorm (int i) const noexcept { return norm[(size_t) i]; }
     float getReal (int i) const noexcept { return infoPtr->params[(size_t) i].toReal (norm[(size_t) i]); }
 

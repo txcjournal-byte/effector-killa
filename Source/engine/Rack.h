@@ -10,6 +10,7 @@
 // the rack content; every chain pads itself up to that value.
 
 #include "Effect.h"
+#include "UnitTaps.h"
 #include <atomic>
 
 namespace ek
@@ -58,6 +59,8 @@ public:
     int getTotalLatency() const noexcept { return actualLatency + pad.getDelay(); }
     int getSlotLatency (int slot) const noexcept { return slots[(size_t) slot].latency; }
     Effect* getEffect (int slot) const noexcept { return slots[(size_t) slot].fx.get(); }
+
+    UnitTaps* taps = nullptr; // UI telemetry sink (set by Rack::buildChain), may be null
 
 private:
     struct Slot
@@ -120,12 +123,16 @@ public:
 
     static constexpr float crossfadeMs = 40.0f;
 
+    // Live per-unit levels / GR / scope for the UI (written by the audible chain only).
+    UnitTaps& getTaps() const noexcept { return taps; }
+
 private:
     Chain* buildChain (const RackConfig& cfg) const;
     void retire (Chain* c) noexcept;
 
     PrepareSpec spec;
     int fixedLatency = 0;
+    mutable UnitTaps taps;
     RackConfig lastConfig;
     juce::CriticalSection configLock; // message side only – never taken by the audio thread
 

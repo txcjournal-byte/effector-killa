@@ -57,8 +57,12 @@ public:
         mix.setTarget (getReal (3));
     }
 
+    // UI: transient strength of the last block (0..1, ~12 dB above the body = 1)
+    float getActivity (int index) const noexcept override { return index == 0 ? hitLevel : 0.0f; }
+
     void process (float* L, float* R, int n, const ProcessContext&) override
     {
+        hitLevel = 0.0f;
         for (int i = 0; i < n; ++i)
         {
             const float a = attack.next(), su = sustain.next(), c = clip.next(), m = mix.next();
@@ -67,6 +71,7 @@ public:
             const float sf = susFast.process (x), ss = susSlow.process (x);
 
             const float atkDiff = juce::jlimit (0.0f, 24.0f, gainToDb (f + 1.0e-6f) - gainToDb (s + 1.0e-6f));
+            if (f > 0.003f) hitLevel = std::max (hitLevel, atkDiff * (1.0f / 12.0f));
             const float susDiff = juce::jlimit (0.0f, 24.0f, gainToDb (ss + 1.0e-6f) - gainToDb (sf + 1.0e-6f));
             float gDb = a * atkDiff * 0.9f + su * susDiff * 0.8f;
             gDb = juce::jlimit (-18.0f, 18.0f, gDb);
@@ -98,6 +103,7 @@ private:
     EnvelopeFollower fast, slow, susFast, susSlow, gainSm;
     Smoothed attack, sustain, clip, mix;
     float gainState = 0.0f;
+    float hitLevel = 0.0f; // telemetry only
 };
 } // namespace
 

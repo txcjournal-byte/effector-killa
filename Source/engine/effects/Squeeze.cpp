@@ -92,7 +92,7 @@ public:
         }
     }
 
-    float getGainReductionDb() const noexcept { return grDb; }
+    float getGainReductionDb() const noexcept override { return grDb; }
 
 private:
     void updateTimes()

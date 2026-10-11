@@ -1,5 +1,6 @@
 // Renders the editor to PNG files - checks the UI without a DAW.
 //   EffectorKillaSnapshot <outDir>
+//   EffectorKillaSnapshot --units <outDir>   (rack units + gear list only, Tools/SnapshotUnits.cpp)
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "ui/rack/PerformerUnit.h"
@@ -127,6 +128,8 @@ static int renderFrameSnapshots (const juce::File& outDir)
     return 0;
 }
 
+int runUnitsSnapshot (const juce::File& outDir);
+
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
@@ -135,6 +138,7 @@ int main (int argc, char** argv)
     const Mode modes[] = {
         { "--frame", renderFrameSnapshots },
         { "--performer", renderPerformerSnapshots },
+        { "--units", runUnitsSnapshot },
     };
     for (int a = 1; a < argc; ++a)
         for (auto& m : modes)
