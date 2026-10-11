@@ -1,9 +1,11 @@
 #pragma once
 
-// Top bar of the window (40 px, DESIGN-RACK.md section 3):
-//   < > [ PRESET LCD ] save revert fav  A B  undo redo  ........  settings info [ BYPASS ]
-// The preset LCD also shows short status messages ("SAVED") and plays a scan animation when
-// the preset changes. BYPASS = COMPARE (off_air): click toggles, holding listens while held.
+// HEADER of the window (56 px, Docs/TRAPWIN-STYLE.md): no bar, just pills on the dark background.
+//   [logo] (library)  A B  undo redo   ...   < [ preset pill ] >  save revert fav   ...   cog i [ BYPASS ]
+// The official TrapWin logo is painted from Brand.h (never as text). The preset pill (IBM Plex Mono,
+// sparkle = favourite) also shows short status messages ("SAVED") and plays a soft scan sweep when the
+// preset changes; click = preset browser. BYPASS = COMPARE (off_air): click toggles, holding listens
+// while held (red glow while on).
 
 #include "Hardware.h"
 #include "../../PluginProcessor.h"
@@ -37,10 +39,12 @@ class Toolbar : public juce::Component
 public:
     explicit Toolbar (EffectorKillaAudioProcessor& p);
 
-    static constexpr int height = 40;
+    static constexpr int height = 56;
 
-    std::function<void()> onBrowse, onSave, onSettings, onInfo;
-    std::function<bool()> isBrowserShown;
+    std::function<void()> onBrowse, onSave, onSettings, onInfo, onToggleLibrary;
+    std::function<bool()> isBrowserShown, isLibraryShown;
+    // x of the chain column centre (the preset group is centred over it when there is room)
+    void setCentreX (int x) { if (x != centreX) { centreX = x; resized(); } }
 
     void tick();
     void refresh() { lcd.repaint(); }
@@ -53,7 +57,9 @@ public:
 private:
     EffectorKillaAudioProcessor& proc;
     PresetLcd lcd;
-    hw::HwButton prevBtn, nextBtn, saveBtn, revertBtn, favBtn, aBtn, bBtn, undoBtn, redoBtn, settingsBtn, infoBtn, bypassBtn;
+    hw::HwButton libBtn, prevBtn, nextBtn, saveBtn, revertBtn, favBtn, aBtn, bBtn, undoBtn, redoBtn, settingsBtn, infoBtn, bypassBtn;
+    juce::Rectangle<float> logoArea;
+    int centreX = -1;
     juce::uint32 bypassDownAt = 0;
     bool bypassWasOn = false;
 };

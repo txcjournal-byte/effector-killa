@@ -5,10 +5,11 @@
 //   EffectorKillaSnapshot --units <outDir>   (rack units + gear list only, Tools/SnapshotUnits.cpp)
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-#include "ui/rack/PerformerUnit.h"
+#include "ui/rack/MasterColumn.h"
 #include "ui/rack/PresetBrowser.h"
 
-// --performer: the PERFORMER unit at 2x and the preset browser on their own (performer.png, browser.png).
+// --master (old name --performer): the MASTER column at 2x and the preset browser on their own
+// (master.png, browser.png).
 static int renderPerformerSnapshots (const juce::File& outDir)
 {
     EffectorKillaAudioProcessor proc;
@@ -41,27 +42,31 @@ static int renderPerformerSnapshots (const juce::File& outDir)
     proc.killLevel = ek::KillLevel::R;
 
     {
-        ek::ui::PerformerUnit unit (proc);
-        // ~1 s of a -17 dBFS RMS sine so the needles settle with their ballistics
+        ek::ui::MasterColumn unit (proc);
+        proc.setParamNorm (ek::ParamIDs::recycle, 0.45f);
+        proc.setParamNorm (ek::ParamIDs::pocketTv, 1.0f);
+        // ~1 s of a -17 dBFS RMS sine so the meters settle
         for (int frame = 0; frame < 34; ++frame)
         {
             render (0.2f);
             unit.tick();
         }
-        write (unit, "performer", 2.0f);
+        write (unit, "master", 2.0f);
+        proc.setParamNorm (ek::ParamIDs::recycle, 0.0f);
+        proc.setParamNorm (ek::ParamIDs::pocketTv, 0.0f);
     }
     {
         ek::ui::PresetBrowser browser (proc);
-        browser.setSize (940, 540);   // the rack area it covers in the editor
+        browser.setSize (852, 812);   // the centre column it covers in the editor
         browser.open();
         write (browser, "browser", 1.0f);
     }
     return 0;
 }
 
-// --frame: window frame, toolbar and control unit (DESIGN-RACK.md sections 2 - 4):
-// frame_default.png (1280 x 900), frame_nogear.png (980 x 900), frame_small_browser.png (80 %),
-// frame_control_2x.png (toolbar + control unit at 2x for close inspection).
+// --shell (old name --frame): full-window shots of the TrapWin shell (header, FX library, MOD + chain,
+// MASTER column): shell_default.png (1360 x 900), shell_nolib.png (1124 x 900), shell_small.png (80 %),
+// shell_browser.png (preset browser open), shell_header_2x.png (header + top of the MASTER column at 2x).
 static int renderFrameSnapshots (const juce::File& outDir)
 {
     EffectorKillaAudioProcessor proc;
@@ -102,8 +107,11 @@ static int renderFrameSnapshots (const juce::File& outDir)
     };
 
     proc.loadFactory (9, 2);   // CH10 Night Drive
-    shot ("frame_default", [&] (EffectorKillaAudioProcessorEditor& e) { e.setGearShown (true); });
-    shot ("frame_nogear", [&] (EffectorKillaAudioProcessorEditor& e)
+    const float macroPos[] = { 0.62f, 0.35f, 0.78f, 0.5f, 0.24f };
+    for (int m = 0; m < ek::kNumMacros; ++m)
+        proc.setParamNorm (ek::ParamIDs::macro (m), macroPos[m]);
+    shot ("shell_default", [&] (EffectorKillaAudioProcessorEditor& e) { e.setGearShown (true); });
+    shot ("shell_nolib", [&] (EffectorKillaAudioProcessorEditor& e)
     {
         e.setGearShown (false);
         proc.setParamNorm (ek::ParamIDs::recycle, 0.6f);
@@ -111,25 +119,26 @@ static int renderFrameSnapshots (const juce::File& outDir)
         proc.setParamNorm (ek::ParamIDs::pocketTv, 1.0f);
         proc.setParamNorm (ek::ParamIDs::offAir, 1.0f);
     });
-    shot ("frame_control_2x", [&] (EffectorKillaAudioProcessorEditor& e)
+    shot ("shell_header_2x", [&] (EffectorKillaAudioProcessorEditor& e)
     {
         e.setGearShown (true);
-        proc.setParamNorm (ek::ParamIDs::recycle, 0.6f);
-        proc.setParamNorm (ek::ParamIDs::tempoMode, 1.0f);
         proc.setParamNorm (ek::ParamIDs::pocketTv, 0.0f);
         proc.setParamNorm (ek::ParamIDs::offAir, 0.0f);
-    }, [] (EffectorKillaAudioProcessorEditor&) { return juce::Rectangle<int> (0, 0, 980, 236); }, 2.0f);
-    shot ("frame_small_browser", [&] (EffectorKillaAudioProcessorEditor& e)
+    }, [] (EffectorKillaAudioProcessorEditor&) { return juce::Rectangle<int> (0, 0, 1360, 300); }, 2.0f);
+    shot ("shell_small", [&] (EffectorKillaAudioProcessorEditor& e)
     {
         e.setGearShown (true);
         proc.setParamNorm (ek::ParamIDs::recycle, 0.0f);
         proc.setParamNorm (ek::ParamIDs::tempoMode, 0.0f);
         e.setUiScale (0.8f);
+    });
+    shot ("shell_browser", [&] (EffectorKillaAudioProcessorEditor& e)
+    {
+        e.setGearShown (true);
         e.showBrowser (true);
     });
     return 0;
 }
-
 int runUnitsSnapshot (const juce::File& outDir);
 
 // --faceplates: contact sheet of the colour-group faceplates
@@ -603,7 +612,9 @@ int main (int argc, char** argv)
     // Special snapshot modes: EffectorKillaSnapshot --<mode> [outDir]
     struct Mode { const char* flag; int (*fn) (const juce::File&); };
     const Mode modes[] = {
+        { "--shell", renderFrameSnapshots },
         { "--frame", renderFrameSnapshots },
+        { "--master", renderPerformerSnapshots },
         { "--performer", renderPerformerSnapshots },
         { "--units", runUnitsSnapshot },
         { "--faceplates", renderFaceplatesColor },

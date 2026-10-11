@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "ui/rack/CardStyle.h"
 
 #ifndef JucePlugin_VersionString
  #define JucePlugin_VersionString "1.0.0"   // snapshot tool (not a plugin target)
@@ -20,44 +21,39 @@ void EffectorKillaAudioProcessorEditor::Frame::paint (juce::Graphics& g)
     cache.draw (g, getLocalBounds(), [this] (juce::Graphics& bg)
     {
         const float W = (float) getWidth(), H = (float) getHeight();
-        const bool gear = proc.showGear && getWidth() >= kWidth;
-        bg.fillAll (hw::col::shaft);
+        bg.fillAll (hw::col::bg);
 
-        // dark rack shaft with rails left / right
-        const auto shaft = shaftArea().toFloat();
-        bg.setColour (hw::col::shaft);
-        bg.fillRect (shaft);
-        hw::drawRackRail (bg, { shaft.getX() + 1.0f, shaft.getY(), 14.0f, shaft.getHeight() });
-        hw::drawRackRail (bg, { shaft.getRight() - 15.0f, shaft.getY(), 14.0f, shaft.getHeight() });
-        // depth: shadow under the top board and along the sides
-        juce::ColourGradient topShade (juce::Colours::black.withAlpha (0.8f), 0.0f, shaft.getY(), juce::Colours::transparentBlack, 0.0f, shaft.getY() + 14.0f, false);
-        bg.setGradientFill (topShade);
-        bg.fillRect (shaft.withHeight (14.0f));
-
-        // gear bay
-        if (gear)
+        // very subtle deep-blue radial glow (trapwin.com background): a wide one from the top centre,
+        // a fainter one rising from the lower right
         {
-            const auto ga = gearArea().toFloat();
-            bg.setColour (juce::Colour (0xff090b10));
-            bg.fillRect (ga);
+            juce::ColourGradient top (juce::Colour (0xff4676c4).withAlpha (0.16f), W * 0.5f, -H * 0.18f,
+                                      juce::Colour (0xff4676c4).withAlpha (0.0f), W * 0.5f + W * 0.62f, -H * 0.18f, true);
+            top.addColour (0.45, juce::Colour (0xff4676c4).withAlpha (0.06f));
+            bg.setGradientFill (top);
+            bg.fillRect (getLocalBounds().toFloat());
+            juce::ColourGradient low (juce::Colour (0xff2b4d8f).withAlpha (0.10f), W * 0.86f, H * 1.05f,
+                                      juce::Colour (0xff2b4d8f).withAlpha (0.0f), W * 0.86f - W * 0.45f, H * 1.05f, true);
+            bg.setGradientFill (low);
+            bg.fillRect (getLocalBounds().toFloat());
         }
 
-        // walnut: side boards full height (under the toolbar), top / bottom rails between them
-        const float top = 40.0f;
-        hw::drawWalnut (bg, { 20.0f, top, W - 40.0f, 18.0f }, false, 3);
-        hw::drawWalnut (bg, { 20.0f, H - 18.0f, W - 40.0f, 18.0f }, false, 5);
-        hw::drawWalnut (bg, { 0.0f, top, 20.0f, H - top }, true, 7);
-        hw::drawWalnut (bg, { W - 20.0f, top, 20.0f, H - top }, true, 9);
-        if (gear) hw::drawWalnut (bg, { 960.0f, top + 18.0f, 20.0f, H - top - 36.0f }, true, 11);
-
-        // joints + inner lip around the openings
-        bg.setColour (juce::Colours::black.withAlpha (0.65f));
-        for (auto x : { 20.0f, W - 20.0f }) bg.drawVerticalLine ((int) x, top, H);
-        if (gear) for (auto x : { 960.0f, 980.0f }) bg.drawVerticalLine ((int) x, top + 18.0f, H - 18.0f);
-        bg.drawHorizontalLine ((int) top + 18, 20.0f, W - 20.0f);
-        bg.drawHorizontalLine ((int) H - 18, 20.0f, W - 20.0f);
-        bg.setColour (juce::Colours::white.withAlpha (0.06f));
-        bg.drawHorizontalLine ((int) top + 1, 0.0f, W);
+        // sparse sparkles + star dust (deterministic, so snapshots are stable)
+        juce::Random rnd (0x7a11);
+        for (int i = 0; i < 90; ++i)
+        {
+            const juce::Point<float> p (rnd.nextFloat() * W, rnd.nextFloat() * H);
+            bg.setColour (juce::Colour (0xffc9d8f5).withAlpha (0.06f + 0.16f * rnd.nextFloat()));
+            const float d = 0.8f + rnd.nextFloat() * 1.0f;
+            bg.fillEllipse (juce::Rectangle<float> (d, d).withCentre (p));
+        }
+        for (int i = 0; i < 26; ++i)
+        {
+            const juce::Point<float> p (rnd.nextFloat() * W, rnd.nextFloat() * H);
+            const float big = rnd.nextFloat();
+            const float r = big > 0.85f ? 5.0f + 3.0f * rnd.nextFloat() : 2.0f + 2.2f * rnd.nextFloat();
+            ek::card::paintSparkle (bg, p, r, hw::col::ice.withAlpha (big > 0.85f ? 0.55f : 0.22f + 0.2f * rnd.nextFloat()),
+                                    big > 0.85f ? 0.7f : 0.0f);
+        }
     });
 }
 
@@ -97,24 +93,23 @@ void EffectorKillaAudioProcessorEditor::KillFlash::tick()
 void EffectorKillaAudioProcessorEditor::KillFlash::paint (juce::Graphics& g)
 {
     if (shown <= 0.0f) return;
-    const auto r = getLocalBounds().toFloat();
-    g.setColour (hw::col::ice.withAlpha (0.16f * shown));
-    g.fillRect (r);
-    g.setColour (hw::col::ice.withAlpha (0.55f * shown));
-    g.drawRect (r.reduced (4.0f), 2.0f);
+    const auto r = getLocalBounds().toFloat().reduced (2.0f);
+    g.setColour (hw::col::ice.withAlpha (0.12f * shown));
+    g.fillRoundedRectangle (r, 20.0f);
+    g.setColour (hw::col::ice.withAlpha (0.6f * shown));
+    g.drawRoundedRectangle (r.reduced (1.0f), 19.0f, 1.5f);
 }
 
 // ============================================================================================
 EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKillaAudioProcessor& p)
-    : AudioProcessorEditor (&p), processor (p), frame (p), toolbar (p), controlUnit (p), performer (p), modUnit (p),
+    : AudioProcessorEditor (&p), processor (p), toolbar (p), master (p), modUnit (p),
       rackView (p), gearList (p), browser (p)
 {
     setOpaque (true);
     addAndMakeVisible (content);
     content.addAndMakeVisible (frame);
     content.addAndMakeVisible (toolbar);
-    content.addAndMakeVisible (controlUnit);
-    content.addAndMakeVisible (performer);
+    content.addAndMakeVisible (master);
     content.addAndMakeVisible (modUnit);
 
     rackViewport.setViewedComponent (&rackView, false);
@@ -132,11 +127,11 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     toolbar.onSave = [this] { showSaveDialog(); };
     toolbar.onSettings = [this] { showSettingsMenu(); };
     toolbar.onInfo = [this] { showInfoMenu(); };
-    performer.onKillFlash = [this] { killFlash.trigger(); };
-    performer.setReduceMotion (hw::reduceMotion());
-    controlUnit.onSetScale = [this] (float s) { setUiScale (s); };
-    controlUnit.onToggleGear = [this] { setGearShown (! processor.showGear); };
-    controlUnit.isGearShown = [this] { return processor.showGear; };
+    toolbar.onToggleLibrary = [this] { setGearShown (! processor.showGear); };
+    toolbar.isLibraryShown = [this] { return processor.showGear; };
+    master.onKillFlash = [this] { killFlash.trigger(); };
+    master.setReduceMotion (hw::reduceMotion());
+    master.onSetScale = [this] (float s) { setUiScale (s); };
     browser.onClose = [this] { showBrowser (false); };
     auto say = [this] (const juce::String& m) { toolbar.showMessage (m); };
     rackView.onMessage = say;
@@ -150,11 +145,11 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     };
     gearList.onMessage = say;
 
-    getLookAndFeel().setColour (juce::TooltipWindow::backgroundColourId, juce::Colour (0xf00b0d12));
+    getLookAndFeel().setColour (juce::TooltipWindow::backgroundColourId, juce::Colour (0xf20a0f18));
     getLookAndFeel().setColour (juce::TooltipWindow::textColourId, hw::col::print);
-    getLookAndFeel().setColour (juce::TooltipWindow::outlineColourId, hw::col::ice.withAlpha (0.5f));
-    getLookAndFeel().setColour (juce::ScrollBar::thumbColourId, hw::col::ice.withAlpha (0.35f));
-    getLookAndFeel().setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff111318));
+    getLookAndFeel().setColour (juce::TooltipWindow::outlineColourId, hw::col::ice.withAlpha (0.35f));
+    getLookAndFeel().setColour (juce::ScrollBar::thumbColourId, hw::col::ice.withAlpha (0.3f));
+    getLookAndFeel().setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff0a0f18));
     getLookAndFeel().setColour (juce::PopupMenu::textColourId, hw::col::print);
     getLookAndFeel().setColour (juce::PopupMenu::headerTextColourId, hw::col::ice);
     getLookAndFeel().setColour (juce::PopupMenu::highlightedBackgroundColourId, hw::col::ice.withAlpha (0.22f));
@@ -179,7 +174,7 @@ EffectorKillaAudioProcessorEditor::~EffectorKillaAudioProcessorEditor()
 
 void EffectorKillaAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (hw::col::shaft);
+    g.fillAll (hw::col::bg);
 }
 
 float EffectorKillaAudioProcessorEditor::autoScale() const
@@ -187,7 +182,7 @@ float EffectorKillaAudioProcessorEditor::autoScale() const
     auto area = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay() != nullptr
                     ? juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea
                     : juce::Rectangle<int> (1920, 1080);
-    // always fit the wide (gear) layout so SHOW GEAR never pushes the window off the screen
+    // always fit the wide (library) layout so showing the library never pushes the window off the screen
     const float s = juce::jmin ((float) area.getWidth() * 0.86f / kWidth, (float) area.getHeight() * 0.86f / kHeight);
     return juce::jlimit (0.6f, 1.5f, std::floor (s * 20.0f) / 20.0f);
 }
@@ -223,22 +218,23 @@ void EffectorKillaAudioProcessorEditor::resized()
 void EffectorKillaAudioProcessorEditor::layoutBody()
 {
     const int w = getBaseWidth();
+    const bool lib = libraryShown();
     content.setBounds (0, 0, w, kHeight);
     frame.setBounds (0, 0, w, kHeight);
     frame.invalidate();
     toolbar.setBounds (toolbarArea (w));
-    controlUnit.setBounds (controlUnitArea());
-    performer.setBounds (performerArea());
-    modUnit.setBounds (modUnitArea());
+    toolbar.setCentreX (rackArea (lib).getCentreX());
+    master.setBounds (masterArea (lib));
+    modUnit.setBounds (modUnitArea (lib));
 
-    const auto rack = rackArea();
+    const auto rack = rackArea (lib);
     rackViewport.setBounds (rack);
     killFlash.setBounds (rack);
     rackView.setSize (rack.getWidth() - rackViewport.getScrollBarThickness(), juce::jmax (rack.getHeight(), rackView.getIdealHeight()));
-    gearList.setVisible (processor.showGear);
+    gearList.setVisible (lib);
     gearList.setBounds (gearArea());
-    // the browser covers the rack shaft under the control unit; the gear list stays visible
-    browser.setBounds (shaftArea().getX(), performerArea().getY(), shaftArea().getWidth(), rack.getBottom() - performerArea().getY());
+    // the browser covers the centre column (MOD card + chain); library and MASTER stay visible
+    browser.setBounds (browserArea (lib));
     cableOverlay.setBounds (0, 0, w, kHeight);
     cableOverlay.toFront (false);
 }
@@ -273,8 +269,7 @@ void EffectorKillaAudioProcessorEditor::tickAll()
     const int want = juce::jmax (h, rackView.getIdealHeight());
     if (rackView.getHeight() != want) rackView.setSize (rackView.getWidth(), want);
     toolbar.tick();
-    controlUnit.tick();
-    tickIfPossible (modUnit, 0);   // (PerformerUnit runs its own timer)
+    tickIfPossible (modUnit, 0);   // (MasterColumn runs its own timer)
     rackView.tick();
     killFlash.tick();
 }
@@ -282,7 +277,7 @@ void EffectorKillaAudioProcessorEditor::tickAll()
 void EffectorKillaAudioProcessorEditor::setReduceMotion (bool on)
 {
     hw::setReduceMotion (on);
-    performer.setReduceMotion (on);
+    master.setReduceMotion (on);
 }
 
 void EffectorKillaAudioProcessorEditor::timerCallback()
@@ -362,7 +357,7 @@ void EffectorKillaAudioProcessorEditor::showSettingsMenu()
         size.addItem (100 + pct, juce::String (pct) + " %" + (pct == 80 ? "  (SMALL)" : pct == 100 ? "  (FULL)" : ""), true,
                       processor.uiScale > 0.0f && std::abs (processor.uiScale * 100.0f - (float) pct) < 0.5f);
     m.addSubMenu ("Window size  (or drag the corner)", size);
-    m.addItem (2, "Show gear list  (G)", true, processor.showGear);
+    m.addItem (2, "Show FX library  (G)", true, processor.showGear);
     m.addItem (5, "Reduce motion", true, hw::reduceMotion());
     juce::PopupMenu os;
     for (int i = 0; i < 3; ++i) os.addItem (300 + i, juce::String (1 << i) + "x", true, processor.getOversampling() == i);
@@ -370,7 +365,7 @@ void EffectorKillaAudioProcessorEditor::showSettingsMenu()
     m.addSeparator();
     m.addItem (4, "Open user preset folder");
     m.addSeparator();
-    m.addSectionHeader ("Keys: Space KILL - B browser - G gear - T tap - 1-8 unit on/off");
+    m.addSectionHeader ("Keys: Space KILL - B browser - G library - T tap - 1-8 unit on/off");
     m.addSectionHeader ("Left/Right preset - Up/Down channel - Ctrl+Z / Ctrl+Y undo / redo - Ctrl+S save");
     juce::Component::SafePointer<EffectorKillaAudioProcessorEditor> safe (this);
     m.showMenuAsync (juce::PopupMenu::Options(), [safe] (int r)
@@ -403,7 +398,7 @@ void EffectorKillaAudioProcessorEditor::showInfoMenu()
         if (r == 1)
             juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon, "TrapWin Effector",
                 "Version " + juce::String (JucePlugin_VersionString) + "\nEvery effect. One win.\n\n"
-                "15 hardware-style effects in one rack, KILL, macros, A / B and level-matched compare.\n"
+                "15 effects in one chain, KILL, macros, MOD, A / B and level-matched compare.\n"
                 "(c) TrapWin - trapwin.com", "OK", safe.getComponent());
         else if (r == 2)
             juce::URL ("https://trapwin.com").launchInDefaultBrowser();
@@ -418,14 +413,16 @@ void EffectorKillaAudioProcessorEditor::modHandleDragged (int source, juce::Poin
     ek::ui::RackView::KnobHit hit;
     if (rackViewport.isShowing() && rackViewport.getScreenBounds().contains (screen))
         hit = rackView.knobAt (screen);
-    const int macro = hit.slot < 0 ? performer.macroAt (screen) : -1;
+    const int macro = hit.slot < 0 ? master.macroAt (screen) : -1;
 
     if (! dropped)
     {
         cableOverlay.source = source;
         cableOverlay.from = content.getLocalPoint (nullptr, modUnit.getHandleScreenPosition (source)).toFloat();
         cableOverlay.to = content.getLocalPoint (nullptr, screen).toFloat();
-        cableOverlay.target = hit.slot >= 0 ? content.getLocalArea (&rackView, hit.bounds) : juce::Rectangle<int>();
+        cableOverlay.target = hit.slot >= 0 ? content.getLocalArea (&rackView, hit.bounds)
+                            : macro >= 0 ? content.getLocalArea (nullptr, master.macroScreenBounds (macro)).reduced (8, 4)
+                                         : juce::Rectangle<int>();
         cableOverlay.repaint();
         return;
     }

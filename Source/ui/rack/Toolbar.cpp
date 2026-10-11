@@ -1,4 +1,6 @@
 #include "Toolbar.h"
+#include "CardStyle.h"
+#include "../Brand.h"
 
 namespace ek::ui
 {
@@ -45,50 +47,45 @@ void PresetLcd::tick()
 
 void PresetLcd::paint (Graphics& g)
 {
-    auto r = getLocalBounds().toFloat();
-    hw::drawLcdGlass (g, r, 3.0f);
-    auto inner = r.reduced (9.0f, 2.0f);
-
-    // faint pixel grid of a VFD
-    g.setColour (hw::col::vfd.withAlpha (0.035f));
-    for (float x = inner.getX(); x < inner.getRight(); x += 3.0f) g.drawVerticalLine ((int) x, inner.getY() + 2.0f, inner.getBottom() - 2.0f);
-
-    const auto& m = proc.getMeta();
+    auto r = getLocalBounds().toFloat().reduced (1.0f);
+    const float rad = r.getHeight() * 0.5f;
     const bool hover = isMouseOver();
+    const auto& m = proc.getMeta();
 
+    if (hover) hw::drawGlow (g, r, rad, hw::col::iceDeep, 0.8f, 8.0f);
+    g.setColour (hw::col::bg);
+    g.fillRoundedRectangle (r, rad);
+    ColourGradient inner (Colour (0xff0d1422), 0.0f, r.getY(), Colour (0xff070b12), 0.0f, r.getBottom(), false);
+    g.setGradientFill (inner);
+    g.fillRoundedRectangle (r, rad);
+    g.setColour (hover ? hw::col::ice.withAlpha (0.5f) : hw::col::ice.withAlpha (0.26f));
+    g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
+
+    auto inner2 = r.reduced (rad * 0.75f, 0.0f);
     if (message.isNotEmpty())
     {
-        theme::drawGlowText (g, message.toUpperCase(), inner, theme::vfdFont (15.0f), hw::col::amber, Justification::centred, 0.8f);
-        hw::drawGlassReflection (g, r, 3.0f);
+        card::glowText (g, message.toUpperCase(), inner2, hw::mono (12.5f, true), hw::col::ice, Justification::centred, 1.0f);
         return;
     }
 
-    // right: source of the preset (CH 10 / USER / KILL) + browse arrow
+    // right: source (CH 10 / USER / KILL) + chevron
     String sub;
     if (m.factory && m.channel >= 0) sub = "CH" + String (m.channel + 1).paddedLeft ('0', 2);
     else if (m.seed != 0) sub = "KILL";
     else sub = "USER";
-    auto arrow = inner.removeFromRight (12.0f);
-    {
-        Path tri;
-        const auto c = arrow.getCentre();
-        tri.addTriangle (c.x - 4.0f, c.y - 2.0f, c.x + 4.0f, c.y - 2.0f, c.x, c.y + 3.0f);
-        g.setColour (hw::col::vfd.withAlpha (hover ? 1.0f : 0.55f));
-        g.fillPath (tri);
-    }
-    auto subArea = inner.removeFromRight (50.0f);
-    g.setFont (theme::monoLabel (9.5f));
-    g.setColour (hw::col::vfd.withAlpha (0.5f));
-    g.drawText (sub, subArea, Justification::centredRight, false);
+    hw::icon::chevronDown (g, inner2.removeFromRight (14.0f), hover ? hw::col::print : hw::col::text2);
+    inner2.removeFromRight (4.0f);
+    auto subArea = inner2.removeFromRight (40.0f);
+    hw::drawPrint (g, sub, subArea, Justification::centredRight, 9.5f, hw::col::printDim);
+    inner2.removeFromRight (6.0f);
 
-    // name (with the favourite star)
+    // favourite sparkle
+    auto nameArea = inner2;
     const bool fav = proc.isCurrentFavourite();
-    auto nameArea = inner;
-    if (fav)
-    {
-        hw::icon::star (g, nameArea.removeFromLeft (16.0f), hw::col::amber, true);
-        nameArea.removeFromLeft (4.0f);
-    }
+    auto sp = nameArea.removeFromLeft (16.0f);
+    if (fav) card::paintSparkle (g, sp.getCentre(), 6.0f, hw::col::ice, 1.0f);
+    else card::paintSparkle (g, sp.getCentre(), 3.0f, hw::col::ice.withAlpha (0.35f));
+    nameArea.removeFromLeft (6.0f);
 
     const double t = (hw::animSeconds() - scanStart) / kScanSeconds;
     const bool scanning = t >= 0.0 && t < 1.0;
@@ -97,34 +94,30 @@ void PresetLcd::paint (Graphics& g)
         Graphics::ScopedSaveState s (g);
         g.reduceClipRegion (Rectangle<float> (r.getX(), r.getY(), revealX - r.getX(), r.getHeight()).toNearestInt());
         auto text = m.name.toUpperCase();
-        // shrink long names instead of clipping them
-        float fh = 16.0f;
-        while (fh > 10.0f && GlyphArrangement::getStringWidth (theme::vfdFont (fh), text) > nameArea.getWidth()) fh -= 0.5f;
-        theme::drawGlowText (g, text, nameArea, theme::vfdFont (fh), hw::col::vfd, Justification::centredLeft, 0.9f);
+        float fh = 13.5f;
+        while (fh > 9.0f && GlyphArrangement::getStringWidth (hw::mono (fh, true), text) > nameArea.getWidth()) fh -= 0.5f;
+        card::glowText (g, text, nameArea, hw::mono (fh, true), hw::col::print, Justification::centredLeft, 0.5f);
     }
     if (scanning)
     {
-        // bright scan bar
+        Graphics::ScopedSaveState s (g);
+        Path clip;
+        clip.addRoundedRectangle (r, rad);
+        g.reduceClipRegion (clip);
         const float a = (float) (1.0 - t);
-        ColourGradient bar (hw::col::vfd.withAlpha (0.0f), revealX - 18.0f, 0.0f, hw::col::vfd.withAlpha (0.55f * a + 0.2f), revealX, 0.0f, false);
+        ColourGradient bar (hw::col::ice.withAlpha (0.0f), revealX - 30.0f, 0.0f, hw::col::ice.withAlpha (0.35f * a + 0.1f), revealX, 0.0f, false);
         g.setGradientFill (bar);
-        g.fillRect (Rectangle<float> (revealX - 18.0f, r.getY() + 2.0f, 18.0f, r.getHeight() - 4.0f));
-        g.setColour (Colours::white.withAlpha (0.8f));
-        g.fillRect (Rectangle<float> (revealX - 1.0f, r.getY() + 2.0f, 1.5f, r.getHeight() - 4.0f));
+        g.fillRect (Rectangle<float> (revealX - 30.0f, r.getY(), 30.0f, r.getHeight()));
+        g.setColour (Colours::white.withAlpha (0.7f * a));
+        g.fillRect (Rectangle<float> (revealX - 1.0f, r.getY() + 4.0f, 1.2f, r.getHeight() - 8.0f));
     }
-    if (hover)
-    {
-        g.setColour (hw::col::ice.withAlpha (0.35f));
-        g.drawRoundedRectangle (r.reduced (0.5f), 3.0f, 1.0f);
-    }
-    hw::drawGlassReflection (g, r, 3.0f);
 }
 
 // ============================================================================================
 Toolbar::Toolbar (EffectorKillaAudioProcessor& p)
     : proc (p), lcd (p),
-      prevBtn (hw::HwButton::Kind::Icon), nextBtn (hw::HwButton::Kind::Icon), saveBtn (hw::HwButton::Kind::Icon),
-      revertBtn (hw::HwButton::Kind::Icon), favBtn (hw::HwButton::Kind::Icon, {}, hw::col::amber),
+      libBtn (hw::HwButton::Kind::Icon), prevBtn (hw::HwButton::Kind::Icon), nextBtn (hw::HwButton::Kind::Icon), saveBtn (hw::HwButton::Kind::Icon),
+      revertBtn (hw::HwButton::Kind::Icon), favBtn (hw::HwButton::Kind::Icon, {}, hw::col::ice),
       aBtn (hw::HwButton::Kind::Text, "A"), bBtn (hw::HwButton::Kind::Text, "B"),
       undoBtn (hw::HwButton::Kind::Icon), redoBtn (hw::HwButton::Kind::Icon),
       settingsBtn (hw::HwButton::Kind::Icon), infoBtn (hw::HwButton::Kind::Icon),
@@ -133,6 +126,10 @@ Toolbar::Toolbar (EffectorKillaAudioProcessor& p)
     addAndMakeVisible (lcd);
     lcd.onClick = [this] { if (onBrowse) onBrowse(); };
 
+    libBtn.drawIcon = hw::icon::library;
+    libBtn.isLit = [this] { return isLibraryShown && isLibraryShown(); };
+    libBtn.onClick = [this] { if (onToggleLibrary) onToggleLibrary(); };
+    libBtn.setTooltip ("FX LIBRARY: show / hide the effect library on the left (G) - the window gets narrower without it");
     prevBtn.drawIcon = hw::icon::prev;
     nextBtn.drawIcon = hw::icon::next;
     saveBtn.drawIcon = hw::icon::save;
@@ -181,7 +178,7 @@ Toolbar::Toolbar (EffectorKillaAudioProcessor& p)
     nextBtn.setTooltip ("Next preset (Right arrow)");
     saveBtn.setTooltip ("Save the whole rack as a preset (Ctrl/Cmd + S)");
     revertBtn.setTooltip ("Revert: reload the current preset and drop your changes");
-    favBtn.setTooltip ("Favourite (STAFF PICK)");
+    favBtn.setTooltip ("Favourite (the sparkle in the preset pill)");
     aBtn.setTooltip ("A / B: two complete rack states to compare - this is A");
     bBtn.setTooltip ("A / B: two complete rack states to compare - this is B");
     undoBtn.setTooltip ("Undo (Ctrl/Cmd + Z)");
@@ -190,7 +187,9 @@ Toolbar::Toolbar (EffectorKillaAudioProcessor& p)
     infoBtn.setTooltip ("About TrapWin Effector / open the manual");
     bypassBtn.setTooltip ("BYPASS = COMPARE: the original signal, level-matched. Click = toggle, hold = listen while held.");
 
-    for (auto* b : { &prevBtn, &nextBtn, &saveBtn, &revertBtn, &favBtn, &aBtn, &bBtn, &undoBtn, &redoBtn,
+    bypassBtn.fontSize = 11.0f;
+    aBtn.fontSize = bBtn.fontSize = 11.0f;
+    for (auto* b : { &libBtn, &prevBtn, &nextBtn, &saveBtn, &revertBtn, &favBtn, &aBtn, &bBtn, &undoBtn, &redoBtn,
                      &settingsBtn, &infoBtn, &bypassBtn })
         addAndMakeVisible (b);
 }
@@ -226,56 +225,69 @@ void Toolbar::revertPreset()
 void Toolbar::tick()
 {
     lcd.tick();
-    for (auto* b : { &favBtn, &aBtn, &bBtn, &undoBtn, &redoBtn, &bypassBtn }) b->tick();
+    for (auto* b : { &libBtn, &favBtn, &aBtn, &bBtn, &undoBtn, &redoBtn, &bypassBtn }) b->tick();
 }
 
 void Toolbar::resized()
 {
-    const int y = 7, h = 26, w = 28;
-    int x = 12;
-    auto place = [&] (Component& c, int width, int gapAfter = 4) { c.setBounds (x, y, width, h); x += width + gapAfter; };
-    place (prevBtn, w); place (nextBtn, w, 8);
-    place (lcd, 300, 8);
-    place (saveBtn, w); place (revertBtn, w); place (favBtn, w, 14);
-    place (aBtn, w); place (bBtn, w, 14);
-    place (undoBtn, w); place (redoBtn, w);
+    const int y = 13, h = 30, w = 30;
+    // logo (painted)
+    {
+        const auto& logo = brand::logo();
+        const float lh = 46.0f;
+        const float lw = logo.isValid() ? lh * (float) logo.getWidth() / (float) logo.getHeight() : 99.0f;
+        logoArea = { 16.0f, ((float) height - lh) * 0.5f + 1.0f, lw, lh };
+    }
+    int x = (int) logoArea.getRight() + 16;
+    auto place = [&] (Component& c, int width, int gapAfter = 6) { c.setBounds (x, y, width, h); x += width + gapAfter; };
+    place (libBtn, w, 16);
+    place (aBtn, 38, 4); place (bBtn, 38, 14);
+    place (undoBtn, w); place (redoBtn, w, 0);
+    const int leftEnd = x;
 
-    int rx = getWidth() - 12;
-    auto right = [&] (Component& c, int width, int gapBefore = 4) { rx -= width; c.setBounds (rx, y, width, h); rx -= gapBefore; };
-    right (bypassBtn, 96, 14);
+    int rx = getWidth() - 18;
+    auto right = [&] (Component& c, int width, int gapBefore = 6) { rx -= width; c.setBounds (rx, y, width, h); rx -= gapBefore; };
+    right (bypassBtn, 104, 12);
     right (infoBtn, w);
     right (settingsBtn, w);
+    const int rightStart = rx;
+
+    // centre group: < [preset] >  save revert fav, centred over the chain when there is room
+    const int lcdW = 300, core = w + 6 + lcdW + 6 + w, extra = 12 + 3 * w + 2 * 6;
+    const int cx = centreX > 0 ? centreX : getWidth() / 2;
+    x = jlimit (leftEnd + 18, jmax (leftEnd + 18, rightStart - 18 - core - extra), cx - core / 2);
+    place (prevBtn, w);
+    place (lcd, lcdW);
+    place (nextBtn, w, 12);
+    place (saveBtn, w); place (revertBtn, w); place (favBtn, w);
 }
 
 void Toolbar::paint (Graphics& g)
 {
     auto r = getLocalBounds().toFloat();
-    ColourGradient metal (hw::col::toolbarTop, 0.0f, 0.0f, hw::col::toolbarBottom, 0.0f, r.getBottom(), false);
-    g.setGradientFill (metal);
-    g.fillRect (r);
-    // fine brushing
-    for (int i = 0; i < (int) r.getHeight(); i += 2)
-    {
-        g.setColour (Colours::white.withAlpha (0.012f + 0.01f * (float) ((i * 7) % 3)));
-        g.drawHorizontalLine (i, 0.0f, r.getRight());
-    }
-    g.setColour (Colours::white.withAlpha (0.08f));
-    g.drawHorizontalLine (0, 0.0f, r.getRight());
-    g.setColour (Colours::black);
-    g.drawHorizontalLine ((int) r.getBottom() - 1, 0.0f, r.getRight());
-    g.setColour (Colours::white.withAlpha (0.05f));
-    g.drawHorizontalLine ((int) r.getBottom() - 2, 0.0f, r.getRight());
+    // hairline under the header, fading out at both ends
+    ColourGradient lineG (hw::col::ice.withAlpha (0.0f), 0.0f, 0.0f, hw::col::ice.withAlpha (0.0f), r.getRight(), 0.0f, false);
+    lineG.addColour (0.18, hw::col::ice.withAlpha (0.14f));
+    lineG.addColour (0.5, hw::col::ice.withAlpha (0.22f));
+    lineG.addColour (0.82, hw::col::ice.withAlpha (0.14f));
+    g.setGradientFill (lineG);
+    g.fillRect (Rectangle<float> (0.0f, r.getBottom() - 1.0f, r.getWidth(), 1.0f));
 
-    // engraved separators between groups
+    const auto& logo = brand::logo();
+    if (logo.isValid())
+    {
+        g.setOpacity (1.0f);
+        g.setImageResamplingQuality (Graphics::highResamplingQuality);
+        g.drawImage (logo, logoArea, RectanglePlacement::centred);
+    }
+    // thin separators between the groups
     auto sep = [&] (const Component& left, const Component& right)
     {
         const float x = (float) (left.getRight() + right.getX()) * 0.5f;
-        g.setColour (Colours::black.withAlpha (0.7f));
-        g.drawVerticalLine ((int) x, 9.0f, r.getBottom() - 9.0f);
-        g.setColour (Colours::white.withAlpha (0.06f));
-        g.drawVerticalLine ((int) x + 1, 9.0f, r.getBottom() - 9.0f);
+        g.setColour (hw::col::line);
+        g.fillRect (Rectangle<float> (x - 0.5f, 18.0f, 1.0f, r.getHeight() - 36.0f));
     };
-    sep (favBtn, aBtn);
+    sep (libBtn, aBtn);
     sep (bBtn, undoBtn);
     sep (infoBtn, bypassBtn);
 }

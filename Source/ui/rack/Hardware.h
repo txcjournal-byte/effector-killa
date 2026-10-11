@@ -1,109 +1,90 @@
 #pragma once
 
-// Shared "hardware" drawing kit for the rack look (DESIGN-RACK.md): brushed metal, chrome
-// cross-head screws, rack ears with oval holes, rack rails, procedural walnut, self-drawn
-// 7-segment digits, LCD glass, square LED buttons, chicken-head knobs and vector icons.
-// Everything here is pure drawing (plus two small reusable components: HwButton, HwKnob),
-// so the faceplates, the gear thumbnails and the window frame all share one look.
+// Shared shell kit of the TrapWin look (Docs/TRAPWIN-STYLE.md): palette, "reduce motion", the
+// cached-background helper, pill drawing, flat knob, vector icons and two small reusable
+// components (HwButton = pill button, HwKnob = flat TrapWin knob).
+// The old hardware materials (walnut, rack ears, screws, rails, brushed metal, chicken-head knobs,
+// 7-segment LCDs) are gone on purpose - the plugin must not look like a vintage rack.
 
 #include "../Controls.h"
 
 namespace ek::ui::hw
 {
-// ---- palette (DESIGN-RACK.md) ---------------------------------------------------------------
+// ---- palette (trapwin.com tokens) ------------------------------------------------------------
 namespace col
 {
-    inline const juce::Colour ice { 0xff9fc3ff };        // ice-blue lines / LEDs
-    inline const juce::Colour vfd { 0xff9fdcff };        // VFD text on LCD glass
-    inline const juce::Colour seg { 0xff7fd0ff };        // 7-segment lit
-    inline const juce::Colour segOff { 0xff0d2230 };     // 7-segment unlit
+    inline const juce::Colour ice { 0xff9fc3ff };        // accent-light: lines, active pills, glow
+    inline const juce::Colour iceDeep { 0xff4676c4 };    // glow rgba(70,118,196,.5)
+    inline const juce::Colour accent { 0xff7fa6e8 };
+    inline const juce::Colour vfd { 0xff9fdcff };        // kept for older callers (= ice text)
     inline const juce::Colour amber { 0xffffc861 };
-    inline const juce::Colour green { 0xff3dff6e };
-    inline const juce::Colour red { 0xffff2e3e };
-    inline const juce::Colour shaft { 0xff07090d };      // dark rack shaft
-    inline const juce::Colour walnutDark { 0xff3b2414 };
-    inline const juce::Colour walnutLight { 0xff5a3a22 };
-    inline const juce::Colour blackAlu { 0xff16181d };   // control unit
-    inline const juce::Colour toolbarTop { 0xff1b1d22 };
-    inline const juce::Colour toolbarBottom { 0xff121317 };
-    inline const juce::Colour print { 0xffd9dee8 };      // white panel print
-    inline const juce::Colour printDim { 0xff8d96a6 };
+    inline const juce::Colour green { 0xff3ddc97 };
+    inline const juce::Colour red { 0xffff2e3e };       // KILL / BYPASS / OVER only
+    inline const juce::Colour bg { 0xff04060a };         // window background
+    inline const juce::Colour shaft { 0xff04060a };      // (old name of the background)
+    inline const juce::Colour card { 0xff0a0f18 };
+    inline const juce::Colour card2 { 0xff0b111c };
+    inline const juce::Colour screen { 0xff05080f };
+    inline const juce::Colour line { 0x2e9fc3ff };       // rgba(159,195,255,.18)
+    inline const juce::Colour print { 0xffe6ecf7 };      // text
+    inline const juce::Colour text2 { 0xffa9b6cc };
+    inline const juce::Colour printDim { 0xff8794ab };   // muted
 }
 
 // ---- motion ----------------------------------------------------------------------------------
 // "Reduce motion" (settings menu). A per-user preference, persisted next to the user presets.
-// Animated elements (scan effects, blinking, spinning reels ...) should check it.
+// Animated elements (scan effects, pulsing, glows ...) should check it.
 bool reduceMotion();
 void setReduceMotion (bool on);
 double animSeconds();   // monotonically increasing animation clock (seconds)
 
-// ---- materials -------------------------------------------------------------------------------
-// Fine horizontal brushing over a base colour (deterministic per seed).
-void drawBrushedMetal (juce::Graphics&, juce::Rectangle<float> r, juce::Colour base, float corner = 0.0f, int seed = 1);
-// Panel edge: light top / left bevel, dark bottom / right, thin black outline.
-void drawBevel (juce::Graphics&, juce::Rectangle<float> r, float corner = 0.0f, float strength = 1.0f);
-// Procedural walnut (sinusoidal grain + noise + pores). vertical = grain runs top to bottom.
-void drawWalnut (juce::Graphics&, juce::Rectangle<float> r, bool vertical, int seed = 7);
-// Chrome cross-head (Phillips) screw. angle rotates the cross.
-void drawScrew (juce::Graphics&, juce::Point<float> c, float radius, float angle = 0.35f);
-// Rack ear: a strip of the panel material with two oval holes (screws sit in them).
-void drawRackEar (juce::Graphics&, juce::Rectangle<float> ear, juce::Colour base, bool withScrews = true, int seed = 3);
-// Complete rack panel: brushed body, ears left / right (earWidth), bevel. Returns the inner area
-// between the ears.
-juce::Rectangle<float> drawRackPanel (juce::Graphics&, juce::Rectangle<float> r, juce::Colour base, float earWidth = 22.0f, int seed = 1);
-// Vertical rack rail with the classic square-ish holes every `pitch` px.
-void drawRackRail (juce::Graphics&, juce::Rectangle<float> rail, float pitch = 14.6f);
+// ---- fonts -------------------------------------------------------------------------------------
+juce::Font mono (float height, bool bold = false);   // IBM Plex Mono (+1 px tracking)
+juce::Font display (float height);                   // Archivo Black
 
-// ---- displays --------------------------------------------------------------------------------
-void drawLcdGlass (juce::Graphics&, juce::Rectangle<float> r, float corner = 3.0f);
-// Glass reflection on top of LCD content (call after drawing the text).
-void drawGlassReflection (juce::Graphics&, juce::Rectangle<float> r, float corner = 3.0f);
-// Self-drawn 7-segment text: digits, '-', ' ', and A b C d E F H L n o P r S t U. A '.' lights the
-// decimal point of the previous digit. Unlit segments are drawn in `off`. Right-aligned in r when
-// `cells` > the number of characters.
-void drawSevenSegment (juce::Graphics&, juce::Rectangle<float> r, const juce::String& text, juce::Colour on,
-                       juce::Colour off, int cells = 0, float glow = 1.0f);
-// Section header: light strip, ice-blue 1 px line under it, label in IBM Plex Mono.
+// ---- surfaces ----------------------------------------------------------------------------------
+// TrapWin card (radius 20 / 16, 1 px ice line, inner sheen). Returns the content area.
+// (Kept under its old name for older callers; there are no rack ears any more.)
+juce::Rectangle<float> drawRackPanel (juce::Graphics&, juce::Rectangle<float> r, juce::Colour base = col::card,
+                                      float earWidth = 0.0f, int seed = 1);
+void drawCard (juce::Graphics&, juce::Rectangle<float> r, float corner = 20.0f, float glow = 0.0f);
+// Section label: Plex Mono muted caps + a hairline that fades out to the right.
 void drawSectionHeader (juce::Graphics&, juce::Rectangle<float> r, const juce::String& label);
-// Printed (silk-screen) label on a panel.
+// Small printed label (Plex Mono).
 void drawPrint (juce::Graphics&, const juce::String& text, juce::Rectangle<float> r, juce::Justification j,
                 float size = 9.0f, juce::Colour c = col::printDim);
+// Soft glow (stacked translucent rounded rects, cheap) around r.
+void drawGlow (juce::Graphics&, juce::Rectangle<float> r, float corner, juce::Colour c, float amount, float spread = 10.0f);
 
-// ---- buttons ---------------------------------------------------------------------------------
-// Square dark-metal cap (toolbar style), pressed = sunk.
-void drawMetalCap (juce::Graphics&, juce::Rectangle<float> r, bool pressed, bool hover, float corner = 3.0f);
-// Square LED button: metal cap, LED lens on the left (or on top when the cap is roughly square),
-// label printed on the cap.
-void drawLedButton (juce::Graphics&, juce::Rectangle<float> r, const juce::String& label, juce::Colour led,
-                    bool lit, bool pressed, bool hover);
-// Small rectangular LED lens (on / off).
-void drawLedLens (juce::Graphics&, juce::Rectangle<float> r, juce::Colour led, bool lit, float glow = 1.0f);
-// Round metal push button (TAP).
-void drawRoundMetalButton (juce::Graphics&, juce::Point<float> c, float radius, bool pressed, bool hover);
+// ---- pills (buttons) ---------------------------------------------------------------------------
+enum class PillStyle { Outline, Chrome };
+// Pill: outline (secondary) or chrome (primary, dark text). `lit` = active: tinted fill in `accent`,
+// accent border and soft glow. `dot` draws a small status dot on the left.
+void drawPill (juce::Graphics&, juce::Rectangle<float> r, const juce::String& text, juce::Colour accent, bool lit,
+               bool pressed, bool hover, PillStyle style = PillStyle::Outline, bool dot = false, float fontSize = 0.0f);
 
-// ---- knobs -----------------------------------------------------------------------------------
-// Dark chicken-head knob with a chrome centre cap. angle: 0 = up, clockwise (theme::knobStart..End).
-void drawChickenHead (juce::Graphics&, juce::Point<float> c, float radius, float angle, bool hot = false);
-// Printed scale around a knob (ticks every 1/(ticks-1) of the travel).
-void drawKnobScale (juce::Graphics&, juce::Point<float> c, float radius, int ticks, juce::Colour colour);
-// Value arc around a knob (from..to as 0..1 travel), optional glow.
-void drawValueArc (juce::Graphics&, juce::Point<float> c, float radius, float from, float to, juce::Colour colour,
-                   float thickness, float glow = 0.0f);
+// ---- knobs -------------------------------------------------------------------------------------
+// Flat TrapWin knob (dark disc, thin line, accent value arc with glow, white pointer dot).
+// `shown` drives the arc + pointer; `base` >= 0 adds a small white tick on the ring (unmodulated value).
+void drawFlatKnob (juce::Graphics&, juce::Point<float> c, float r, float shown, juce::Colour accent,
+                   float glow = 1.0f, float base = -1.0f, bool hot = false);
 
 // ---- icons (stroked in colour c, fitted into r) ----------------------------------------------
 namespace icon
 {
     void prev (juce::Graphics&, juce::Rectangle<float>, juce::Colour);
     void next (juce::Graphics&, juce::Rectangle<float>, juce::Colour);
-    void save (juce::Graphics&, juce::Rectangle<float>, juce::Colour);    // floppy
+    void save (juce::Graphics&, juce::Rectangle<float>, juce::Colour);
     void revert (juce::Graphics&, juce::Rectangle<float>, juce::Colour);  // circular arrow
-    void star (juce::Graphics&, juce::Rectangle<float>, juce::Colour, bool filled);
+    void star (juce::Graphics&, juce::Rectangle<float>, juce::Colour, bool filled);   // TrapWin sparkle
     void undo (juce::Graphics&, juce::Rectangle<float>, juce::Colour);
     void redo (juce::Graphics&, juce::Rectangle<float>, juce::Colour);
     void cog (juce::Graphics&, juce::Rectangle<float>, juce::Colour);
     void info (juce::Graphics&, juce::Rectangle<float>, juce::Colour);
     void power (juce::Graphics&, juce::Rectangle<float>, juce::Colour);
     void lock (juce::Graphics&, juce::Rectangle<float>, juce::Colour);
+    void library (juce::Graphics&, juce::Rectangle<float>, juce::Colour);   // sidebar panel
+    void chevronDown (juce::Graphics&, juce::Rectangle<float>, juce::Colour);
     void letter (juce::Graphics&, juce::Rectangle<float>, juce::Colour, const juce::String& text);
 }
 
@@ -122,49 +103,58 @@ private:
 };
 
 // ---- components ------------------------------------------------------------------------------
-// Hardware push / toggle button. Kinds:
-//   Led   - LED lens + printed label (HOST, FREE, SMALL, SHOW GEAR ...)
-//   Icon  - square metal cap with a vector icon (toolbar)
-//   Text  - metal cap with a label and an LED edge when lit (BYPASS, A / B)
-//   Round - round metal push button (TAP), lights its ring when flashed
+// Pill button. Kinds (names kept from the rack era):
+//   Led   - outline pill with a status dot (HOST, FREE, AUTO GAIN ...)
+//   Icon  - round icon pill (header)
+//   Text  - outline pill with a label (A / B, BYPASS)
+//   Round - TAP pill (flashes)
+//   Chrome- primary chrome pill with dark text
 class HwButton : public juce::Component, public juce::SettableTooltipClient
 {
 public:
-    enum class Kind { Led, Icon, Text, Round };
+    enum class Kind { Led, Icon, Text, Round, Chrome };
     HwButton (Kind k, juce::String label = {}, juce::Colour led = col::ice);
 
     std::function<void()> onClick;
     std::function<void (bool down)> onPress;
     std::function<bool()> isLit, isEnabledFn;
     std::function<void (juce::Graphics&, juce::Rectangle<float>, juce::Colour)> drawIcon;
-    bool blinkWhenLit = false;
+    bool blinkWhenLit = false;   // pulses (smoothly) while lit, unless reduce motion is on
+    float fontSize = 0.0f;       // 0 = automatic
     void setLabel (const juce::String& l) { if (l != label) { label = l; repaint(); } }
     void setLedColour (juce::Colour c) { led = c; repaint(); }
-    void flash() { flashUntil = juce::Time::getMillisecondCounter() + 110; repaint(); }
+    void flash() { flashUntil = juce::Time::getMillisecondCounter() + 140; repaintGlow(); }
     void tick();
+    // The glow of a lit / hovered pill spills outside the bounds (painting is unclipped), so changes
+    // repaint the parent area around the button.
+    void repaintGlow();
+    static constexpr int glowMargin = 10;
 
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
-    void mouseEnter (const juce::MouseEvent&) override { repaint(); }
-    void mouseExit (const juce::MouseEvent&) override { repaint(); }
+    void mouseEnter (const juce::MouseEvent&) override { repaintGlow(); }
+    void mouseExit (const juce::MouseEvent&) override { repaintGlow(); }
 
 private:
     bool litNow() const;
+    float pulse() const;
     Kind kind;
     juce::String label;
     juce::Colour led;
     bool down = false, lastLit = false, lastEnabled = true;
+    float lastPulse = -1.0f;
     juce::uint32 flashUntil = 0;
 };
 
-// Chicken-head knob (same behaviour as Knob: drag, Shift = fine, wheel, double-click = default).
+// Flat TrapWin knob (same behaviour as Knob: drag, Shift = fine, wheel, double-click = default).
 class HwKnob : public Knob
 {
 public:
     HwKnob() : Knob (Knob::Style::Macro) {}
     juce::Colour ring { col::ice };   // value arc colour
     float ringGlow = 0.0f;            // 0..1 extra glow of the arc (RECYCLE warning)
+    float radiusFactor = 0.62f;       // disc radius relative to half the component size
     bool showArc = true;
     void paint (juce::Graphics&) override;
 };
