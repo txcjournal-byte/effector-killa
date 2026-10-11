@@ -368,9 +368,12 @@ void UnitComponent::paintOverChildren (Graphics& g)
     {
         const String msg = ! state.powered ? "POWER OFF  -  TAILS KEEP RUNNING" : "MUTED BY SOLO";
         g.setFont (theme::monoLabel (9.5f).boldened());
-        const float tw = (float) GlyphArrangement::getStringWidthInt (g.getCurrentFont(), msg) + 22.0f;
-        auto nameR = faceplate::nameArea (plate);
-        auto pill = Rectangle<float> (tw, 18.0f).withPosition (nameR.getRight() + 14.0f, 14.0f);
+        // a status strip over the plate's header row (between the name block and the ST switch), so
+        // whatever small print the faceplate has there is covered completely
+        const auto knobs = faceplate::knobArea (type, plate);
+        const float x0 = knobs.getX();
+        const float x1 = jmax (x0 + 120.0f, (float) msBtn.getX() - 5.0f);
+        auto pill = Rectangle<float> (x0, (float) msBtn.getY(), x1 - x0, (float) msBtn.getHeight());
         g.setColour (Colour (0xe0050608));
         g.fillRoundedRectangle (pill, 9.0f);
         g.setColour ((! state.powered ? replaceYellow : soloYellow).withAlpha (0.5f));
@@ -670,7 +673,13 @@ void RackView::tick()
 }
 
 // ----------------------------------------------------------------------------
-RackView::KnobHit RackView::knobAt (Point<int> pos) const
+RackView::KnobHit RackView::knobAt (Point<int> screenPos) const
+{
+    if (! isShowing()) return {};
+    return knobAtLocal (getLocalPoint (nullptr, screenPos));
+}
+
+RackView::KnobHit RackView::knobAtLocal (Point<int> pos) const
 {
     KnobHit h;
     for (auto* u : units)

@@ -26,8 +26,9 @@
 //   * paintKnobOverlay (g, faceBounds, slot, param) - called at the end of every control's paint();
 //     faceBounds is the knob face (or LED block) in the control's own coordinates. Draw modulation
 //     rings / learn highlights here. Call repaintKnobs() when what you draw changes.
-//   * knobAt (pointInRackView) -> KnobHit {slot, param, bounds-in-RackView}; slot = -1 when there is
-//     no control under the point. Use it from a DragAndDropTarget / mouse listener for drag-to-modulate.
+//   * knobAt (screenPos) -> KnobHit {slot, param, bounds-in-RackView}; slot = -1 when there is no
+//     control under the point (screen coordinates, so any component - e.g. a MOD source being dragged -
+//     can hit-test without converting). knobAtLocal() does the same for RackView coordinates.
 //   * getKnobBounds (slot, param) - bounds of a control in RackView coordinates (empty if not shown).
 // ------------------------------------------------------------------------------------------------
 
@@ -124,7 +125,8 @@ public:
     };
     std::function<void (int slot, int param, juce::Point<int> screenPos)> onKnobRightClick;
     std::function<void (juce::Graphics&, juce::Rectangle<float> face, int slot, int param)> paintKnobOverlay;
-    KnobHit knobAt (juce::Point<int> posInRackView) const;
+    KnobHit knobAt (juce::Point<int> screenPos) const;
+    KnobHit knobAtLocal (juce::Point<int> posInRackView) const;
     juce::Rectangle<int> getKnobBounds (int slot, int param) const;
     void repaintKnobs();
 

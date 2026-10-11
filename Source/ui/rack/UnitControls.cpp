@@ -144,7 +144,11 @@ float RackControl::stepToNorm (int step) const
 String RackControl::valueText() const
 {
     if (spec == nullptr) return String (roundToInt (value * 100.0f)) + " %";
-    return spec->format (spec->toReal (value));
+    const float real = spec->toReal (value);
+    // slow LFO rates etc.: the engine's text rounds to whole Hz, the faceplate shows decimals
+    if (spec->unit == Unit::Hz && real < 100.0f && std::abs (real - std::round (real)) > 0.005f)
+        return String (real, real < 10.0f ? 2 : 1) + " Hz";
+    return spec->format (real);
 }
 
 Rectangle<float> RackControl::getFaceBounds() const

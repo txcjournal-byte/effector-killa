@@ -89,6 +89,8 @@ Image miniature (EffectType t, int w, int h)
 class GearList::Content : public Component, public TooltipClient
 {
 public:
+    static constexpr int miniW = 264, miniH = 41;   // DESIGN-RACK.md section 7
+
     explicit Content (GearList& o) : owner (o) { rebuild(); }
 
     struct Row
@@ -127,6 +129,8 @@ public:
     void layoutRows()
     {
         const int w = jmax (100, getWidth());
+        // miniatures keep the faceplate's 898 x 140 aspect (264 x 41 in the 280 px column)
+        const int itemH = jmax (24, roundToInt ((float) (w - 16) * 140.0f / 898.0f));
         int y = 2;
         for (auto& r : rows)
         {
@@ -191,7 +195,7 @@ public:
             }
             g.setColour (Colours::black.withAlpha (0.55f));
             g.fillRoundedRectangle (rb.translated (0.0f, 2.0f), 3.0f);
-            const auto img = gear::miniature (r.type, r.bounds.getWidth(), r.bounds.getHeight());
+            const auto img = gear::miniature (r.type, miniW, miniH);   // always the designed 264 x 41 layout, scaled to the row
             g.drawImage (img, rb.translated (0.0f, down ? 1.0f : 0.0f), RectanglePlacement::stretchToFit);
             if (! hot)
             {
@@ -245,7 +249,7 @@ public:
                 Graphics g (img);
                 DropShadow (Colours::black.withAlpha (0.7f), m, { 0, m / 3 }).drawForRectangle (g, { m, m, w, h });
                 g.setOpacity (0.92f);
-                g.drawImage (gear::miniature (r.type, w, h), Rectangle<float> ((float) m, (float) m, (float) w, (float) h));
+                g.drawImage (gear::miniature (r.type, miniW, miniH), Rectangle<float> ((float) m, (float) m, (float) w, (float) h));
                 g.setOpacity (1.0f);
                 g.setColour (theme::accent);
                 g.drawRoundedRectangle (Rectangle<float> ((float) m, (float) m, (float) w, (float) h).reduced (0.5f), 3.0f, 1.2f);
@@ -269,8 +273,6 @@ public:
         if (proc.insertEffect (last + 1, rows[(size_t) i].type) < 0 && owner.onMessage)
             owner.onMessage ("RACK FULL - DROP ON A UNIT TO REPLACE IT");
     }
-
-    static constexpr int itemH = 41;
 
 private:
     GearList& owner;
@@ -323,7 +325,10 @@ void GearList::resized()
     search.setBounds (r.removeFromTop (26).reduced (2, 0));
     r.removeFromTop (8);
     viewport.setBounds (r.withTrimmedBottom (6).withX (0).withWidth (getWidth()));
+    // the row height follows the width, so lay out at full width first, then decide on the scroll bar
+    content->setSize (viewport.getWidth(), content->getHeight());
     const int w = viewport.getWidth() - (content->getIdealHeight() > viewport.getHeight() ? viewport.getScrollBarThickness() : 0);
+    content->setSize (w, content->getHeight());
     content->setSize (w, content->getIdealHeight());
 }
 

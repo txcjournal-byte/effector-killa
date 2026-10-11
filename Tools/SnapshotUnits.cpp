@@ -1,6 +1,6 @@
 // Renders the rack units and the gear list on their own (no editor) to PNG files - checks the
 // hardware units, side strip, live data and gear miniatures without a DAW.
-//   EffectorKillaUnitsSnapshot <outDir>
+//   EffectorKillaSnapshot --units <outDir>
 // Writes units_rack.png (8 units, one powered off, one locked), units_solo.png, units_gear.png.
 #include "PluginProcessor.h"
 #include "ui/rack/RackView.h"
@@ -17,12 +17,8 @@ void writePng (const juce::Image& img, const juce::File& f)
 }
 } // namespace
 
-int main (int argc, char** argv)
+int runUnitsSnapshot (const juce::File& outDir)
 {
-    juce::ScopedJuceInitialiser_GUI init;
-    const juce::File outDir (argc > 1 ? juce::String (argv[1]) : juce::File::getCurrentWorkingDirectory().getFullPathName());
-    outDir.createDirectory();
-
     EffectorKillaAudioProcessor proc;
     proc.prepareToPlay (48000.0, 512);
     juce::AudioBuffer<float> buf (2, 512);

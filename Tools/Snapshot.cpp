@@ -1,11 +1,20 @@
 // Renders the editor to PNG files - checks the UI without a DAW.
 //   EffectorKillaSnapshot <outDir>
+//   EffectorKillaSnapshot --units <outDir>   (rack units + gear list only, Tools/SnapshotUnits.cpp)
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+
+int runUnitsSnapshot (const juce::File& outDir);
 
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
+    if (argc > 1 && juce::String (argv[1]) == "--units")
+    {
+        const juce::File dir (argc > 2 ? juce::String (argv[2]) : juce::File::getCurrentWorkingDirectory().getFullPathName());
+        dir.createDirectory();
+        return runUnitsSnapshot (dir);
+    }
     const juce::File outDir (argc > 1 ? juce::String (argv[1]) : juce::File::getCurrentWorkingDirectory().getFullPathName());
     outDir.createDirectory();
 
