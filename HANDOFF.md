@@ -18,7 +18,10 @@ Spec: `CLAUDE.md` (původní zadání „Effector Killa“), produkt je přejmen
 3. Shopify: `upload-digital-product-file` (soubor `Windows/TrapWinEffector-1.0.0-Windows-Setup.exe`) a
    `upload-digital-product-media` (`Shop/TrapWinEffector-cover.png`) – uživatel jen vybere soubory v okně.
    Pak `publish-digital-product` s titulkem `TRAPWIN EFFECTOR - Trap Multi-Effect Plugin (VST3)` a `get-digital-product` pro kontrolu.
-4. macOS: až uživatel dodá Apple Developer certifikát → doplnit GitHub Secrets (MACOS_CERT_P12, MACOS_CERT_PASSWORD,
+4. macOS: uživatel UŽ MÁ Apple Developer účet (stačí se přihlásit, uživatel potvrdí 2FA).
+   Na Windows PC: vytvořit CSR + klíč přes openssl, na developer.apple.com → Certificates vytvořit
+   „Developer ID Application“, stáhnout .cer, spojit s klíčem do .p12 (openssl pkcs12), na appleid.apple.com
+   vytvořit app-specific password, Team ID z Membership. Pak doplnit GitHub Secrets (MACOS_CERT_P12, MACOS_CERT_PASSWORD,
    MACOS_SIGN_IDENTITY, APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD), ověřit podepsaný build, pak přidat macOS do Shopify
    (nahrát mac zip, upravit popis a titulek na „(VST3 / AU)“).
 5. Volitelně: Windows code-signing certifikát (SmartScreen), EULA doplnit údaje firmy, licence JUCE (ověřit podmínky na juce.com).
