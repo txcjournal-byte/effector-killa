@@ -37,7 +37,12 @@ jobs:
             libgl1-mesa-dev libxext-dev libfreetype-dev libfontconfig1-dev xvfb
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+        shell: bash
+        run: |
+          EXTRA=""
+          # macOS: universal binary (Apple Silicon + Intel), macOS 11+
+          if [ "$RUNNER_OS" == "macOS" ]; then EXTRA='-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0'; fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release $EXTRA
 
       - name: Build
         run: cmake --build build --config Release --parallel 4
@@ -135,3 +140,32 @@ jobs:
           name: TrapWinEffector-macOS-signed
           path: TrapWinEffector-macOS-signed.zip
           if-no-files-found: ignore
+
+  # ---- one release folder "trapwin.com" with everything for the shop ----------------------------
+  package:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+      - name: Assemble trapwin.com folder
+        shell: bash
+        run: |
+          D="trapwin.com/TrapWin Effector 1.0.0"
+          mkdir -p "$D/Windows" "$D/macOS" "$D/Docs"
+          cp artefacts/TrapWinEffector-Windows-Installer/*.exe "$D/Windows/" || true
+          if [ -d artefacts/TrapWinEffector-macOS-signed ]; then
+            cp artefacts/TrapWinEffector-macOS-signed/*.zip "$D/macOS/"
+          else
+            (cd artefacts/TrapWinEffector-macOS && zip -qry "../../$D/macOS/TrapWinEffector-1.0.0-macOS-UNSIGNED.zip" .)
+          fi
+          cp MANUAL.md "$D/Docs/TrapWin Effector Manual.md"
+          cp EULA.txt "$D/Docs/"
+          cp Resources/Fonts/*.txt "$D/Docs/"
+          ls -R trapwin.com
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trapwin.com
+          path: trapwin.com
