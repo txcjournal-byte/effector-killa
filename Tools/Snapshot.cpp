@@ -151,7 +151,7 @@ static int renderFaceplatesColor (const juce::File& outDir)
     Image img (Image::ARGB, (int) (sheetW * sc), (int) (sheetH * sc), true);
     Graphics g (img);
     g.addTransform (AffineTransform::scale (sc));
-    g.fillAll (Colour (0xff07090d));
+    g.fillAll (Colour (0xff04060a));
     g.setColour (theme::silverDim);
     g.setFont (theme::monoLabel (11.0f));
     g.drawText ("FACEPLATES - COLOR GROUP (2x, fake live state, mock knobs)", Rectangle<float> (24.0f, 10.0f, W, 20.0f), Justification::centredLeft);
@@ -203,7 +203,27 @@ static int renderFaceplatesColor (const juce::File& outDir)
             g.setColour (pal.ink.withAlpha (0.8f));
             g.setFont (theme::monoLabel (8.5f));
             g.drawText (info.params[(size_t) i].name, cell.withHeight (14.0f), Justification::centred);
-            theme::drawKnob (g, cell.getCentre().translated (0.0f, -2.0f), 19.0f, -1.0f + 0.3f * (float) k);
+            {
+                // TrapWin knob (TRAPWIN-STYLE.md): flat dark disc, thin line, accent value arc with glow, white dot
+                const auto c = cell.getCentre().translated (0.0f, -2.0f);
+                const float r = 17.0f, ang = -1.0f + 0.3f * (float) k;
+                Path track, val;
+                track.addCentredArc (c.x, c.y, r + 4.0f, r + 4.0f, 0.0f, theme::knobStart, theme::knobEnd, true);
+                val.addCentredArc (c.x, c.y, r + 4.0f, r + 4.0f, 0.0f, theme::knobStart, ang, true);
+                g.setColour (Colour (0x1a9fc3ff));
+                g.strokePath (track, PathStrokeType (2.0f, PathStrokeType::curved, PathStrokeType::rounded));
+                g.setColour (pal.accent.withAlpha (0.18f));
+                g.strokePath (val, PathStrokeType (6.0f, PathStrokeType::curved, PathStrokeType::rounded));
+                g.setColour (pal.accent);
+                g.strokePath (val, PathStrokeType (2.0f, PathStrokeType::curved, PathStrokeType::rounded));
+                ColourGradient disc (Colour (0xff111827), c.x, c.y - r, Colour (0xff080c14), c.x, c.y + r, false);
+                g.setGradientFill (disc);
+                g.fillEllipse (Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c));
+                g.setColour (Colour (0x2e9fc3ff));
+                g.drawEllipse (Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c), 1.0f);
+                g.setColour (Colours::white);
+                g.fillEllipse (Rectangle<float> (3.6f, 3.6f).withCentre (c.getPointOnCircumference (r * 0.68f, ang)));
+            }
             g.setColour (pal.ink.withAlpha (0.8f));
             g.setFont (theme::monoLabel (8.5f));
             g.drawText (info.params[(size_t) i].format (info.params[(size_t) i].toReal (s.params[(size_t) i])),
