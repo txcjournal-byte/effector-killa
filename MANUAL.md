@@ -149,6 +149,40 @@ the range: the value at macro **0** (min) and at macro **100** (max). At **50** 
 set it. Learned assignments **add** to what the macro already does, so one macro can drive your own
 selection of knobs across the rack. They are saved in the preset; right-click the knob again to remove.
 
+### SPLIT: parallel branches
+
+A normal rack is one line of units. A **SPLIT** divides the signal into two branches, **A** and **B**,
+that run side by side and meet again at **MERGE**. Units above the split run in series as usual; the units
+below it sit in two columns – A on the left, B on the right – and each column runs top to bottom.
+The rack holds **one** split. Without a split the rack sounds exactly as it always did.
+
+| Mode | Branch A gets | Branch B gets |
+|---|---|---|
+| **PARALLEL** | the full signal | the full signal |
+| **L/R** | the left channel | the right channel |
+| **M/S** | the mid (centre) | the side (stereo) part |
+| **LOW/HIGH** | everything below **XOVER** | everything above it |
+| **TRANS/SUS** | the attacks (hits, consonants) | the body and the tails |
+
+| Control | What it does |
+|---|---|
+| **Mode buttons** | Pick how the signal is divided. Switching crossfades, no clicks. |
+| **XOVER** | Crossover of LOW/HIGH, 40 Hz – 12 kHz (Linkwitz-Riley 24 dB/oct, the two bands add back flat). |
+| **A / B** | MERGE balance. Left = only A, right = only B. In PARALLEL the centre is a 50/50 blend; in the other modes the centre keeps both parts at full level, so empty branches give back the original sound. |
+| **LVL A / LVL B** | Level of each branch at the merge, −24 … +12 dB. |
+| **X** | Removes the split. The units stay where they are and run in series again. |
+
+Tips:
+- **808:** LOW/HIGH at ~120 Hz, put Menace or Cassette Plug in B – the sub stays clean, the top gets the dirt.
+- **Vocal throw:** PARALLEL, Ad-Lib Throw + Aura Room in B, nothing in A, A/B a little left of centre.
+- **Drums:** TRANS/SUS, Slap or Red Line on the attacks (A), Aura Room on the tails (B).
+- **Width:** M/S with Doubles or Wide Body only on the side branch keeps the centre mono-safe.
+
+SOLO and *listen up to here* work inside a branch too: you hear that branch alone (the other one is muted),
+which is the quickest way to hear what a branch is doing. The split, its mode, knobs and the branch of every
+unit are saved with presets and with your project; older presets and projects load unchanged. The reported
+latency does not change: the shorter branch is delayed to line up with the longer one.
+
 ---
 
 ## The 15 effects

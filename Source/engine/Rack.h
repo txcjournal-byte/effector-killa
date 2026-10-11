@@ -11,6 +11,7 @@
 
 #include "Effect.h"
 #include "UnitTaps.h"
+#include "Split.h"
 #include <atomic>
 
 namespace ek
@@ -29,7 +30,8 @@ struct RackConfig
     std::array<SlotConfig, kNumSlots> slots {};
     int screening = -1; // -1 = off, else listen to the chain up to (and including) this slot
     int solo = -1;      // -1 = off, else listen to this one unit only (all other units bypassed)
-    bool operator== (const RackConfig& o) const noexcept { return slots == o.slots && screening == o.screening && solo == o.solo; }
+    SplitConfig split;  // SPLIT / MERGE (Split.h); inactive by default = plain serial rack
+    bool operator== (const RackConfig& o) const noexcept { return slots == o.slots && screening == o.screening && solo == o.solo && split == o.split; }
     bool operator!= (const RackConfig& o) const noexcept { return ! (*this == o); }
 };
 
@@ -43,6 +45,7 @@ struct SlotParams
 struct RackParams
 {
     std::array<SlotParams, kNumSlots> slots {};
+    SplitParams split; // crossover / balance / branch levels (only used when the config has a split)
 };
 
 // Immutable processing structure (owned by exactly one thread at a time).
@@ -77,11 +80,18 @@ private:
 
     void processSlot (Slot& s, int index, float* L, float* R, int n, const RackParams* params, const ProcessContext& ctx) noexcept;
 
+    // SPLIT hooks (implemented in Split.cpp). splitRt == nullptr -> original serial code path.
+    void initSplitRouting();
+    int prepareSplit (const PrepareSpec& spec);
+    void processSplit (float* L, float* R, int n, const RackParams* params, const ProcessContext& ctx) noexcept;
+    std::unique_ptr<SplitRuntime> splitRt;
+
     RackConfig config;
     std::array<Slot, kNumSlots> slots;
     int lastSlot = kNumSlots - 1;
     int soloSlot = -1;
-    bool isHeard (int i) const noexcept { return i <= lastSlot && (soloSlot < 0 || i == soloSlot); }
+    std::array<bool, kNumSlots> heard {};
+    bool isHeard (int i) const noexcept { return heard[(size_t) i]; }
     int actualLatency = 0;
     LatencyDelay pad;
     std::vector<float> dryL, dryR, wL, wR, other;

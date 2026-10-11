@@ -55,13 +55,7 @@ inline void renderProgram (const ProgramState& p, double sr, int osLog2, float* 
     spec.sampleRate = sr;
     spec.osFactorLog2 = osLog2;
     Chain chain (p.rackConfig(), spec, Rack::computeFixedLatency (sr, osLog2));
-    RackParams base, eff;
-    for (int s = 0; s < kNumSlots; ++s)
-    {
-        base.slots[(size_t) s].p = p.slots[(size_t) s].p;
-        base.slots[(size_t) s].mix = p.slots[(size_t) s].mix;
-        base.slots[(size_t) s].pause = p.slots[(size_t) s].pause;
-    }
+    RackParams base = p.rackParams(), eff;
     MacroEngine::compute (p.rackConfig(), base, p.macros, p.maps, p.source, eff);
     ProcessContext ctx;
     ctx.sampleRate = sr;

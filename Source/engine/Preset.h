@@ -63,6 +63,7 @@ struct SlotState
     bool pause = false;
     MSMode ms = MSMode::Stereo;
     bool writeProtect = false;
+    int branch = 0;          // SPLIT branch (0 = A, 1 = B), only used for slots behind the split
 
     void setType (EffectType t); // sets type and default parameter values
     bool isEmpty() const noexcept { return type == EffectType::None; }
@@ -87,8 +88,10 @@ struct ProgramState
     ModSourceState modSources; // MOD unit: LFOs / ENV / SEQ + assignments (default = no modulation)
     uint64_t seed = 0;
     juce::StringArray tags;
+    SplitState split;        // SPLIT / MERGE (inactive = plain serial rack, as in every older preset)
 
     RackConfig rackConfig (int screening = -1, int solo = -1) const;
+    RackParams rackParams() const; // stored parameter values (P1-P8, MIX, PAUSE, split knobs)
     juce::var toVar() const;
     static ProgramState fromVar (const juce::var& v);
     juce::String toJson() const;

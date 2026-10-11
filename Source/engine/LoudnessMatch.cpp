@@ -98,13 +98,7 @@ void measureProgramLoudness (const ProgramState& program, double sr, float secon
     const int fixed = Rack::computeFixedLatency (sr, osFactorLog2);
     Chain chain (program.rackConfig(), spec, fixed);
 
-    RackParams base, eff;
-    for (int s = 0; s < kNumSlots; ++s)
-    {
-        base.slots[(size_t) s].p = program.slots[(size_t) s].p;
-        base.slots[(size_t) s].mix = program.slots[(size_t) s].mix;
-        base.slots[(size_t) s].pause = program.slots[(size_t) s].pause;
-    }
+    RackParams base = program.rackParams(), eff;
     MacroEngine::compute (program.rackConfig(), base, program.macros, program.maps, program.source, eff);
 
     LoudnessMeter inMeter, outMeter;

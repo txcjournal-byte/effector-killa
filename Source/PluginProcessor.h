@@ -128,6 +128,25 @@ public:
     ek::SlotState getSlotState (int slot) const; // meta + live parameter values (pause, mix, P1-P8)
     int selectedSlot = -1;
 
+    // ---- SPLIT / MERGE (parallel branches, at most one split; see MANUAL.md "SPLIT") ----------
+    // Layout: slots [0, at) run in series in front of the split; every unit in slots [at, 8) belongs to
+    // branch A or B and runs in slot order inside its branch; MERGE sums A and B. Structural calls are
+    // undo steps and crossfade like any rack change; the knob setters are not (call pushUndo() at the
+    // start of a gesture if wanted). Host parameters are unchanged (the 8 slot sets keep their IDs).
+    bool hasSplit() const noexcept { return meta.split.isActive(); }
+    const ek::SplitState& getSplit() const noexcept { return meta.split; }
+    int getSplitPosition() const noexcept { return meta.split.isActive() ? meta.split.at : -1; }
+    void insertSplit (int at);                 // split in front of slot `at` (0..kNumSlots), moves an existing one
+    void removeSplit();                        // back to a serial rack; units keep their order
+    void setSplitMode (ek::SplitMode m);       // PARALLEL, L/R, M/S, LOW/HIGH, TRANSIENT/SUSTAIN
+    void setSplitFreq (float hz);              // LOW/HIGH crossover, 40 Hz - 12 kHz
+    void setSplitBalance (float balance);      // 0 = A only, 0.5 = both, 1 = B only
+    void setSplitLevel (int branch, float db); // per-branch level, -24 .. +12 dB
+    void setSlotBranch (int slot, int branch); // move a unit to branch A (0) / B (1); a unit in front of the split moves behind it
+    int getSlotBranch (int slot) const noexcept; // -1 = serial (no split or in front of it), 0 = A, 1 = B
+    int insertEffectInBranch (int branch, ek::EffectType t); // new unit at the end of branch A/B, returns its slot or -1
+    std::vector<int> getBranchSlots (int branch) const; // non-empty slots of a branch in processing order (-1 = in front of the split)
+
     // source / modulation / settings
     void setSource (ek::Source s);
     void setModState (const ek::ModState& m, bool undoable);
@@ -196,6 +215,8 @@ private:
     void pushConfigToEngine();
     void pushExtrasToEngine();
     void modChanged();   // after a meta.modSources / meta.maps edit: push to the engine, tell the UI
+    void pushSplitParams();
+    int insertEffectImpl (int at, ek::EffectType t, int branch);
     void notifyUi() { sendChangeMessage(); }
     ek::ProgramState stateForSide() const { return captureProgram(); }
 
@@ -218,6 +239,7 @@ private:
     std::array<std::atomic<float>*, ek::kNumMacros> pMacro {};
     std::atomic<float>* pIn = nullptr, *pOut = nullptr, *pBlend = nullptr, *pAuto = nullptr, *pPocket = nullptr, *pOffAir = nullptr;
     std::atomic<float>* pRecycle = nullptr, *pTempoMode = nullptr, *pTempoBpm = nullptr;
+    std::atomic<float> splitFreq { 250.0f }, splitBalance { 0.5f }, splitLevelA { 0.0f }, splitLevelB { 0.0f };
     double freePpq = 0.0;                       // free-running transport for MANUAL tempo
     std::vector<double> taps;                   // tap tempo timestamps (ms)
     void updateHostNames();
