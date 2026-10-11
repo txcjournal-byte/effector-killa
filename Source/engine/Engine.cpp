@@ -8,6 +8,7 @@ Engine::Engine()
         v->assign ((size_t) kMaxChunk, 0.0f);
     for (auto& m : meters.macroValue) m.store (0.5f);
     for (auto& s : effectiveParams) for (auto& p : s) p.store (0.0f);
+    for (auto& m : effectiveMix) m.store (1.0f);
 }
 
 void Engine::prepare (double sr, int maxBlock, int osFactorLog2)
@@ -16,6 +17,7 @@ void Engine::prepare (double sr, int maxBlock, int osFactorLog2)
     sampleRate = sr;
     rack.prepare (sr, osFactorLog2);
     modulation.prepare (sr);
+    modSources.prepare (sr);
     for (auto* m : { &inMeter, &rackMeter, &origMeter, &finalMeter }) m->prepare (sr);
     autoGain.prepare (sr);
 
@@ -136,26 +138,67 @@ void Engine::processChunk (float* L, float* R, int n, const EngineInput& in, con
     if (mo.glitch > 0.0f && ! in.macroModSuspended[CrashOut])
         macros[CrashOut] = clamp01 (macros[CrashOut] + ModulationEngine::glitchAmount * mo.glitch);
 
-    RackParams eff;
-    MacroEngine::compute (rack.getActiveConfig(), in.base, macros, ex->maps, ex->source, eff);
-    if (mo.active)
-    {
-        applyOffset (ex->mod.targetX, mo.offX, &eff);
-        applyOffset (ex->mod.targetY, mo.offY, &eff);
-    }
-
     meters.dotX.store (mo.dotX);
     meters.dotY.store (mo.dotY);
     meters.glitch.store (mo.glitch);
     meters.modActive.store (mo.active);
     meters.cornerHits.store (modulation.getCornerHits());
-    for (int m = 0; m < kNumMacros; ++m) meters.macroValue[(size_t) m].store (macros[(size_t) m]);
-    for (int s = 0; s < kNumSlots; ++s)
-        for (int p = 0; p < kNumParams; ++p)
-            effectiveParams[(size_t) s][(size_t) p].store (eff.slots[(size_t) s].p[(size_t) p], std::memory_order_relaxed);
 
-    // ---- rack (+ RECYCLE) -------------------------------------------------------------------
-    processRack (L, R, n, eff, ctx);
+    // macros -> effective rack parameters (+ AV slot offsets), published for the UI
+    auto computeEffective = [&] (const std::array<float, kNumMacros>& mac, RackParams& eff)
+    {
+        MacroEngine::compute (rack.getActiveConfig(), in.base, mac, ex->maps, ex->source, eff);
+        if (mo.active)
+        {
+            applyOffset (ex->mod.targetX, mo.offX, &eff);
+            applyOffset (ex->mod.targetY, mo.offY, &eff);
+        }
+    };
+    auto publishEffective = [&] (const std::array<float, kNumMacros>& mac, const RackParams& eff)
+    {
+        for (int m = 0; m < kNumMacros; ++m) meters.macroValue[(size_t) m].store (mac[(size_t) m]);
+        for (int s = 0; s < kNumSlots; ++s)
+        {
+            for (int p = 0; p < kNumParams; ++p)
+                effectiveParams[(size_t) s][(size_t) p].store (eff.slots[(size_t) s].p[(size_t) p], std::memory_order_relaxed);
+            effectiveMix[(size_t) s].store (eff.slots[(size_t) s].mix, std::memory_order_relaxed);
+        }
+    };
+
+    if (! modSources.needsProcessing (ex->modSources))
+    {
+        // Nothing patched in the MOD unit: exactly the original path (the sources only run for the UI).
+        modSources.advance (ex->modSources, ctx, dryL.data(), dryR.data(), n);
+        modSources.publish (modMeters);
+
+        RackParams eff;
+        computeEffective (macros, eff);
+        publishEffective (macros, eff);
+
+        // ---- rack (+ RECYCLE) ---------------------------------------------------------------
+        processRack (L, R, n, eff, ctx);
+    }
+    else
+    {
+        // ---- MOD SOURCES: 32-sample sub-blocks, offsets on the effective parameters ------------
+        for (int pos = 0; pos < n; pos += kModBlock)
+        {
+            const int m = std::min (kModBlock, n - pos);
+            ProcessContext sub = ctx;
+            sub.ppq = ctx.ppq + (double) pos * ctx.beatsPerSample();
+            modSources.advance (ex->modSources, sub, dryL.data() + pos, dryR.data() + pos, m);
+            modSources.updateOffsets (ex->modSources, m);
+
+            auto mac = macros;
+            modSources.applyMacroOffsets (mac, in.macroModSuspended);
+            RackParams eff;
+            computeEffective (mac, eff);
+            modSources.applySlotOffsets (eff);
+            if (pos + m >= n) publishEffective (mac, eff);
+            processRack (L + pos, R + pos, m, eff, sub);
+        }
+        modSources.publish (modMeters);
+    }
 
     // ---- trim + BLEND ------------------------------------------------------------------
     trim.setTarget (dbToGain (ex->trimDb));

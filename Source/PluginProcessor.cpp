@@ -343,6 +343,7 @@ void EffectorKillaAudioProcessor::pushExtrasToEngine()
     e.trimDb = meta.trimDb;
     e.maps = meta.maps;
     e.mod = meta.mod;
+    e.modSources = meta.modSources;
     // The rack UI has no AV screen any more: never run hidden XY / scribble / screensaver modulation.
     e.mod.mode = AvMode::Remote;
     e.mod.path.clear();
@@ -430,6 +431,16 @@ void EffectorKillaAudioProcessor::kill()
     const auto cur = captureProgram();
     const uint64_t seed = (uint64_t) juce::Random::getSystemRandom().nextInt64();
     auto np = Randomizer::kill (cur, killLevel, cur.source, seed);
+    // MOD / MACRO LEARN survive KILL only on units that kept their effect type
+    for (int sl = 0; sl < kNumSlots; ++sl)
+    {
+        if (np.slots[(size_t) sl].type == cur.slots[(size_t) sl].type && ! np.slots[(size_t) sl].isEmpty())
+        {
+            for (auto& m : cur.maps)
+                if (m.learned && m.slot == sl) np.maps.push_back (m);
+        }
+        else np.modSources.removeSlot (sl);
+    }
     np.name = "KILL " + juce::String::toHexString ((juce::int64) (seed & 0xffffff)).toUpperCase().paddedLeft ('0', 6);
     np.trimDb = estimateProgramTrimDb (np, currentSampleRate);
     applyProgram (np, true);
@@ -494,6 +505,7 @@ void EffectorKillaAudioProcessor::setSlotType (int slot, EffectType t)
     s.setType (t);
     s.writeProtect = lock && t != EffectType::None;
     p.maps.erase (std::remove_if (p.maps.begin(), p.maps.end(), [slot] (const MacroMapping& m) { return m.slot == slot; }), p.maps.end());
+    p.modSources.removeSlot (slot);
     applyProgram (p, true);
 }
 
@@ -510,7 +522,10 @@ void EffectorKillaAudioProcessor::playTape (int slot, EffectType t, int programm
     s.ms = sameType ? ms : MSMode::Stereo;
     s.writeProtect = lock;
     if (! sameType)
+    {
         p.maps.erase (std::remove_if (p.maps.begin(), p.maps.end(), [slot] (const MacroMapping& m) { return m.slot == slot; }), p.maps.end());
+        p.modSources.removeSlot (slot);
+    }
     applyProgram (p, true);
 }
 
@@ -546,6 +561,9 @@ static void reorderSlots (ek::ProgramState& p, int from, int to)
     for (auto& m : p.maps)
         for (int i = 0; i < kNumSlots; ++i)
             if (order[(size_t) i] == m.slot) { m.slot = i; break; }
+    std::array<int, kNumSlots> newIndexOfOld {};
+    for (int i = 0; i < kNumSlots; ++i) newIndexOfOld[(size_t) order[(size_t) i]] = i;
+    p.modSources.remapSlots (newIndexOfOld);
     for (auto* t : { &p.mod.targetX, &p.mod.targetY })
         if (ModTarget::isSlotParam (*t))
             for (int i = 0; i < kNumSlots; ++i)
@@ -578,6 +596,7 @@ int EffectorKillaAudioProcessor::insertEffect (int at, EffectType t)
     const auto& tapes = bank.getTapes (t);
     if (! tapes.empty()) { s = tapes.front().slot; s.ms = MSMode::Stereo; s.writeProtect = false; }
     p.maps.erase (std::remove_if (p.maps.begin(), p.maps.end(), [free] (const MacroMapping& m) { return m.slot == free; }), p.maps.end());
+    p.modSources.removeSlot (free);
     // a free slot before the drop point: moving it forward shifts the units in between back by one
     const int dest = free < at ? at - 1 : at;
     if (free != dest) reorderSlots (p, free, dest);
@@ -594,6 +613,7 @@ void EffectorKillaAudioProcessor::removeEffect (int slot)
     auto p = captureProgram();
     p.slots[(size_t) slot] = SlotState();
     p.maps.erase (std::remove_if (p.maps.begin(), p.maps.end(), [slot] (const MacroMapping& m) { return m.slot == slot; }), p.maps.end());
+    p.modSources.removeSlot (slot);
     reorderSlots (p, slot, kNumSlots - 1);  // close the gap, empty slot goes to the end
     screening = -1;
     solo = -1;
@@ -634,6 +654,7 @@ void EffectorKillaAudioProcessor::pasteSlot (int slot)
 {
     if (! slotClipboard) return;
     auto p = captureProgram();
+    if (p.slots[(size_t) slot].type != slotClipboard->type) p.modSources.removeSlot (slot);
     p.slots[(size_t) slot] = *slotClipboard;
     p.slots[(size_t) slot].writeProtect = false;
     applyProgram (p, true);
@@ -649,6 +670,7 @@ bool EffectorKillaAudioProcessor::loadSlotPreset (int slot, const juce::File& f)
     if (auto s = bank.loadSlotPreset (f))
     {
         auto p = captureProgram();
+        if (p.slots[(size_t) slot].type != s->type) p.modSources.removeSlot (slot);
         p.slots[(size_t) slot] = *s;
         applyProgram (p, true);
         return true;
@@ -719,6 +741,190 @@ void EffectorKillaAudioProcessor::parameterChanged (const juce::String& id, floa
 }
 
 void EffectorKillaAudioProcessor::timerCallback() { engine.collectGarbage(); }
+
+// ---- MOD SOURCES ---------------------------------------------------------------------------
+void EffectorKillaAudioProcessor::modChanged()
+{
+    pushExtrasToEngine();
+    notifyUi();
+}
+
+int EffectorKillaAudioProcessor::addModAssignment (int source, int slot, int param, float depth)
+{
+    ModAssignment a { source, slot, param, depth };
+    if (slot < 0 || ! a.isValid()) return -1;
+    auto copy = meta.modSources;
+    const int idx = copy.add (a);
+    if (idx < 0) return -1;
+    pushUndo();
+    meta.modSources = copy;
+    modChanged();
+    return idx;
+}
+
+int EffectorKillaAudioProcessor::addMacroModAssignment (int source, int macro, float depth)
+{
+    ModAssignment a { source, -1, macro, depth };
+    if (! a.isValid()) return -1;
+    auto copy = meta.modSources;
+    const int idx = copy.add (a);
+    if (idx < 0) return -1;
+    pushUndo();
+    meta.modSources = copy;
+    modChanged();
+    return idx;
+}
+
+void EffectorKillaAudioProcessor::removeModAssignment (int index)
+{
+    if (index < 0 || index >= meta.modSources.numAssign) return;
+    pushUndo();
+    meta.modSources.remove (index);
+    modChanged();
+}
+
+void EffectorKillaAudioProcessor::removeModAssignmentsFor (int slot, int param)
+{
+    if (findModAssignments (slot, param).empty()) return;
+    pushUndo();
+    meta.modSources.removeTarget (slot, param);
+    modChanged();
+}
+
+void EffectorKillaAudioProcessor::clearModAssignments()
+{
+    if (! meta.modSources.hasAssignments()) return;
+    pushUndo();
+    while (meta.modSources.numAssign > 0) meta.modSources.remove (meta.modSources.numAssign - 1);
+    modChanged();
+}
+
+void EffectorKillaAudioProcessor::setModDepth (int index, float depth)
+{
+    if (index < 0 || index >= meta.modSources.numAssign || ! std::isfinite (depth)) return;
+    auto& a = meta.modSources.assign[(size_t) index];
+    depth = juce::jlimit (-1.0f, 1.0f, depth);
+    if (a.depth == depth) return;
+    a.depth = depth;
+    modChanged();
+}
+
+std::vector<ModAssignment> EffectorKillaAudioProcessor::getModAssignments() const
+{
+    const auto& m = meta.modSources;
+    return { m.assign.begin(), m.assign.begin() + m.numAssign };
+}
+
+std::vector<int> EffectorKillaAudioProcessor::findModAssignments (int slot, int param) const
+{
+    std::vector<int> out;
+    for (int i = 0; i < meta.modSources.numAssign; ++i)
+        if (meta.modSources.assign[(size_t) i].slot == slot && meta.modSources.assign[(size_t) i].param == param)
+            out.push_back (i);
+    return out;
+}
+
+void EffectorKillaAudioProcessor::setModSources (const ModSourceState& s, bool undoable)
+{
+    if (s == meta.modSources) return;
+    if (undoable) pushUndo();
+    meta.modSources = ModSourceState::fromVar (s.toVar()); // validated copy
+    modChanged();
+}
+
+void EffectorKillaAudioProcessor::setLfo (int lfo, const LfoSettings& s)
+{
+    if (lfo < 0 || lfo > 1) return;
+    auto copy = meta.modSources;
+    copy.lfo[(size_t) lfo] = s;
+    setModSources (copy);
+}
+
+void EffectorKillaAudioProcessor::setEnvFollower (const EnvSettings& s)
+{
+    auto copy = meta.modSources;
+    copy.env = s;
+    setModSources (copy);
+}
+
+void EffectorKillaAudioProcessor::setStepSeq (const SeqSettings& s)
+{
+    auto copy = meta.modSources;
+    copy.seq = s;
+    setModSources (copy);
+}
+
+void EffectorKillaAudioProcessor::setSeqStep (int step, float v)
+{
+    if (step < 0 || step >= kSeqSteps) return;
+    auto copy = meta.modSources;
+    copy.seq.steps[(size_t) step] = v;
+    setModSources (copy);
+}
+
+float EffectorKillaAudioProcessor::getModSourceValue (int source) const noexcept
+{
+    if (source < 0 || source >= kNumModSources) return 0.0f;
+    return engine.modMeters.value[(size_t) source].load (std::memory_order_relaxed);
+}
+
+float EffectorKillaAudioProcessor::getLfoPhase (int lfo) const noexcept
+{
+    return engine.modMeters.lfoPhase[(size_t) juce::jlimit (0, 1, lfo)].load (std::memory_order_relaxed);
+}
+
+float EffectorKillaAudioProcessor::getModOffset (int slot, int param) const noexcept
+{
+    if (slot < 0) return param >= 0 && param < kNumMacros ? engine.modMeters.macroOffset[(size_t) param].load (std::memory_order_relaxed) : 0.0f;
+    if (slot >= kNumSlots || param < 0 || param >= kNumModSlotTargets) return 0.0f;
+    return engine.modMeters.slotOffset[(size_t) slot][(size_t) param].load (std::memory_order_relaxed);
+}
+
+float EffectorKillaAudioProcessor::getEffectiveSlotParam (int slot, int param) const noexcept
+{
+    if (slot < 0 || slot >= kNumSlots) return 0.0f;
+    if (param == kNumParams) return engine.effectiveMix[(size_t) slot].load (std::memory_order_relaxed);
+    if (param < 0 || param > kNumParams) return 0.0f;
+    return engine.effectiveParams[(size_t) slot][(size_t) param].load (std::memory_order_relaxed);
+}
+
+// ---- MACRO LEARN ---------------------------------------------------------------------------
+bool EffectorKillaAudioProcessor::assignMacro (int macro, int slot, int param, float minNorm, float maxNorm)
+{
+    if (macro < 0 || macro >= kNumMacros || slot < 0 || slot >= kNumSlots || param < 0 || param > kNumParams) return false;
+    if (meta.slots[(size_t) slot].isEmpty() || ! std::isfinite (minNorm) || ! std::isfinite (maxNorm)) return false;
+    pushUndo();
+    auto& maps = meta.maps;
+    maps.erase (std::remove_if (maps.begin(), maps.end(), [&] (const MacroMapping& m)
+                { return m.macro == macro && m.slot == slot && m.param == param; }), maps.end());
+    MacroMapping mm;
+    mm.macro = macro; mm.slot = slot; mm.param = param;
+    mm.atZero = clamp01 (minNorm);
+    mm.atOne = clamp01 (maxNorm);
+    mm.learned = true;
+    maps.push_back (mm);
+    modChanged();
+    return true;
+}
+
+void EffectorKillaAudioProcessor::removeMacroAssignment (int macro, int slot, int param)
+{
+    auto pred = [&] (const MacroMapping& m) { return m.macro == macro && m.slot == slot && m.param == param; };
+    if (std::none_of (meta.maps.begin(), meta.maps.end(), pred)) return;
+    pushUndo();
+    meta.maps.erase (std::remove_if (meta.maps.begin(), meta.maps.end(), pred), meta.maps.end());
+    modChanged();
+}
+
+std::vector<MacroMapping> EffectorKillaAudioProcessor::getMacroAssignments() const { return meta.maps; }
+
+std::vector<MacroMapping> EffectorKillaAudioProcessor::getMacroAssignmentsFor (int slot, int param) const
+{
+    std::vector<MacroMapping> out;
+    for (auto& m : meta.maps)
+        if (m.slot == slot && m.param == param) out.push_back (m);
+    return out;
+}
 
 // ---- state -------------------------------------------------------------------------------
 void EffectorKillaAudioProcessor::getStateInformation (juce::MemoryBlock& destData)

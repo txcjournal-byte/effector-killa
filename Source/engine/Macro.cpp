@@ -37,7 +37,7 @@ void MacroEngine::compute (const RackConfig& cfg, const RackParams& base, const 
 
     uint32_t customMask = 0;
     for (auto& m : maps)
-        if (m.macro >= 0 && m.macro < kNumMacros) customMask |= 1u << m.macro;
+        if (m.macro >= 0 && m.macro < kNumMacros && ! m.learned) customMask |= 1u << m.macro; // learned maps add on top
 
     std::array<float, kNumMacros> bip {};
     for (int m = 0; m < kNumMacros; ++m)

@@ -117,6 +117,38 @@ Up to **8 units**. Each unit shows **all its controls** with real values (Hz, dB
 - **Click the empty area** under the rack for a menu of all effects.
 - The rack holds 8 units; when it is full, drop onto a unit to replace it.
 
+### MOD SOURCES: modulation by drag & drop
+
+The **MOD** unit sits under the macro strip. It has four modulation sources, each with its own
+colour, a small display and a **patch jack**:
+
+| Source | Controls | What it does |
+|---|---|---|
+| **LFO 1** (ice blue) / **LFO 2** (violet) | **SHAPE** (SINE, TRI, SAW, SQUARE, S&H), **RATE**, **PHASE**, **FREE / SYNC** | A repeating wave. FREE runs at 0.01–20 Hz; SYNC locks to the tempo (4 bars … 1/32, dotted and triplet values). PHASE shifts the start of the cycle (e.g. two LFOs 180° apart). |
+| **ENV FOLLOW** (amber) | **ATTACK**, **RELEASE**, **SENS** | Follows the loudness of the plugin input. SENS boosts the input (0 to +36 dB) before the follower, so quiet sources still open it fully. |
+| **STEP SEQ** (green) | 16 steps, **RATE** (length of one step), **GLIDE** | Click or drag in the display to draw the steps. GLIDE slides from one step to the next instead of jumping. |
+
+**Patching:** grab a jack and drag it onto **any knob in the rack** (unit knobs, DRY/WET or a macro).
+A coloured ring appears around the knob and shows the range the knob now moves through.
+Drag the ring to change the depth – it works in both directions (+ / −). LFOs swing around the knob
+value; ENV and SEQ push it from the knob value up (positive depth) or down (negative depth).
+Right-click a knob or a jack to list the modulations and remove them. Up to **16 modulations** in total.
+
+- The display LED and the green **ACTIVE** LED show that modulation is running.
+- Synced LFOs and the sequencer follow the song position while your DAW plays, so they are in the
+  same place on every playback. When the DAW is stopped they keep running at the current tempo.
+- If your DAW automates a macro, modulation of that macro pauses while the automation moves.
+- Modulation is saved with presets, A/B, undo and your project. A preset without modulation sounds
+  exactly as before. A unit's modulations follow it when you move it and are removed with it;
+  KILL keeps modulation only on units it did not replace.
+
+### MACRO LEARN
+
+Right-click any knob in the rack → **Assign to VILLAIN ARC / CRASH OUT / AURA / DRIP / KNOCK**, then set
+the range: the value at macro **0** (min) and at macro **100** (max). At **50** the knob stays where you
+set it. Learned assignments **add** to what the macro already does, so one macro can drive your own
+selection of knobs across the rack. They are saved in the preset; right-click the knob again to remove.
+
 ---
 
 ## The 15 effects

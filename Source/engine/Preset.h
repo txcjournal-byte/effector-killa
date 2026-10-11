@@ -4,6 +4,7 @@
 // user presets, slot presets and favourites (STAFF PICK).
 
 #include "Rack.h"
+#include "ModSources.h"
 #include <optional>
 
 namespace ek
@@ -51,6 +52,7 @@ struct MacroMapping
     int param = 0;       // 0..7, 8 = slot MIX
     float atZero = 0.0f; // normalised value when the macro is at 0 (base value at 0.5)
     float atOne = 1.0f;  // normalised value when the macro is at 1
+    bool learned = false; // MACRO LEARN: added on top of the macro's default mapping (does not disable it)
 };
 
 struct SlotState
@@ -82,6 +84,7 @@ struct ProgramState
     std::vector<MacroMapping> maps;
     float trimDb = 0.0f;     // loudness trim (set by KILL / BOOTLEG)
     ModState mod;
+    ModSourceState modSources; // MOD unit: LFOs / ENV / SEQ + assignments (default = no modulation)
     uint64_t seed = 0;
     juce::StringArray tags;
 

@@ -209,6 +209,7 @@ juce::var ProgramState::toVar() const
         mo->setProperty ("param", m.param);
         mo->setProperty ("zero", m.atZero);
         mo->setProperty ("one", m.atOne);
+        if (m.learned) mo->setProperty ("learn", true);
         mp.add (juce::var (mo));
     }
     o->setProperty ("maps", mp);
@@ -230,6 +231,8 @@ juce::var ProgramState::toVar() const
     for (auto& pt : this->mod.path) { juce::Array<juce::var> xy { pt.x, pt.y }; pts.add (xy); }
     mod->setProperty ("path", pts);
     o->setProperty ("mod", juce::var (mod));
+    // MOD SOURCES: only written when they differ from the defaults, so older builds and presets see no change
+    if (modSources != ModSourceState()) o->setProperty ("modSources", modSources.toVar());
     return juce::var (o);
 }
 
@@ -297,6 +300,7 @@ ProgramState ProgramState::fromVar (const juce::var& v)
                 mm.atZero = clamp01 ((float) (double) m.getProperty ("zero", 0.0));
                 mm.atOne = clamp01 ((float) (double) m.getProperty ("one", 1.0));
             }
+            mm.learned = (bool) m.getProperty ("learn", false);
             if (mm.macro >= 0) s.maps.push_back (mm);
         }
     }
@@ -321,6 +325,7 @@ ProgramState ProgramState::fromVar (const juce::var& v)
                     s.mod.path.push_back ({ clamp01 ((float) (double) xy->getReference (0)),
                                             clamp01 ((float) (double) xy->getReference (1)) });
     }
+    s.modSources = ModSourceState::fromVar (v.getProperty ("modSources", {})); // absent = no modulation
     return s;
 }
 
