@@ -4,6 +4,7 @@
 5 macros, or hit **KILL** for a new chain that is musical and level-matched.
 
 Formats: VST3 (Windows / macOS), AU (macOS), Standalone. Stereo or mono.
+The whole chain lives in one rack: drag effects in, reorder them, and every control is right there.
 
 ---
 
@@ -19,9 +20,10 @@ Then rescan plugins in your DAW. In FL Studio: *Options → Manage plugins → F
 ## Quick start
 
 1. Put TrapWin Effector on a mixer insert.
-2. Turn the **channel dial** (01–12), or click a number, to choose a category.
-3. Use **PROGRAM ▲ ▼** to step through the 8 presets of the channel.
-4. Shape the sound with the 5 macro knobs.
+2. Click the **preset display** (or press **B**) to open the browser: pick a channel, a favourite or
+   one of your presets, or type in the search box. Clicking a preset loads it right away.
+3. Shape the sound with the 5 **macros**, or with any knob of any unit in the rack.
+4. Drag effects from the **GEAR** list into the rack to build your own chain.
 5. Press **KILL** (or the space bar) for a new chain.
 
 Factory presets and KILL results are **level-matched to your input**, so louder never fools you.
@@ -29,79 +31,91 @@ The CH 12 FINAL BOSS bus / master presets are the exception: they keep their des
 
 ---
 
-## The cabinet
+## The window
 
-### Left panel
+**Top:** control panel (presets, tempo, levels, KILL). **Under it:** the macro strip and global switches.
+**Left:** the rack - the signal flows from the top unit down. **Right:** the GEAR list.
+The window can be resized: *SIZE / SETUP → Window size* (Auto, 80 - 150 %) or drag the bottom-right corner.
+
+### Presets
 
 | Control | What it does |
 |---|---|
-| **KILL** | Generates a new chain. Follows musical rules, for example saturation comes before compression and reverb sits at the end. |
-| **PG / R / UNRATED** | KILL strength. **PG** keeps the effects and tweaks their parameters (±25 %), swapping at most one slot. **R** builds a new chain of 3–5 slots. **UNRATED** builds a wilder chain of 4–7 slots. |
-| **BOOTLEG** | Subtle variation of the current chain: parameters move ±10–20 % and the effects stay. |
-| **POCKET TV** | Monitor as if on a phone speaker: mono, 300 Hz – 8 kHz. It **blinks** while on – switch it off before export! |
-| **AUTO TRACKING** | Slow automatic gain (±12 dB). It keeps the output as loud as the input. |
-| **BASIC / PREMIUM CABLE** | BASIC is the simple mode, with calmer animations and no slot detail. PREMIUM shows everything. |
-| **STAFF PICK ⭐** | Adds the preset to your favourites. |
-| **ANTENNA IN / RF OUT** | Input and output gain (±24 dB). |
+| **Display / BROWSE** | Opens the preset browser: all presets, ★ favourites, your presets, the 12 channels, and search. Click or use the arrow keys to load and listen, double-click / Enter loads and closes, Esc closes. |
+| **◀ ▶** | Previous / next preset. |
+| **SAVE** | Saves the whole rack as your preset (`Documents/TrapWin/TrapWin Effector/Presets`). Ctrl+S. |
+| **★** | Adds the preset to your favourites. |
+| **A / B** | Two complete rack states to compare. |
+| **UNDO / REDO** | 64 steps (Ctrl+Z / Ctrl+Y). |
 
-### Macros (right)
+### Tempo
 
-| Macro | What it does |
+| Control | What it does |
+|---|---|
+| **HOST** | Follows your DAW tempo (default). |
+| **MANUAL** | Uses its own tempo, also when your DAW is stopped. |
+| **BPM display** | Drag up / down (Shift = fine), use the mouse wheel, or double-click and type. Changing it switches to MANUAL. |
+| **TAP** | Tap twice or more to set the tempo (or press **T**). |
+
+The tempo drives the synced delays, LFOs, gate patterns and pumping.
+
+### Levels
+
+| Control | What it does |
+|---|---|
+| **INPUT / OUTPUT** | Level into the first unit and out of the rack (±24 dB), with peak meters. |
+| **RECYCLE** | Feeds part of the rack output back into its input: repeats, extra saturation, self-oscillation at high settings. Turn it up slowly with loud units. |
+| **MIX** | Dry / wet of the whole rack. Use 100 % on a send / aux. |
+
+### KILL
+
+| Control | What it does |
+|---|---|
+| **KILL** | Generates a new chain. Follows musical rules, for example saturation comes before compression and reverb sits at the end. Locked units stay. |
+| **PG / R / UNRATED** | KILL strength. **PG** keeps the units and tweaks their settings (±25 %), swapping at most one. **R** builds a new chain of 3–5 units. **UNRATED** builds a wilder chain of 4–7 units. |
+| **BOOTLEG** | Subtle variation of the current chain: settings move ±10–20 % and the units stay. |
+
+### Macros and switches
+
+| Control | What it does |
 |---|---|
 | **VILLAIN ARC** | Darker: filters close and the reverb is damped. |
 | **CRASH OUT** | Dirtier: more drive and crush, and harder clipping. |
 | **AURA** | More space: reverb and delay go up, the image gets wider. |
 | **DRIP** | More movement: LFO rate and depth, wow and chorus. |
 | **KNOCK** | More punch: transients, compression and drive. |
+| **AUTO GAIN** | Slow automatic gain (±12 dB). It keeps the output as loud as the input. |
+| **PHONE CHECK** | Monitor as if on a phone speaker: mono, 300 Hz – 8 kHz. It **blinks** while on – switch it off before export! |
+| **COMPARE** | Your original signal at the same loudness. Click to toggle, hold to listen only while held. |
+| **GEAR** | Shows / hides the gear list (or press **G**). |
 
 Every macro sits at the **middle (50) = the preset as designed**. Turn it left for less, right for more.
-Some presets map a macro to their own targets. The preset's tuned macro is marked with an amber dot.
 Macros respect the source. On an 808, for example, AURA never pushes the reverb above 15 %.
 
-### Cassettes = the 8 slots
+### The rack and its units
 
-**Click a cassette – the TV shows what is on the tape**, like a USB stick plugged into a TV:
-a list of 8 ready-made **programmes** of that effect (e.g. *Aura Room*: Small Room, Vocal Plate, Big Hall,
-Dark Cave…) with a preview on the right. Click a programme to play it – no knob tweaking needed.
-The playing one is marked **▶**.
-
-- **Empty cassette** → the TV lists all 15 effects as folders – click one to insert it.
-- **FINE TUNE** (PREMIUM CABLE) opens the detailed parameters for advanced users (drag a bar left / right,
-  Shift = fine, double-click = default, wheel = step; PAUSE, SCREEN = solo, ST/MID/SIDE, LOCK).
-  **◀ PRESETS** brings the list back.
-- **EJECT** empties the cassette, **CLOSE** / Esc closes the menu.
-- **Drag** a cassette to change the order. **Right-click** = slot menu (copy / paste, slot presets,
-  WRITE PROTECT, PAUSE, SCREENING, M/S).
-- Coloured dot = effect type, red **WRITE PROTECT** tag = KILL never touches it, grey cassette = paused.
-
-### Video recorder
+Up to **8 units**. Each unit shows **all its controls** with real values (Hz, dB, ms, note values).
 
 | Control | What it does |
 |---|---|
-| **Display** | Preset name. Click it to open the preset lists: channel, all channels, STAFF PICKS and USER TAPES. |
-| **REC** | Saves your own preset to `Documents/TrapWin/TrapWin Effector/Presets`. |
-| **◀◀ REWIND / ▶▶ FAST FWD** | Undo / redo (64 steps). |
-| **EJECT** | Empties the selected cassette. |
-| **SIDE A / SIDE B** | Two independent states for A/B comparison. |
+| **Grip (left edge)** | Drag the unit to a new position. Drag it onto the GEAR list to remove it. |
+| **Unit preset ▾** | 8 ready-made settings of that effect (e.g. *Aura Room*: Small Room, Vocal Plate, Big Hall…), your saved unit presets, save, copy / paste. |
+| **Knobs** | Drag up / down (Shift = fine), double-click = default, wheel = step. Hover for a tip. |
+| **DRY/WET** | Blend of this unit only (many effects also have their own MIX). |
+| **POWER** | Switches the unit off. It keeps running in the background, so delay and reverb tails are still there when you switch it back on. |
+| **SOLO** | Hear only this unit (it blinks). |
+| **ST / MID / SIDE** | Process the whole stereo signal, only the middle, or only the sides. |
+| **LOCK** | KILL never touches a locked unit and it cannot be removed by mistake. |
+| **✕** | Removes the unit; the rack closes the gap. |
+| **•••** | Replace with another effect, reset, *listen up to here* (mutes the units below), copy / paste. |
 
-### The TV
+### GEAR list: building a chain
 
-The picture is the channel's "programme". It pulses with the tempo and reacts to your sound and the macros.
-The **AV switch** under the TV turns the screen into a controller. By default X = CRASH OUT and Y = AURA;
-click the **X … / Y …** labels to choose any macro or slot parameter instead.
-
-- **AV1 REMOTE** – an XY pad. Drag the glowing dot; it stays where you leave it. Double-click resets.
-- **AV2 SCRIBBLE** – draw a line or loop. The dot rides along it in tempo, locked to your DAW transport.
-  Click the ruler to choose 1, 2 or 4 bars. Right-click erases.
-- **AV3 SCREENSAVER** – the logo bounces around the screen. When it hits a corner exactly, you get a glitch burst.
-  Click the ruler to change the speed.
-- If you automate a macro in your DAW, the automation wins and the AV modulation of that macro pauses.
-
-**OFF AIR:**
-- Click it to hear your original signal at the same loudness (true bypass comparison). Click again to come back.
-- Hold it to listen to the original only while held.
-
-**OVERLOAD** flashes on the TV when the output clips.
+- **Drag an effect onto the top or bottom edge of a unit** – it is inserted there and the rack moves down.
+- **Drag it onto the middle of a unit** – it replaces that unit (yellow frame).
+- **Drag it under the last unit** (or double-click it in the list) – it is added at the end.
+- **Click the empty area** under the rack for a menu of all effects.
+- The rack holds 8 units; when it is full, drop onto a unit to replace it.
 
 ---
 
@@ -136,26 +150,31 @@ click the **X … / Y …** labels to choose any macro or slot parameter instead
 | Space | KILL |
 | ← → | previous / next preset |
 | ↑ ↓ | next / previous channel |
-| 1–8 | select a cassette |
+| B | preset browser |
+| G | show / hide the gear list |
+| T | tap tempo |
+| 1–8 | unit 1–8 on / off |
 | Ctrl+Z / Ctrl+Y | undo / redo |
-| Esc | close the slot detail |
-
-Knobs:
-- Drag up / down to turn.
-- Hold Shift while dragging for fine control.
-- Double-click to reset.
-- Use the mouse wheel to step.
+| Ctrl+S | save preset |
+| Esc | close the browser |
 
 ## Third-party
 
 Fonts: Archivo Black and IBM Plex Mono (SIL Open Font License 1.1), Permanent Marker (Apache License 2.0) –
 licence texts are installed in the *Licenses* folder. Built with JUCE. VST is a trademark of Steinberg Media Technologies GmbH.
 
-## Settings (click the logo)
+## Size / setup menu
 
-- **UI size:** 100 / 125 / 150 %.
+- **Window size:** Auto (fits your screen), 80 – 150 %, or drag the bottom-right corner.
+- **Show gear list.**
 - **Oversampling:** 1× / 2× / 4× for the saturation, distortion, crusher and clipper. 2× is the default.
-- **OpenGL TV:** switch it off if the TV stays black on your machine.
+- **Open user preset folder.**
+
+## Host automation
+
+Every unit parameter is automatable. The names follow the rack, for example **S1: Cassette Plug: Drive**,
+and the values are shown in real units. Each slot keeps its own fixed parameters, so automation you have
+written never jumps to a different control when you move, add or replace units.
 
 ## Latency
 
@@ -164,7 +183,8 @@ shift your timing. At 48 kHz this is about 1.5 ms at 1×, 6.7 ms at 2× and 7.8 
 
 ## Troubleshooting
 
-- **TV is black or frozen** → click the logo and switch off *OpenGL TV*.
-- **Everything sounds thin or mono** → POCKET TV is on (the blinking button).
-- **Preset is too loud or too quiet** → try AUTO TRACKING, or use RF OUT.
-- **Presets folder** → click the logo and choose *Open user preset folder*.
+- **Everything sounds thin or mono** → PHONE CHECK is on (the blinking button).
+- **One unit does nothing** → it is powered off, or another unit is soloed (the rack shows *MUTED BY SOLO*).
+- **Preset is too loud or too quiet** → try AUTO GAIN, or use OUTPUT.
+- **It howls or keeps ringing** → turn RECYCLE down.
+- **Presets folder** → SIZE / SETUP → *Open user preset folder*.

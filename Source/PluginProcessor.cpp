@@ -104,15 +104,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout EffectorKillaAudioProcessor:
                                                   juce::NormalisableRange<float> (0.0f, 1.0f), 0.5f));
 
     auto dbAttr = juce::AudioParameterFloatAttributes().withLabel ("dB");
-    layout.add (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::inGain, 1 }, "Antenna In",
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::inGain, 1 }, "Input",
                                               juce::NormalisableRange<float> (-24.0f, 24.0f, 0.01f), 0.0f, dbAttr));
-    layout.add (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::outGain, 1 }, "RF Out",
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::outGain, 1 }, "Output",
                                               juce::NormalisableRange<float> (-24.0f, 24.0f, 0.01f), 0.0f, dbAttr));
-    layout.add (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::blend, 1 }, "Blend",
+    layout.add (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::blend, 1 }, "Mix",
                                               juce::NormalisableRange<float> (0.0f, 1.0f), 1.0f));
-    layout.add (std::make_unique<BoolParam> (juce::ParameterID { ParamIDs::autoTracking, 1 }, "Auto Tracking", false));
-    layout.add (std::make_unique<BoolParam> (juce::ParameterID { ParamIDs::pocketTv, 1 }, "Pocket TV", false));
-    layout.add (std::make_unique<BoolParam> (juce::ParameterID { ParamIDs::offAir, 1 }, "Off Air", false));
+    layout.add (std::make_unique<BoolParam> (juce::ParameterID { ParamIDs::autoTracking, 1 }, "Auto Gain", false));
+    layout.add (std::make_unique<BoolParam> (juce::ParameterID { ParamIDs::pocketTv, 1 }, "Phone Check", false));
+    layout.add (std::make_unique<BoolParam> (juce::ParameterID { ParamIDs::offAir, 1 }, "Compare", false));
     layout.add (std::make_unique<FloatParam> (juce::ParameterID { ParamIDs::recycle, 1 }, "Recycle",
                                               juce::NormalisableRange<float> (0.0f, 1.0f), 0.0f,
                                               juce::AudioParameterFloatAttributes().withStringFromValueFunction (
@@ -343,6 +343,9 @@ void EffectorKillaAudioProcessor::pushExtrasToEngine()
     e.trimDb = meta.trimDb;
     e.maps = meta.maps;
     e.mod = meta.mod;
+    // The rack UI has no AV screen any more: never run hidden XY / scribble / screensaver modulation.
+    e.mod.mode = AvMode::Remote;
+    e.mod.path.clear();
     engine.setExtras (e);
 }
 

@@ -85,27 +85,29 @@ Source/
   engine/Randomizer.*      KILL (PG / R / UNRATED) + BOOTLEG, pravidla sekce 7
   engine/Preset.*          JSON, kanály, factory banka, uživatelské a slot presety, STAFF PICK
   engine/LoudnessMatch.*   AUTO TRACKING, odhad hlasitosti pro KILL
-  engine/Engine.*          celý audio řetězec (ANTENNA IN → rack → BLEND → AUTO TRACKING → RF OUT → OFF AIR → POCKET TV)
-  ui/cabinet/*             skříň: Layout.h (všechny pozice na jednom místě), knoby, kazety, video, tlačítka
-  ui/tv/*                  TV: OpenGL (12 scén v GLSL + CRT), software fallback, OSD, AV1–AV3, detail kazety
+  engine/Engine.*          celý audio řetězec (INPUT → rack + RECYCLE → MIX → AUTO GAIN → OUTPUT → COMPARE → PHONE CHECK)
+  ui/Brand.*               oficiální logo TrapWin (Resources/Brand/trapwin_logo.png) + „EFFECTOR“
+  ui/Controls.*, Theme.*   knoby, tlačítka, paleta a fonty
+  ui/rack/ControlPanel.*   horní panel: presety, tempo (HOST/MANUAL/TAP), úrovně, KILL, makra, přepínače
+  ui/rack/RackView.*       rack: jednotky pod sebou se všemi knoby, přetahování (vložit/nahradit/přesunout)
+  ui/rack/GearList.*       seznam efektů na přetahování (zpět = odebrat)
+  ui/rack/PresetBrowser.*  prohlížeč presetů s kategoriemi, oblíbenými a hledáním
 Resources/Presets/factory.json   96 presetů – generuje Tools/make_factory.py (reálné hodnoty podle sekce 11)
 Tools/                     make_factory.py, Snapshot.cpp (render UI do PNG)
 Tests/                     unit testy + benchmark
 ```
 
-## Podklady (placeholdery)
+## Podklady
 
-- **Pozadí skříně:** dokud nedodáš `Resources/Design/cabinet.png`, používá se `reference.png` jako pozadí
-  a všechny interaktivní prvky se kreslí přes něj. Po vložení `cabinet.png` (1630 × 965 nebo 2× – pozice
-  jsou v `ui/cabinet/Layout.h`) a znovu spuštění CMake se použije automaticky.
-- **Fonty:** vlož `Resources/Fonts/osd.ttf` (VCR OSD), `vfd.ttf` (displej videa), `hand.ttf` (štítky) –
-  po přegenerování CMake se načtou samy. Do té doby vestavěné systémové fonty.
+- **Logo:** `Resources/Brand/trapwin_logo.png` je oficiální logo (hvězdičky + AUDIO · UNDERGROUND), stejné jako
+  v ostatních TrapWin pluginech. Nikdy ho nepřekreslovat textem.
+- **Fonty:** `Resources/Fonts/*.ttf` se načtou samy při přegenerování CMake.
 
 ## Latence
 
 Plugin hlásí hostu **fixní latenci** podle oversamplingu, nezávisle na obsahu racku (KILL ani preset nemění
 kompenzaci): 8 × latence oversamplingu + 1,5 ms lookahead Red Line. Při 48 kHz: 1× = 72, 2× = 320,
-4× = 376 vzorků. Oversampling se přepíná v menu (klik na logo).
+4× = 376 vzorků. Oversampling se přepíná v menu SIZE / SETUP.
 
 ---
 
@@ -113,34 +115,30 @@ kompenzaci): 8 × latence oversamplingu + 1,5 ms lookahead Red Line. Při 48 kHz
 
 **Příprava:** projekt 140 BPM, na kanál mixeru dej loop (melodii / vokál / 808). Otevři TrapWin Effector.
 
-1. **Načtení** – plugin se otevře na *CH 10 DRIFT – Night Drive*, TV ukazuje noční dálnici, na videu
-   zelený nápis NIGHT DRIVE. Zvětšení: klik na logo → *UI size* 125 % / 150 %.
-2. **Kanály a presety** – klikni na čísla 01–12 kolem voliče (nebo ho otoč), PROGRAM ▲▼, šipky ← → ↑ ↓.
-   Při přehrávání nesmí nic lupnout (krátký šum na TV je záměr). Klik na displej videa = seznam presetů.
-3. **KILL** – stiskni KILL (nebo mezerník) několikrát při přehrávání: TV se roztrhá → NO SIGNAL → NOW PLAYING
-   se seznamem kazet. Hlasitost by měla zůstat zhruba stejná. Vyzkoušej PG / R / UNRATED a BOOTLEG.
-4. **Undo / A-B** – REWIND / FAST FWD (Ctrl+Z / Ctrl+Y) vrací kroky; SIDE A / SIDE B přepíná dva stavy.
-5. **Kazety** – klik na kazetu = vysune se a na TV se otevře detail (PREMIUM CABLE). Tahej lišty vlevo/vpravo,
-   Shift = jemně, dvojklik = výchozí, kolečko = krok. PAUSE / SCREEN / M/S / LOCK v detailu. Esc zavře.
-   Přetáhni kazetu na jiné místo (pořadí). Pravý klik = menu (změna efektu, kopírovat/vložit, EJECT,
-   slot preset, WRITE PROTECT…). Zamčená kazeta dostane červený štítek a KILL ji nemění.
-6. **Makra** – točení knobů VILLAIN ARC / CRASH OUT / AURA / DRIP / KNOCK: na TV se ukáže pruh
-   `CRASH OUT ▮▮▮▮▮▮▯▯ 72`, obraz reaguje (tmavne, glitchuje, září, vlní se, bliká).
-7. **AV režimy** – přepínač AV1/AV2/AV3 pod TV.
-   - AV1 REMOTE: táhni bod po obrazovce (X = CRASH OUT, Y = AURA).
-   - AV2 SCRIBBLE: nakresli smyčku, spusť přehrávání – bod po ní jede v tempu (1/2/4 takty – klik na pravítko),
-     při stopce stojí. Pravý klik smaže. Cíle os změníš klikem na popisek „X …“ / „Y …“.
-   - AV3 SCREENSAVER: logo se odráží; když trefí roh, přijde glitch (CRASH OUT na 1 dobu).
-   - Zautomatizuj makro ve FL (automation clip) → AV modulace tohoto makra se odpojí.
-8. **OFF AIR** – klik: TV se smrskne do tečky, LED svítí, slyšíš originál srovnaný na hlasitost. Podržení =
-   originál jen po dobu držení.
-9. **POCKET TV** – zvuk „jako z mobilu“, tlačítko bliká; **AUTO TRACKING** – pomalu dorovná hlasitost.
-10. **REC** – uloží uživatelský preset (objeví se v seznamu videa → USER TAPES), ⭐ STAFF PICK přidá do oblíbených.
-11. **Automatizace** – ve FL *Browse parameters*: Slot 1–8 P1–P8/Mix/Pause, makra, Antenna In, RF Out, Blend,
-    Auto Tracking, Pocket TV, Off Air. Automatizace slotu přežije KILL i změnu presetu.
-12. **Uložení projektu** – ulož, zavři FL, otevři znovu: stejný preset, kazety, makra, AV kresba, A/B.
-13. **Latence** – v mixeru FL (*Plugin Delay Compensation*) se latence při KILL/presetu nemění.
-14. **OpenGL** – pokud by TV byla černá / zamrzlá, klik na logo → vypni *OpenGL TV* (software fallback).
+1. **Okno** – nahoře ovládací panel, pod ním makra, vlevo rack, vpravo GEAR. Velikost: SIZE / SETUP →
+   Auto / 80–150 %, nebo táhni pravý dolní roh (poměr stran drží). Velikost se uloží s projektem.
+2. **Presety** – klik na displej presetu (nebo B) = prohlížeč: kategorie vlevo, hledání nahoře, klik = načte
+   a hraje, šipky ↑↓ v seznamu = procházení poslechem, dvojklik / Enter = načte a zavře. ◀ ▶, ★, A / B,
+   UNDO / REDO, SAVE (Ctrl+S). Při přepínání nesmí nic lupnout.
+3. **Stavba řetězce** – přetáhni efekt z GEAR na horní/dolní okraj jednotky (modrá čára = vložit),
+   doprostřed jednotky (žlutý rámeček = nahradit), pod poslední jednotku (přidat na konec). Dvojklik v GEAR =
+   přidat na konec. Klik do prázdné plochy pod rackem = menu efektů.
+4. **Jednotky** – táhni za levý okraj (úchyt s tečkami) = přesun; přetažení zpět na GEAR = odebrat. Knoby:
+   tah nahoru/dolů, Shift = jemně, dvojklik = výchozí, kolečko. Preset jednotky ▾, POWER (vypni delay během
+   ozvěn a zapni – ozvěny musí pokračovat), SOLO (bliká, ostatní „MUTED BY SOLO“), ST/MID/SIDE, LOCK, ✕, •••.
+5. **Tempo** – HOST sleduje FL. MANUAL: táhni BPM, kolečko, dvojklik a napiš číslo, nebo TAP (klávesa T).
+   Synchronizované delaye / LFO musí jet i při zastaveném FL.
+6. **RECYCLE** – pomalu zvyšuj s delayem nebo reverbem: opakování a sytost, na maximu může houkat,
+   ale nesmí se utrhnout do nekonečna.
+7. **KILL** – několikrát při přehrávání (nebo mezerník); hlasitost zhruba stejná. PG / R / UNRATED, BOOTLEG.
+   Zamčené jednotky (LOCK) zůstanou.
+8. **Makra** – VILLAIN ARC / CRASH OUT / AURA / DRIP / KNOCK; knoby jednotek se mají hýbat s makry.
+9. **COMPARE** – klik = originál srovnaný na hlasitost, podržení = jen po dobu držení. **PHONE CHECK** bliká.
+   **AUTO GAIN** pomalu dorovná hlasitost.
+10. **Automatizace** – ve FL *Browse parameters*: názvy podle racku („S1: Cassette Plug: Drive“) s reálnými
+    hodnotami. Po přidání/přesunu jednotky se názvy aktualizují; nahraná automatizace patří pořád stejnému slotu.
+11. **Uložení projektu** – ulož, zavři FL, otevři znovu: stejný rack, presety jednotek, makra, A/B, velikost okna.
+12. **Latence** – v mixeru FL (*Plugin Delay Compensation*) se latence při KILL/presetu nemění.
 
 ## Roadmapa
 

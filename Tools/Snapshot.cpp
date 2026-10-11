@@ -25,7 +25,7 @@ int main (int argc, char** argv)
     };
     render (50);
 
-    auto shot = [&] (const juce::String& name, std::function<void (EffectorKillaAudioProcessorEditor&)> setup)
+    auto shot = [&] (const juce::String& name, std::function<void (EffectorKillaAudioProcessorEditor&)> setup, float imageScale = 1.0f)
     {
         proc.uiScale = 1.0f;
         auto* ed = dynamic_cast<EffectorKillaAudioProcessorEditor*> (proc.createEditor());
@@ -33,7 +33,7 @@ int main (int argc, char** argv)
         ed->setUiScale (1.0f);
         if (setup) setup (*ed);
         for (int i = 0; i < 20; ++i) { render (2); ed->tickAll(); }
-        auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+        auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, imageScale);
         juce::PNGImageFormat png;
         auto f = outDir.getChildFile (name + ".png");
         f.deleteFile();
@@ -43,6 +43,8 @@ int main (int argc, char** argv)
         delete ed;
     };
 
+    // 2x render for the shop cover (Tools/make_cover.py)
+    shot ("00_cover_ui", [&] (EffectorKillaAudioProcessorEditor&) { proc.loadFactory (9, 2); }, 2.0f);
     shot ("01_factory", [&] (EffectorKillaAudioProcessorEditor&) { proc.loadFactory (9, 2); });   // CH10 Night Drive, 4 units
     shot ("02_full_rack", [&] (EffectorKillaAudioProcessorEditor&)
     {
