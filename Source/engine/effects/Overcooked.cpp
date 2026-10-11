@@ -118,6 +118,13 @@ public:
         }
     }
 
+    // UI: band activity LOW / MID / HIGH (band envelope, -48..0 dBFS -> 0..1)
+    float getActivity (int b) const noexcept override
+    {
+        if (b < 0 || b > 2) return 0.0f;
+        return juce::jlimit (0.0f, 1.0f, (gainToDb (env[(size_t) b] + 1.0e-9f) + 48.0f) / 48.0f);
+    }
+
 private:
     void updateTimes()
     {

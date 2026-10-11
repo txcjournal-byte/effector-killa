@@ -127,4 +127,13 @@ if(EK_BUILD_TOOLS)
     target_compile_definitions(EffectorKillaSnapshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
     target_link_libraries(EffectorKillaSnapshot PRIVATE EffectorKillaData juce::juce_audio_processors juce::juce_gui_extra juce::juce_dsp
         juce::juce_recommended_config_flags)
+
+    # rack units + gear list on their own (Docs/snapshots/units_*.png)
+    juce_add_console_app(EffectorKillaUnitsSnapshot PRODUCT_NAME "EffectorKillaUnitsSnapshot")
+    target_sources(EffectorKillaUnitsSnapshot PRIVATE Tools/SnapshotUnits.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp
+        ${EK_ENGINE_SOURCES} ${EK_UI_SOURCES})
+    target_include_directories(EffectorKillaUnitsSnapshot PRIVATE Source)
+    target_compile_definitions(EffectorKillaUnitsSnapshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(EffectorKillaUnitsSnapshot PRIVATE EffectorKillaData juce::juce_audio_processors juce::juce_gui_extra juce::juce_dsp
+        juce::juce_recommended_config_flags)
 endif()

@@ -117,6 +117,7 @@ public:
     }
 
     int getLatencySamples() const noexcept override { return host.getLatency() + lookahead; }
+    float getGainReductionDb() const noexcept override { return gainToDb (limGain + 1.0e-9f); } // UI: limiter part
 
 private:
     static inline float dbToGainCheap (float db) noexcept { return std::exp (db * 0.11512925f); }

@@ -83,6 +83,9 @@ void Chain::processSlot (Slot& s, int index, float* L, float* R, int n, const Ra
         s.running = false;
     }
 
+    const bool tap = taps != nullptr && params != nullptr; // only the chain that is fading in / playing
+    if (tap) taps->captureIn (index, L, R, n);
+
     std::copy (L, L + n, dryL.data());
     std::copy (R, R + n, dryR.data());
 
@@ -138,6 +141,8 @@ void Chain::processSlot (Slot& s, int index, float* L, float* R, int n, const Ra
             R[i] = dr;
         }
     }
+
+    if (tap) taps->captureOut (index, L, R, n, s.running ? s.fx.get() : nullptr);
 }
 
 // ===========================================================================
@@ -170,7 +175,9 @@ int Rack::computeFixedLatency (double sampleRate, int osFactorLog2)
 
 Chain* Rack::buildChain (const RackConfig& cfg) const
 {
-    return new Chain (cfg, spec, fixedLatency);
+    auto* c = new Chain (cfg, spec, fixedLatency);
+    c->taps = &taps;
+    return c;
 }
 
 void Rack::prepare (double sampleRate, int osFactorLog2)

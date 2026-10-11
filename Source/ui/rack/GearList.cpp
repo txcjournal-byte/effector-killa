@@ -1,4 +1,6 @@
 #include "GearList.h"
+#include <map>
+#include <tuple>
 
 namespace ek::ui
 {
@@ -42,142 +44,338 @@ String describe (EffectType t)
         default:                         return {};
     }
 }
+
+String categoryName (EffectType t)
+{
+    static const char* names[] = { "SATURATION", "DISTORTION", "LO-FI", "FILTER", "EQ", "DYNAMICS",
+                                   "MODULATION", "SPACE", "STEREO", "GATE", "CLIPPER" };
+    return names[jlimit (0, 10, (int) effectInfo (t).category)];
+}
+
+namespace
+{
+struct MiniatureCache : public DeletedAtShutdown
+{
+    ~MiniatureCache() override { clearSingletonInstance(); }
+    std::map<std::tuple<int, int, int>, Image> images;
+    JUCE_DECLARE_SINGLETON_INLINE (MiniatureCache, true)
+};
+} // namespace
+
+Image miniature (EffectType t, int w, int h)
+{
+    auto* mc = MiniatureCache::getInstance();
+    if (mc == nullptr) return {};
+    auto& cache = mc->images;
+    const auto key = std::make_tuple ((int) t, w, h);
+    if (auto it = cache.find (key); it != cache.end()) return it->second;
+
+    faceplate::State st;
+    const auto& info = effectInfo (t);
+    for (int i = 0; i < kNumParams; ++i) st.params[(size_t) i] = info.params[(size_t) i].defaultNorm();
+    Image img (Image::ARGB, w * 2, h * 2, true);
+    {
+        Graphics g (img);
+        g.addTransform (AffineTransform::scale (2.0f));
+        faceplate::paintFaceplate (g, t, Rectangle<float> (0.0f, 0.0f, (float) w, (float) h), st, true);
+    }
+    cache[key] = img;
+    return img;
+}
 } // namespace gear
 
+// ============================================================================
+// Scrolling list of group labels and miniatures (the drag source).
+class GearList::Content : public Component, public TooltipClient
+{
+public:
+    explicit Content (GearList& o) : owner (o) { rebuild(); }
+
+    struct Row
+    {
+        bool header = false;
+        String text;
+        EffectType type = EffectType::None;
+        Rectangle<int> bounds;
+    };
+
+    void setFilter (const String& f)
+    {
+        filter = f.trim();
+        rebuild();
+    }
+
+    void rebuild()
+    {
+        rows.clear();
+        for (const auto& grp : gear::groups())
+        {
+            std::vector<EffectType> match;
+            for (auto t : grp.types)
+                if (filter.isEmpty() || effectInfo (t).name.containsIgnoreCase (filter) || grp.name.containsIgnoreCase (filter)
+                    || gear::describe (t).containsIgnoreCase (filter) || gear::categoryName (t).containsIgnoreCase (filter))
+                    match.push_back (t);
+            if (match.empty()) continue;
+            rows.push_back ({ true, grp.name, EffectType::None, {} });
+            for (auto t : match) rows.push_back ({ false, effectInfo (t).name, t, {} });
+        }
+        hover = pressed = -1;
+        layoutRows();
+        repaint();
+    }
+
+    void layoutRows()
+    {
+        const int w = jmax (100, getWidth());
+        int y = 2;
+        for (auto& r : rows)
+        {
+            if (r.header) { r.bounds = { 8, y + 4, w - 16, 16 }; y += 22; }
+            else          { r.bounds = { 8, y, w - 16, itemH }; y += itemH + 6; }
+        }
+        idealHeight = y + 8;
+    }
+
+    int getIdealHeight() const { return rows.empty() ? 60 : idealHeight; }
+    void resized() override { layoutRows(); }
+
+    int rowAt (Point<int> p) const
+    {
+        for (int i = 0; i < (int) rows.size(); ++i)
+            if (! rows[(size_t) i].header && rows[(size_t) i].bounds.contains (p)) return i;
+        return -1;
+    }
+
+    String getTooltip() override
+    {
+        const int i = rowAt (getMouseXYRelative());
+        if (i < 0) return {};
+        const auto t = rows[(size_t) i].type;
+        return effectInfo (t).name.toUpperCase() + "  -  " + gear::categoryName (t) + "\n" + gear::describe (t)
+             + "\nDrag into the rack, double-click = add at the end";
+    }
+
+    void paint (Graphics& g) override
+    {
+        if (rows.empty())
+        {
+            g.setFont (theme::monoLabel (10.0f));
+            g.setColour (theme::silverDim.withAlpha (0.6f));
+            g.drawText ("NO GEAR MATCHES", getLocalBounds().removeFromTop (50), Justification::centred, false);
+            return;
+        }
+        for (int i = 0; i < (int) rows.size(); ++i)
+        {
+            const auto& r = rows[(size_t) i];
+            auto rb = r.bounds.toFloat();
+            if (! g.clipRegionIntersects (r.bounds.expanded (8))) continue;
+            if (r.header)
+            {
+                g.setFont (theme::monoLabel (9.0f).boldened());
+                g.setColour (theme::accent.withAlpha (0.85f));
+                const float tw = (float) GlyphArrangement::getStringWidthInt (g.getCurrentFont(), r.text);
+                g.drawText (r.text, rb, Justification::centredLeft, false);
+                g.setColour (theme::accent.withAlpha (0.18f));
+                g.fillRect (rb.getX() + tw + 8.0f, rb.getCentreY(), rb.getWidth() - tw - 8.0f, 1.0f);
+                continue;
+            }
+            const bool hot = i == hover;
+            const bool down = i == pressed;
+            if (hot)
+            {
+                for (int k = 3; k >= 1; --k)
+                {
+                    g.setColour (theme::accent.withAlpha (0.07f * (float) (4 - k)));
+                    g.fillRoundedRectangle (rb.expanded ((float) k * 2.0f), 4.0f + (float) k * 2.0f);
+                }
+            }
+            g.setColour (Colours::black.withAlpha (0.55f));
+            g.fillRoundedRectangle (rb.translated (0.0f, 2.0f), 3.0f);
+            const auto img = gear::miniature (r.type, r.bounds.getWidth(), r.bounds.getHeight());
+            g.drawImage (img, rb.translated (0.0f, down ? 1.0f : 0.0f), RectanglePlacement::stretchToFit);
+            if (! hot)
+            {
+                g.setColour (Colours::black.withAlpha (0.16f));
+                g.fillRoundedRectangle (rb, 3.0f);
+            }
+            else
+            {
+                g.setColour (Colours::white.withAlpha (0.07f));
+                g.fillRoundedRectangle (rb, 3.0f);
+            }
+            g.setColour (hot ? theme::accent.withAlpha (0.95f) : Colours::black.withAlpha (0.8f));
+            g.drawRoundedRectangle (rb.reduced (0.5f), 3.0f, hot ? 1.4f : 1.0f);
+        }
+    }
+
+    void mouseMove (const MouseEvent& e) override
+    {
+        const int h = rowAt (e.getPosition());
+        if (h != hover)
+        {
+            if (hover >= 0) repaint (rows[(size_t) hover].bounds.expanded (10));
+            hover = h;
+            if (hover >= 0) repaint (rows[(size_t) hover].bounds.expanded (10));
+        }
+        setMouseCursor (h >= 0 ? MouseCursor::DraggingHandCursor : MouseCursor::NormalCursor);
+    }
+
+    void mouseExit (const MouseEvent&) override { hover = -1; repaint(); }
+
+    void mouseDown (const MouseEvent& e) override
+    {
+        pressed = rowAt (e.getPosition());
+        dragging = false;
+        repaint();
+    }
+
+    void mouseUp (const MouseEvent&) override { pressed = -1; repaint(); }
+
+    void mouseDrag (const MouseEvent& e) override
+    {
+        if (dragging || pressed < 0 || e.getDistanceFromDragStart() < 4) return;
+        if (auto* c = DragAndDropContainer::findParentDragContainerFor (this))
+        {
+            dragging = true;
+            const auto& r = rows[(size_t) pressed];
+            const int m = 12;
+            const int w = r.bounds.getWidth(), h = r.bounds.getHeight();
+            Image img (Image::ARGB, w + 2 * m, h + 2 * m, true);
+            {
+                Graphics g (img);
+                DropShadow (Colours::black.withAlpha (0.7f), m, { 0, m / 3 }).drawForRectangle (g, { m, m, w, h });
+                g.setOpacity (0.92f);
+                g.drawImage (gear::miniature (r.type, w, h), Rectangle<float> ((float) m, (float) m, (float) w, (float) h));
+                g.setOpacity (1.0f);
+                g.setColour (theme::accent);
+                g.drawRoundedRectangle (Rectangle<float> ((float) m, (float) m, (float) w, (float) h).reduced (0.5f), 3.0f, 1.2f);
+            }
+            const auto grab = e.getMouseDownPosition() - r.bounds.getPosition();
+            Point<int> offset (-(grab.x + m), -(grab.y + m));
+            c->startDragging (dnd::fx (r.type), this, ScaledImage (img), true, &offset, &e.source);
+        }
+        pressed = -1;
+        repaint();
+    }
+
+    void mouseDoubleClick (const MouseEvent& e) override
+    {
+        const int i = rowAt (e.getPosition());
+        if (i < 0) return;
+        auto& proc = owner.proc;
+        int last = -1;
+        for (int s = kNumSlots - 1; s >= 0 && last < 0; --s)
+            if (proc.getSlotType (s) != EffectType::None) last = s;
+        if (proc.insertEffect (last + 1, rows[(size_t) i].type) < 0 && owner.onMessage)
+            owner.onMessage ("RACK FULL - DROP ON A UNIT TO REPLACE IT");
+    }
+
+    static constexpr int itemH = 41;
+
+private:
+    GearList& owner;
+    std::vector<Row> rows;
+    String filter;
+    int hover = -1, pressed = -1, idealHeight = 60;
+    bool dragging = false;
+};
+
+// ============================================================================
 GearList::GearList (EffectorKillaAudioProcessor& p) : proc (p)
 {
-    for (const auto& grp : gear::groups())
-    {
-        rows.push_back ({ true, grp.name, EffectType::None, {} });
-        for (auto t : grp.types) rows.push_back ({ false, effectInfo (t).name, t, {} });
-    }
-    layoutRows();
+    content = std::make_unique<Content> (*this);
+    viewport.setViewedComponent (content.get(), false);
+    viewport.setScrollBarsShown (true, false);
+    viewport.setScrollBarThickness (6);
+    viewport.setScrollOnDragMode (Viewport::ScrollOnDragMode::never);
+    viewport.getVerticalScrollBar().setColour (ScrollBar::thumbColourId, theme::accent.withAlpha (0.3f));
+    addAndMakeVisible (viewport);
+
+    search.setTextToShowWhenEmpty ("SEARCH GEAR", theme::silverDim.withAlpha (0.45f));
+    search.setFont (theme::monoLabel (11.0f));
+    search.setColour (TextEditor::backgroundColourId, Colour (0xff050608));
+    search.setColour (TextEditor::outlineColourId, Colour (0xff2a2d33));
+    search.setColour (TextEditor::focusedOutlineColourId, theme::accent.withAlpha (0.6f));
+    search.setColour (TextEditor::textColourId, theme::vfd);
+    search.setColour (TextEditor::highlightColourId, theme::accent.withAlpha (0.3f));
+    search.setColour (CaretComponent::caretColourId, theme::vfd);
+    search.setIndents (24, 5);
+    search.setEscapeAndReturnKeysConsumed (false);
+    search.onTextChange = [this] { setFilter (search.getText()); };
+    search.onEscapeKey = [this] { search.setText ({}, true); };
+    search.setTooltip ("Filter the gear by name, group or description");
+    addAndMakeVisible (search);
 }
 
-void GearList::layoutRows()
+GearList::~GearList() = default;
+
+void GearList::setFilter (const String& text)
 {
-    int y = 44;
-    for (auto& r : rows)
-    {
-        const int h = r.header ? 20 : 25;
-        if (r.header) y += 2;
-        r.bounds = { 8, y, 224, h };
-        y += h + 1;
-    }
+    if (search.getText() != text) search.setText (text, false);
+    content->setFilter (text);
+    resized();
 }
 
-int GearList::rowAt (Point<int> p) const
+void GearList::resized()
 {
-    for (int i = 0; i < (int) rows.size(); ++i)
-        if (! rows[(size_t) i].header && rows[(size_t) i].bounds.withWidth (getWidth() - 16).contains (p)) return i;
-    return -1;
+    auto r = getLocalBounds().reduced (6, 0);
+    r.removeFromTop (46);
+    search.setBounds (r.removeFromTop (26).reduced (2, 0));
+    r.removeFromTop (8);
+    viewport.setBounds (r.withTrimmedBottom (6).withX (0).withWidth (getWidth()));
+    const int w = viewport.getWidth() - (content->getIdealHeight() > viewport.getHeight() ? viewport.getScrollBarThickness() : 0);
+    content->setSize (w, content->getIdealHeight());
 }
 
 void GearList::paint (Graphics& g)
 {
-    auto b = getLocalBounds().toFloat().reduced (0.5f);
-    drawCard (g, b, 10.0f);
-    g.setFont (theme::stencilFont (17.0f));
-    g.setColour (theme::silver);
-    g.drawText ("GEAR", Rectangle<float> (14.0f, 10.0f, 120.0f, 24.0f), Justification::centredLeft, false);
-    drawSmallLabel (g, "DRAG INTO THE RACK", { 90.0f, 12.0f, b.getWidth() - 100.0f, 20.0f }, Justification::centredRight, theme::silverDim, 9.0f);
+    auto b = getLocalBounds().toFloat();
+    ColourGradient bg (Colour (0xff0d0f13), 0.0f, 0.0f, Colour (0xff07080b), 0.0f, b.getBottom(), false);
+    g.setGradientFill (bg);
+    g.fillRect (b);
+    g.setColour (Colours::black);
+    g.drawVerticalLine (0, 0.0f, b.getBottom());
+    g.setColour (Colours::white.withAlpha (0.04f));
+    g.drawVerticalLine (1, 0.0f, b.getBottom());
 
-    for (int i = 0; i < (int) rows.size(); ++i)
-    {
-        const auto& r = rows[(size_t) i];
-        auto rb = r.bounds.withWidth (getWidth() - 16).toFloat();
-        if (r.header)
-        {
-            drawSmallLabel (g, r.text, rb.withTrimmedLeft (4.0f), Justification::centredLeft, theme::accent, 9.5f);
-            continue;
-        }
-        const auto& info = effectInfo (r.type);
-        const bool hot = i == hover || i == pressed;
-        g.setColour (hot ? Colour (0xff17223a) : Colour (0xff0b111d));
-        g.fillRoundedRectangle (rb, 5.0f);
-        g.setColour (hot ? theme::accent.withAlpha (0.6f) : Colour (0x22a9b6cc));
-        g.drawRoundedRectangle (rb.reduced (0.5f), 5.0f, 1.0f);
-        g.setColour (info.colour);
-        g.fillEllipse (rb.getX() + 9.0f, rb.getCentreY() - 4.5f, 9.0f, 9.0f);
-        g.setFont (theme::monoLabel (12.0f).boldened());
-        g.setColour (theme::silver);
-        g.drawText (r.text, rb.withTrimmedLeft (26.0f), Justification::centredLeft, false);
-        // grip hint
-        g.setColour (theme::silverDim.withAlpha (hot ? 0.8f : 0.3f));
-        for (int k = 0; k < 3; ++k)
-            g.fillRect (rb.getRight() - 16.0f, rb.getCentreY() - 4.0f + (float) k * 3.5f, 8.0f, 1.3f);
-    }
+    // header
+    auto head = b.removeFromTop (44.0f).reduced (14.0f, 0.0f);
+    theme::drawGlowText (g, "GEAR", head.withTrimmedTop (6.0f).removeFromTop (26.0f), theme::stencilFont (24.0f), theme::silver,
+                         Justification::centredLeft, 0.4f);
+    g.setFont (theme::monoLabel (9.0f));
+    g.setColour (theme::accent.withAlpha (0.75f));
+    g.drawText ("DRAG INTO THE RACK", head.withTrimmedTop (10.0f).removeFromTop (20.0f), Justification::centredRight, false);
+    g.setColour (theme::accent.withAlpha (0.35f));
+    g.fillRect (14.0f, 42.0f, (float) getWidth() - 28.0f, 1.0f);
+}
+
+void GearList::paintOverChildren (Graphics& g)
+{
+    // the magnifier is drawn over the text editor background
+    const auto sb = search.getBounds().toFloat();
+    const auto c = Point<float> (sb.getX() + 12.0f, sb.getCentreY() - 1.0f);
+    g.setColour (theme::silverDim.withAlpha (0.7f));
+    g.drawEllipse (Rectangle<float> (8.0f, 8.0f).withCentre (c), 1.4f);
+    g.drawLine (c.x + 3.0f, c.y + 3.0f, c.x + 6.5f, c.y + 6.5f, 1.6f);
 
     if (removeHover)
     {
-        g.setColour (theme::killRed.withAlpha (0.16f));
-        g.fillRoundedRectangle (b, 10.0f);
+        auto b = getLocalBounds().toFloat();
+        g.setColour (theme::killRed.withAlpha (0.22f));
+        g.fillRect (b);
         g.setColour (theme::killRed);
-        g.drawRoundedRectangle (b.reduced (1.0f), 10.0f, 2.0f);
-        drawSmallLabel (g, "DROP HERE TO REMOVE", b.withHeight (b.getHeight() - 20.0f).removeFromBottom (30.0f),
-                        Justification::centred, theme::killRed, 12.0f);
+        g.drawRect (b.reduced (2.0f), 2.5f);
+        auto tag = b.withSizeKeepingCentre (b.getWidth() - 40.0f, 70.0f);
+        g.setColour (Colour (0xf0120507));
+        g.fillRoundedRectangle (tag, 6.0f);
+        g.setColour (theme::killRed);
+        g.drawRoundedRectangle (tag, 6.0f, 1.5f);
+        theme::drawGlowText (g, "DROP TO REMOVE", tag.removeFromTop (44.0f).withTrimmedTop (10.0f), theme::stencilFont (20.0f),
+                             theme::killRed, Justification::centred, 0.8f);
+        g.setFont (theme::monoLabel (9.5f));
+        g.setColour (Colour (0xffffb3ba));
+        g.drawText ("the unit leaves the rack", tag, Justification::centredTop, false);
     }
-}
-
-String GearList::getTooltipFor (Point<int> p) const
-{
-    const int i = rowAt (p);
-    if (i < 0) return {};
-    return gear::describe (rows[(size_t) i].type) + "   (drag into the rack, double-click = add at the end)";
-}
-
-void GearList::mouseMove (const MouseEvent& e)
-{
-    const int h = rowAt (e.getPosition());
-    if (h != hover) { hover = h; repaint(); }
-    setMouseCursor (h >= 0 ? MouseCursor::DraggingHandCursor : MouseCursor::NormalCursor);
-}
-
-void GearList::mouseExit (const MouseEvent&) { hover = -1; repaint(); }
-
-void GearList::mouseDown (const MouseEvent& e)
-{
-    pressed = rowAt (e.getPosition());
-    dragging = false;
-    repaint();
-}
-
-void GearList::mouseDrag (const MouseEvent& e)
-{
-    if (dragging || pressed < 0 || e.getDistanceFromDragStart() < 4) return;
-    if (auto* c = DragAndDropContainer::findParentDragContainerFor (this))
-    {
-        dragging = true;
-        const auto& r = rows[(size_t) pressed];
-        // drag image: a small chip with the effect name
-        Image img (Image::ARGB, 200, 30, true);
-        {
-            Graphics g (img);
-            g.setColour (Colour (0xe0101a2c));
-            g.fillRoundedRectangle (0.0f, 0.0f, 200.0f, 30.0f, 6.0f);
-            g.setColour (theme::accent);
-            g.drawRoundedRectangle (0.5f, 0.5f, 199.0f, 29.0f, 6.0f, 1.2f);
-            g.setColour (effectInfo (r.type).colour);
-            g.fillEllipse (10.0f, 10.5f, 9.0f, 9.0f);
-            g.setFont (theme::monoLabel (12.0f).boldened());
-            g.setColour (theme::silver);
-            g.drawText (r.text, 28, 0, 170, 30, Justification::centredLeft, false);
-        }
-        c->startDragging (dnd::fx (r.type), this, ScaledImage (img), true);
-    }
-    pressed = -1;
-    repaint();
-}
-
-void GearList::mouseDoubleClick (const MouseEvent& e)
-{
-    const int i = rowAt (e.getPosition());
-    if (i < 0) return;
-    int last = -1;
-    for (int s = kNumSlots - 1; s >= 0 && last < 0; --s)
-        if (proc.getSlotType (s) != EffectType::None) last = s;
-    if (proc.insertEffect (last + 1, rows[(size_t) i].type) < 0 && onMessage)
-        onMessage ("RACK FULL - DROP ON A UNIT TO REPLACE IT");
 }
 
 bool GearList::isInterestedInDragSource (const SourceDetails& d)
