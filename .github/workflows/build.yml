@@ -152,7 +152,11 @@ jobs:
           done
           ditto -c -k --keepParent signed TrapWinEffector-macOS-signed.zip
           if [ -n "$APPLE_API_KEY_P8" ]; then
-            printf '%s' "$APPLE_API_KEY_P8" > AuthKey.p8
+            # normalise the pasted key: drop CR/whitespace, rebuild a proper PEM with 64-char lines
+            B64=$(printf '%s' "$APPLE_API_KEY_P8" | tr -d '\r' | sed -e 's/-----[A-Z ]*-----//g' | tr -d ' \n\t')
+            { echo "-----BEGIN PRIVATE KEY-----"; echo "$B64" | fold -w 64; echo "-----END PRIVATE KEY-----"; } > AuthKey.p8
+            openssl pkey -in AuthKey.p8 -noout || { echo "::error::APPLE_API_KEY_P8 is not a valid private key (base64 length ${#B64})"; exit 1; }
+            APPLE_API_KEY_ID=$(printf '%s' "$APPLE_API_KEY_ID" | tr -d ' \r\n'); APPLE_API_ISSUER_ID=$(printf '%s' "$APPLE_API_ISSUER_ID" | tr -d ' \r\n')
             NOTARY=(--key AuthKey.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID")
           else
             NOTARY=(--apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD")
