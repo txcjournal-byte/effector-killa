@@ -87,13 +87,14 @@ private:
     void place (juce::Component& c, juce::Rectangle<float> r);
 
     EffectorKillaAudioProcessor& proc;
-    juce::Image background;
+    juce::Image background, bgCache;
+    float bgCacheScale = 0.0f;
 
     KillButton kill;
     ThreeWaySwitch rating;
-    LitButton bootleg { "BOOTLEG", juce::Colour (0xffff8a2a), 19.0f };
-    LitButton pocketTv { "POCKET\nTV", juce::Colour (0xffffc23a), 19.0f };
-    LitButton autoTracking { "AUTO\nTRACKING", juce::Colour (0xffffc23a), 18.0f };
+    LitButton bootleg { "BOOTLEG", juce::Colour (0xffd9e4f5), 16.0f };
+    LitButton pocketTv { "POCKET\nTV", juce::Colour (0xff9fc3ff), 17.0f };
+    LitButton autoTracking { "AUTO\nTRACKING", juce::Colour (0xff9fc3ff), 14.0f };
     CableToggle cable;
     StaffPickButton staffPick;
     Knob antennaIn { Knob::Style::Small }, rfOut { Knob::Style::Small };

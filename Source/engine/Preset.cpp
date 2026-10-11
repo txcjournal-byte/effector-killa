@@ -347,6 +347,39 @@ bool ProgramState::sameSound (const ProgramState& o) const
 // ============================================================================
 PresetBank::PresetBank() { loadFavourites(); }
 
+void PresetBank::loadTapes (const juce::String& json)
+{
+    for (auto& t : tapes) t.clear();
+    const auto root = juce::JSON::parse (json);
+    if (auto* arr = root.getProperty ("tapes", {}).getArray())
+    {
+        for (auto& entry : *arr)
+        {
+            const auto type = effectTypeFromId (entry.getProperty ("fx", "").toString());
+            if (type == EffectType::None) { jassertfalse; continue; }
+            if (auto* progs = entry.getProperty ("programmes", {}).getArray())
+            {
+                for (auto& p : *progs)
+                {
+                    auto* o = new juce::DynamicObject();
+                    o->setProperty ("fx", effectInfo (type).id);
+                    o->setProperty ("params", p.getProperty ("params", {}));
+                    TapeProgramme tp;
+                    tp.name = p.getProperty ("name", "").toString();
+                    tp.description = p.getProperty ("description", "").toString();
+                    tp.slot = slotFromPresetJson (juce::var (o));
+                    tapes[(size_t) type].push_back (std::move (tp));
+                }
+            }
+        }
+    }
+}
+
+const std::vector<TapeProgramme>& PresetBank::getTapes (EffectType t) const
+{
+    return tapes[(size_t) juce::jlimit (0, (int) EffectType::Count - 1, (int) t)];
+}
+
 void PresetBank::loadFactory (const juce::String& json)
 {
     channels.clear();
@@ -405,7 +438,7 @@ int PresetBank::getNumFactoryPresets() const
 
 juce::File PresetBank::getUserRoot()
 {
-    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("Killa").getChildFile ("Effector Killa");
+    return juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile ("TrapWin").getChildFile ("TrapWin Effector");
 }
 juce::File PresetBank::root() const { return rootOverride != juce::File() ? rootOverride : getUserRoot(); }
 juce::File PresetBank::getUserPresetDir() { return getUserRoot().getChildFile ("Presets"); }

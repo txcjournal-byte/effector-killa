@@ -17,6 +17,7 @@ static Typeface::Ptr embedded (const char* resourceName)
 static Typeface::Ptr osdFace()  { static auto t = embedded ("osd_ttf");  return t; }
 static Typeface::Ptr vfdFace()  { static auto t = embedded ("vfd_ttf");  return t; }
 static Typeface::Ptr handFace() { static auto t = embedded ("hand_ttf"); return t; }
+static Typeface::Ptr displayFace() { static auto t = embedded ("display_ttf"); return t; }
 
 Font osdFont (float h)
 {
@@ -36,8 +37,61 @@ Font handFont (float h)
 }
 Font stencilFont (float h)
 {
+    if (auto t = displayFace()) return Font (FontOptions (t).withHeight (h * 0.92f)).withHorizontalScale (0.84f);
     return Font (FontOptions().withName (Font::getDefaultSansSerifFontName()).withHeight (h).withStyle ("Bold"))
         .withHorizontalScale (0.8f);
+}
+
+Font monoLabel (float h)
+{
+    Font f = vfdFace() != nullptr ? Font (FontOptions (vfdFace()).withHeight (h))
+                                  : Font (FontOptions().withName (Font::getDefaultMonospacedFontName()).withHeight (h));
+    return f.withExtraKerningFactor (0.14f);
+}
+
+void drawChromeText (Graphics& g, const String& text, Rectangle<float> r, Font f, Justification j, float glow)
+{
+    GlyphArrangement ga;
+    ga.addFittedText (f, text, r.getX(), r.getY(), r.getWidth(), r.getHeight(), j, 1, 0.7f);
+    Path p;
+    ga.createPath (p);
+    // fake italic like the TrapWin headings
+    const auto b = p.getBounds();
+    p.applyTransform (AffineTransform::shear (-0.18f, 0.0f).translated (b.getCentreY() * 0.18f, 0.0f));
+    const auto pb = p.getBounds();
+    if (glow > 0.0f)
+    {
+        g.setColour (accentDeep.withAlpha (0.22f * glow));
+        g.strokePath (p, PathStrokeType (pb.getHeight() * 0.16f, PathStrokeType::curved, PathStrokeType::rounded));
+        g.setColour (accentDeep.withAlpha (0.18f * glow));
+        g.strokePath (p, PathStrokeType (pb.getHeight() * 0.07f, PathStrokeType::curved, PathStrokeType::rounded));
+    }
+    // chrome: bright top, dark horizon line, bright bottom (trapwin.com .tw-chrome)
+    ColourGradient chrome (Colour (0xff9aa3b6), 0.0f, pb.getY(), Colour (0xfff7f9fd), 0.0f, pb.getBottom(), false);
+    chrome.addColour (0.32, Colour (0xfff5f7fc));
+    chrome.addColour (0.47, Colour (0xff9099ad));
+    chrome.addColour (0.50, Colour (0xff151b29));
+    chrome.addColour (0.57, Colour (0xff6f7a90));
+    chrome.addColour (0.82, Colour (0xffdfe5ef));
+    g.setGradientFill (chrome);
+    g.fillPath (p);
+    g.setColour (Colours::black.withAlpha (0.45f));
+    g.strokePath (p, PathStrokeType (std::max (0.8f, pb.getHeight() * 0.012f)));
+}
+
+void drawPanel (Graphics& g, Rectangle<float> r, float corner)
+{
+    // TrapWin card: dark navy, thin ice-blue line, soft blue glow
+    g.setColour (accentDeep.withAlpha (0.10f));
+    g.fillRoundedRectangle (r.expanded (6.0f), corner + 6.0f);
+    ColourGradient fill (panel2, r.getX(), r.getY(), Colour (0xff070b12), r.getX(), r.getBottom(), false);
+    g.setGradientFill (fill);
+    g.fillRoundedRectangle (r, corner);
+    g.setColour (line);
+    g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.4f);
+    ColourGradient sheen (Colours::white.withAlpha (0.05f), r.getX(), r.getY(), Colours::transparentWhite, r.getX(), r.getY() + 40.0f, false);
+    g.setGradientFill (sheen);
+    g.fillRoundedRectangle (r.reduced (1.5f), corner);
 }
 
 static Point<float> polar (Point<float> c, float r, float angle)
@@ -50,11 +104,11 @@ void drawKnob (Graphics& g, Point<float> c, float r, float angle, bool hot)
     // drop shadow + socket
     g.setColour (Colours::black.withAlpha (0.55f));
     g.fillEllipse (Rectangle<float> (r * 2.5f, r * 2.5f).withCentre (c.translated (0.0f, r * 0.12f)));
-    g.setColour (Colour (0xff0b0806));
+    g.setColour (Colour (0xff05070b));
     g.fillEllipse (Rectangle<float> (r * 2.28f, r * 2.28f).withCentre (c));
 
     // skirt
-    ColourGradient skirt (Colour (0xff4a4640), c.x - r, c.y - r, Colour (0xff050505), c.x + r, c.y + r, false);
+    ColourGradient skirt (Colour (0xff434b5c), c.x - r, c.y - r, Colour (0xff050505), c.x + r, c.y + r, false);
     g.setGradientFill (skirt);
     g.fillEllipse (Rectangle<float> (r * 2.1f, r * 2.1f).withCentre (c));
 
@@ -75,11 +129,11 @@ void drawKnob (Graphics& g, Point<float> c, float r, float angle, bool hot)
 
     // pointer (orange, glowing)
     const auto p0 = polar (c, r * 0.18f, angle), p1 = polar (c, r * 0.9f, angle);
-    g.setColour (amber.withAlpha (hot ? 0.45f : 0.25f));
+    g.setColour (accent.withAlpha (hot ? 0.45f : 0.25f));
     g.drawLine ({ p0, p1 }, r * 0.26f);
-    g.setColour (Colour (0xffc75a14));
+    g.setColour (accentDeep);
     g.drawLine ({ p0, p1 }, r * 0.14f);
-    g.setColour (Colour (0xffffb04a));
+    g.setColour (Colour (0xffd8e8ff));
     g.drawLine ({ p0, p1 }, r * 0.06f);
 }
 
@@ -115,7 +169,7 @@ void drawChickenHeadKnob (Graphics& g, Point<float> c, float r, float angle)
     // pointer end mark (the end that points at the channel number)
     g.setColour (Colour (0xff2a2622));
     g.drawLine ({ polar (c, len * 0.55f, angle), polar (c, len * 0.92f, angle) }, w * 0.18f);
-    g.setColour (amber);
+    g.setColour (accent);
     g.fillEllipse (Rectangle<float> (w * 0.5f, w * 0.5f).withCentre (polar (c, len * 0.8f, angle)));
 }
 
@@ -151,7 +205,7 @@ void drawSocket (Graphics& g, Rectangle<float> r, float corner)
 {
     g.setColour (Colour (0xff070504));
     g.fillRoundedRectangle (r, corner);
-    ColourGradient edge (Colour (0xff8c8279).withAlpha (0.7f), r.getX(), r.getY(), Colour (0xff1a1410).withAlpha (0.7f), r.getRight(), r.getBottom(), false);
+    ColourGradient edge (Colour (0xffaab4c8).withAlpha (0.7f), r.getX(), r.getY(), Colour (0xff10141c).withAlpha (0.7f), r.getRight(), r.getBottom(), false);
     g.setGradientFill (edge);
     g.drawRoundedRectangle (r.reduced (0.8f), corner, 1.6f);
 }
@@ -191,7 +245,7 @@ void drawLitButton (Graphics& g, Rectangle<float> r, Colour colour, bool lit, bo
 
     if (text.isNotEmpty())
     {
-        g.setColour (lit ? ink : cream.withAlpha (0.55f));
+        g.setColour (lit ? ink : silver.withAlpha (0.55f));
         g.setFont (stencilFont (fontHeight));
         g.drawFittedText (text, face.reduced (4.0f).toNearestInt(), Justification::centred, 3, 0.7f);
     }
@@ -202,12 +256,12 @@ void drawTrack (Graphics& g, Rectangle<float> r)
     const float corner = r.getHeight() * 0.5f;
     g.setColour (Colour (0xff030202));
     g.fillRoundedRectangle (r, corner);
-    ColourGradient inner (Colours::black, r.getX(), r.getY(), Colour (0xff1c1612), r.getX(), r.getBottom(), false);
+    ColourGradient inner (Colours::black, r.getX(), r.getY(), Colour (0xff121a28), r.getX(), r.getBottom(), false);
     g.setGradientFill (inner);
     g.fillRoundedRectangle (r.reduced (3.0f), corner - 3.0f);
-    g.setColour (Colour (0xffa39686).withAlpha (0.55f));
+    g.setColour (Colour (0xff9fb0cc).withAlpha (0.5f));
     g.drawRoundedRectangle (r.reduced (1.0f), corner, 1.5f);
-    g.setColour (Colour (0xff4b433b));
+    g.setColour (Colour (0xff2b3446));
     g.fillRoundedRectangle (r.reduced (r.getHeight() * 0.3f, r.getHeight() * 0.44f), 1.0f);
 }
 
@@ -224,9 +278,9 @@ void drawSliderThumb (Graphics& g, Rectangle<float> r, bool lit)
     if (lit)
     {
         auto inner = r.reduced (r.getWidth() * 0.3f, r.getHeight() * 0.15f);
-        g.setColour (amber.withAlpha (0.5f));
+        g.setColour (accent.withAlpha (0.5f));
         g.fillRect (inner.expanded (3.0f, 0.0f));
-        g.setColour (amber);
+        g.setColour (accent);
         g.fillRect (inner.withWidth (inner.getWidth() * 0.3f));
         g.fillRect (inner.withTrimmedLeft (inner.getWidth() * 0.7f));
     }

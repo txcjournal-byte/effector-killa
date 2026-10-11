@@ -47,7 +47,8 @@ int main (int argc, char** argv)
     };
 
     shot ("01_default", nullptr);
-    shot ("02_detail", [&] (EffectorKillaAudioProcessorEditor& e) { e.getCabinet().selectSlot (1); });
+    shot ("02_tape_menu", [&] (EffectorKillaAudioProcessorEditor& e) { e.getCabinet().selectSlot (1); });
+    shot ("02b_insert_menu", [&] (EffectorKillaAudioProcessorEditor& e) { e.getCabinet().selectSlot (6); });
     shot ("03_ch08_av3", [&] (EffectorKillaAudioProcessorEditor&)
     {
         proc.loadFactory (7, 0);

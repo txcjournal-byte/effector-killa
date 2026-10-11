@@ -451,7 +451,7 @@ bool TvGl::compile (std::unique_ptr<OpenGLShaderProgram>& prog, const char* frag
     const String fs = OpenGLHelpers::translateFragmentShaderToV3 (fragment);
     if (! prog->addVertexShader (vs) || ! prog->addFragmentShader (fs) || ! prog->link())
     {
-        std::fprintf (stderr, "Effector Killa: TV shader error (falling back to software): %s\n", prog->getLastError().toRawUTF8());
+        std::fprintf (stderr, "TrapWin Effector: TV shader error (falling back to software): %s\n", prog->getLastError().toRawUTF8());
         prog.reset();
         return false;
     }
@@ -462,7 +462,7 @@ void TvGl::newOpenGLContextCreated()
 {
     const char* version = (const char*) glGetString (GL_VERSION);
     if (std::getenv ("EK_GL_DEBUG") != nullptr)
-        std::fprintf (stderr, "Effector Killa: OpenGL %s\n", version != nullptr ? version : "?");
+        std::fprintf (stderr, "TrapWin Effector: OpenGL %s\n", version != nullptr ? version : "?");
     // needs GLSL shaders + buffer objects (GL 2.1+); otherwise fall back to the software TV
     const int major = version != nullptr ? String (version).getIntValue() : 0;
     if (major < 2 || OpenGLShaderProgram::getLanguageVersion() <= 0) { failed = true; return; }

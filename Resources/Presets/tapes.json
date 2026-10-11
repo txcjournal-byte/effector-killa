@@ -1,0 +1,1233 @@
+{
+ "version": 1,
+ "tapes": [
+  {
+   "fx": "Cassette Plug",
+   "programmes": [
+    {
+     "name": "Warm Tape",
+     "description": "gentle tape glue for anything",
+     "params": {
+      "MODE": "TAPE",
+      "DRIVE": 0.25,
+      "BIAS": 0.1,
+      "TONE": 0.5
+     }
+    },
+    {
+     "name": "Dusty Deck",
+     "description": "old walkman, wobbly and soft",
+     "params": {
+      "MODE": "TAPE",
+      "DRIVE": 0.35,
+      "TONE": 0.35,
+      "WOW": 0.4,
+      "HISS": 0.15
+     }
+    },
+    {
+     "name": "Hot Tube",
+     "description": "thick tube harmonics",
+     "params": {
+      "MODE": "TUBE",
+      "DRIVE": 0.55,
+      "BIAS": 0.35,
+      "TONE": 0.55
+     }
+    },
+    {
+     "name": "808 Grit",
+     "description": "808 cuts through, sub stays clean",
+     "params": {
+      "MODE": "TUBE",
+      "DRIVE": 0.6,
+      "BIAS": 0.3,
+      "LOW KEEP": 70
+     }
+    },
+    {
+     "name": "Bus Glue",
+     "description": "barely there, just warmth",
+     "params": {
+      "MODE": "TAPE",
+      "DRIVE": 0.15,
+      "MIX": 0.6
+     }
+    },
+    {
+     "name": "Memphis Dub",
+     "description": "dark, saturated tape copy",
+     "params": {
+      "MODE": "TAPE",
+      "DRIVE": 0.6,
+      "TONE": 0.3,
+      "WOW": 0.2,
+      "HISS": 0.25
+     }
+    },
+    {
+     "name": "Bright Crunch",
+     "description": "crispy saturated top end",
+     "params": {
+      "MODE": "TUBE",
+      "DRIVE": 0.5,
+      "TONE": 0.75
+     }
+    },
+    {
+     "name": "Melted",
+     "description": "seasick wow, lo-fi melody",
+     "params": {
+      "MODE": "TAPE",
+      "DRIVE": 0.4,
+      "TONE": 0.4,
+      "WOW": 0.75,
+      "HISS": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Menace",
+   "programmes": [
+    {
+     "name": "Clip It",
+     "description": "hard clipped edge",
+     "params": {
+      "TYPE": "CLIP",
+      "DRIVE": 0.4
+     }
+    },
+    {
+     "name": "Rage Fuzz",
+     "description": "buzzing rage lead fuzz",
+     "params": {
+      "TYPE": "FUZZ",
+      "DRIVE": 0.6,
+      "TONE": 0.6
+     }
+    },
+    {
+     "name": "Fold Freak",
+     "description": "metallic wavefolding",
+     "params": {
+      "TYPE": "FOLDBACK",
+      "DRIVE": 0.45
+     }
+    },
+    {
+     "name": "Octave Rectify",
+     "description": "rectified, octave-up grit",
+     "params": {
+      "TYPE": "RECTIFY",
+      "DRIVE": 0.5,
+      "MIX": 0.6
+     }
+    },
+    {
+     "name": "808 Bite",
+     "description": "distorted 808, clean sub",
+     "params": {
+      "TYPE": "CLIP",
+      "DRIVE": 0.65,
+      "LOW KEEP": 80
+     }
+    },
+    {
+     "name": "Parallel Smash",
+     "description": "half dry, half destroyed",
+     "params": {
+      "TYPE": "FUZZ",
+      "DRIVE": 0.8,
+      "MIX": 0.4
+     }
+    },
+    {
+     "name": "Phone Distort",
+     "description": "thin, crushed mids",
+     "params": {
+      "TYPE": "CLIP",
+      "DRIVE": 0.55,
+      "PRE-HP": 400,
+      "POST-LP": 4500
+     }
+    },
+    {
+     "name": "Dark Menace",
+     "description": "heavy distortion, dark tone",
+     "params": {
+      "TYPE": "FUZZ",
+      "DRIVE": 0.5,
+      "TONE": 0.25,
+      "POST-LP": 5000
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Brainrot",
+   "programmes": [
+    {
+     "name": "12-Bit Sampler",
+     "description": "classic sampler grit",
+     "params": {
+      "BITS": 12,
+      "RATE": 26000,
+      "TONE": 0.6
+     }
+    },
+    {
+     "name": "8-Bit Game",
+     "description": "console bleeps",
+     "params": {
+      "BITS": 8,
+      "RATE": 16000,
+      "TONE": 0.7
+     }
+    },
+    {
+     "name": "Vinyl Dust",
+     "description": "crackle and soft noise",
+     "params": {
+      "BITS": 16,
+      "CRACKLE": 0.35,
+      "NOISE": 0.1,
+      "TONE": 0.45
+     }
+    },
+    {
+     "name": "Radio Rot",
+     "description": "noisy AM radio",
+     "params": {
+      "BITS": 10,
+      "RATE": 11000,
+      "NOISE": 0.35,
+      "TONE": 0.35
+     }
+    },
+    {
+     "name": "Glitch Jitter",
+     "description": "unstable, stuttering rate",
+     "params": {
+      "BITS": 10,
+      "RATE": 12000,
+      "JITTER": 0.6
+     }
+    },
+    {
+     "name": "Crushed Blend",
+     "description": "crush on the side, body stays",
+     "params": {
+      "BITS": 6,
+      "RATE": 8000,
+      "MIX": 0.35
+     }
+    },
+    {
+     "name": "Lo-Fi Cloud",
+     "description": "soft dark lo-fi",
+     "params": {
+      "BITS": 13,
+      "RATE": 22050,
+      "TONE": 0.3,
+      "CRACKLE": 0.15
+     }
+    },
+    {
+     "name": "Total Rot",
+     "description": "everything broken",
+     "params": {
+      "BITS": 5,
+      "RATE": 4000,
+      "JITTER": 0.4,
+      "NOISE": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Through The Wall",
+   "programmes": [
+    {
+     "name": "Next Room",
+     "description": "muffled, party next door",
+     "params": {
+      "TYPE": "LP24",
+      "CUTOFF": 700,
+      "RESO": 0.15
+     }
+    },
+    {
+     "name": "Dark Lowpass",
+     "description": "takes the edge off",
+     "params": {
+      "TYPE": "LP12",
+      "CUTOFF": 3500,
+      "RESO": 0.1
+     }
+    },
+    {
+     "name": "Phone Call",
+     "description": "telephone band",
+     "params": {
+      "TYPE": "BP",
+      "CUTOFF": 1225,
+      "BP WIDTH": 2.6,
+      "RESO": 0.1
+     }
+    },
+    {
+     "name": "Thin Out",
+     "description": "high-pass, leaves room for 808",
+     "params": {
+      "TYPE": "HP",
+      "CUTOFF": 300,
+      "RESO": 0.1
+     }
+    },
+    {
+     "name": "Wah Pump",
+     "description": "filter moving in tempo",
+     "params": {
+      "TYPE": "LP24",
+      "CUTOFF": 1500,
+      "RESO": 0.45,
+      "LFO RATE": "1/4",
+      "LFO DEPTH": 0.45
+     }
+    },
+    {
+     "name": "Slow Sweep",
+     "description": "4-bar filter rise and fall",
+     "params": {
+      "TYPE": "LP24",
+      "CUTOFF": 1200,
+      "RESO": 0.3,
+      "LFO RATE": "4 BAR",
+      "LFO DEPTH": 0.6
+     }
+    },
+    {
+     "name": "Flanger",
+     "description": "comb filter jet sweep",
+     "params": {
+      "TYPE": "COMB",
+      "CUTOFF": 600,
+      "RESO": 0.6,
+      "LFO RATE": "2 BAR",
+      "LFO DEPTH": 0.5
+     }
+    },
+    {
+     "name": "Auto Wah",
+     "description": "opens with your playing",
+     "params": {
+      "TYPE": "BP",
+      "CUTOFF": 600,
+      "BP WIDTH": 1.2,
+      "RESO": 0.4,
+      "ENV": 0.6
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Tone Up",
+   "programmes": [
+    {
+     "name": "Air",
+     "description": "bright and expensive",
+     "params": {
+      "HIGH": 4,
+      "LOW-CUT": 30
+     }
+    },
+    {
+     "name": "Warmth",
+     "description": "fuller low mids, softer top",
+     "params": {
+      "LOW": 2,
+      "TILT": -1.5
+     }
+    },
+    {
+     "name": "Vocal Clean",
+     "description": "cut mud, add presence",
+     "params": {
+      "LOW-CUT": 100,
+      "LOW-MID": -3,
+      "LOW-MID FREQ": 300,
+      "HIGH-MID": 2,
+      "HIGH-MID FREQ": 3500,
+      "HIGH": 2
+     }
+    },
+    {
+     "name": "808 Phone",
+     "description": "808 audible on phones",
+     "params": {
+      "LOW-MID": 2,
+      "LOW-MID FREQ": 150,
+      "HIGH-MID": 3,
+      "HIGH-MID FREQ": 900
+     }
+    },
+    {
+     "name": "Scoop",
+     "description": "smiley curve",
+     "params": {
+      "LOW": 3,
+      "LOW-MID": -3,
+      "LOW-MID FREQ": 500,
+      "HIGH": 3
+     }
+    },
+    {
+     "name": "Dark",
+     "description": "tilt to the dark side",
+     "params": {
+      "TILT": -4,
+      "HIGH": -2
+     }
+    },
+    {
+     "name": "Mid Push",
+     "description": "in your face mids",
+     "params": {
+      "HIGH-MID": 4,
+      "HIGH-MID FREQ": 1200
+     }
+    },
+    {
+     "name": "Sub Focus",
+     "description": "clean low end, no rumble",
+     "params": {
+      "LOW-CUT": 30,
+      "LOW": 2.5,
+      "LOW-MID": -2,
+      "LOW-MID FREQ": 250
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Squeeze",
+   "programmes": [
+    {
+     "name": "Gentle Glue",
+     "description": "light, transparent",
+     "params": {
+      "THRESHOLD": -14,
+      "RATIO": 2,
+      "ATTACK": 20,
+      "RELEASE": 180,
+      "MAKEUP": 1
+     }
+    },
+    {
+     "name": "Vocal Lock",
+     "description": "steady vocal level",
+     "params": {
+      "THRESHOLD": -22,
+      "RATIO": 4,
+      "ATTACK": 6,
+      "RELEASE": 110,
+      "MAKEUP": 4
+     }
+    },
+    {
+     "name": "Drum Smash",
+     "description": "parallel punch",
+     "params": {
+      "THRESHOLD": -30,
+      "RATIO": 10,
+      "ATTACK": 1,
+      "RELEASE": 70,
+      "MAKEUP": 8,
+      "MIX": 0.4
+     }
+    },
+    {
+     "name": "808 Hold",
+     "description": "even 808 sustain",
+     "params": {
+      "THRESHOLD": -20,
+      "RATIO": 3,
+      "ATTACK": 25,
+      "RELEASE": 250,
+      "MAKEUP": 3
+     }
+    },
+    {
+     "name": "Bus Glue",
+     "description": "slow mix bus glue",
+     "params": {
+      "THRESHOLD": -16,
+      "RATIO": 2,
+      "ATTACK": 30,
+      "RELEASE": 300,
+      "MAKEUP": 1
+     }
+    },
+    {
+     "name": "Punchy",
+     "description": "slow attack lets transients through",
+     "params": {
+      "THRESHOLD": -20,
+      "RATIO": 4,
+      "ATTACK": 40,
+      "RELEASE": 120,
+      "MAKEUP": 3
+     }
+    },
+    {
+     "name": "Brickwall",
+     "description": "flat and loud",
+     "params": {
+      "THRESHOLD": -28,
+      "RATIO": 20,
+      "ATTACK": 0.5,
+      "RELEASE": 60,
+      "MAKEUP": 10
+     }
+    },
+    {
+     "name": "Breathing",
+     "description": "pumping release",
+     "params": {
+      "THRESHOLD": -26,
+      "RATIO": 6,
+      "ATTACK": 3,
+      "RELEASE": 400,
+      "MAKEUP": 6
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Overcooked",
+   "programmes": [
+    {
+     "name": "Light Cook",
+     "description": "a little bit of everything",
+     "params": {
+      "DEPTH": 0.25
+     }
+    },
+    {
+     "name": "Well Done",
+     "description": "loud, dense, bright",
+     "params": {
+      "DEPTH": 0.5
+     }
+    },
+    {
+     "name": "Burnt",
+     "description": "maximum crunch",
+     "params": {
+      "DEPTH": 0.85,
+      "TIME": 0.3
+     }
+    },
+    {
+     "name": "Upward Only",
+     "description": "brings up the quiet details",
+     "params": {
+      "DEPTH": 0.6,
+      "UPWARD": 0.9,
+      "DOWNWARD": 0.1
+     }
+    },
+    {
+     "name": "Tamed",
+     "description": "downward only, controlled",
+     "params": {
+      "DEPTH": 0.5,
+      "UPWARD": 0.1,
+      "DOWNWARD": 0.8
+     }
+    },
+    {
+     "name": "Air Fryer",
+     "description": "crispy top end",
+     "params": {
+      "DEPTH": 0.45,
+      "HIGH": 3,
+      "LOW": -1
+     }
+    },
+    {
+     "name": "Heavy Bottom",
+     "description": "big low end",
+     "params": {
+      "DEPTH": 0.4,
+      "LOW": 3,
+      "HIGH": -1
+     }
+    },
+    {
+     "name": "Half Baked",
+     "description": "parallel blend",
+     "params": {
+      "DEPTH": 0.7,
+      "MIX": 0.45
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Slap",
+   "programmes": [
+    {
+     "name": "Snap",
+     "description": "more attack",
+     "params": {
+      "ATTACK": 0.5
+     }
+    },
+    {
+     "name": "Knock Harder",
+     "description": "big attack, slight clip",
+     "params": {
+      "ATTACK": 0.8,
+      "CLIP OUT": 0.3
+     }
+    },
+    {
+     "name": "Tight",
+     "description": "shorter tails",
+     "params": {
+      "ATTACK": 0.3,
+      "SUSTAIN": -0.5
+     }
+    },
+    {
+     "name": "Roomy",
+     "description": "longer sustain",
+     "params": {
+      "SUSTAIN": 0.6
+     }
+    },
+    {
+     "name": "Soft Hit",
+     "description": "softer transients",
+     "params": {
+      "ATTACK": -0.5
+     }
+    },
+    {
+     "name": "Clip Knock",
+     "description": "clipped punch",
+     "params": {
+      "ATTACK": 0.6,
+      "CLIP OUT": 0.6
+     }
+    },
+    {
+     "name": "Gated",
+     "description": "attack only, tail removed",
+     "params": {
+      "ATTACK": 0.4,
+      "SUSTAIN": -0.9
+     }
+    },
+    {
+     "name": "Blend",
+     "description": "subtle parallel punch",
+     "params": {
+      "ATTACK": 0.7,
+      "MIX": 0.5
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Doubles",
+   "programmes": [
+    {
+     "name": "Wide Double",
+     "description": "stereo double track",
+     "params": {
+      "RATE": 0.5,
+      "DEPTH": 0.35,
+      "VOICES": 2,
+      "SPREAD": 0.9,
+      "MIX": 0.4
+     }
+    },
+    {
+     "name": "Dream Chorus",
+     "description": "lush 4-voice chorus",
+     "params": {
+      "RATE": 0.7,
+      "DEPTH": 0.55,
+      "VOICES": 4,
+      "SPREAD": 1.0,
+      "MIX": 0.5
+     }
+    },
+    {
+     "name": "Subtle",
+     "description": "just a touch of width",
+     "params": {
+      "RATE": 0.3,
+      "DEPTH": 0.2,
+      "VOICES": 2,
+      "SPREAD": 0.7,
+      "MIX": 0.25
+     }
+    },
+    {
+     "name": "Seasick",
+     "description": "deep slow warble",
+     "params": {
+      "RATE": 0.25,
+      "DEPTH": 0.9,
+      "VOICES": 2,
+      "MIX": 0.6
+     }
+    },
+    {
+     "name": "Fast Shimmer",
+     "description": "quick vibrato shimmer",
+     "params": {
+      "RATE": 3.0,
+      "DEPTH": 0.3,
+      "VOICES": 3,
+      "MIX": 0.4
+     }
+    },
+    {
+     "name": "808 Safe",
+     "description": "chorus above, mono bass",
+     "params": {
+      "RATE": 0.5,
+      "DEPTH": 0.35,
+      "VOICES": 2,
+      "LOW KEEP": 160,
+      "MIX": 0.4
+     }
+    },
+    {
+     "name": "Vintage",
+     "description": "single voice, classic",
+     "params": {
+      "RATE": 0.8,
+      "DEPTH": 0.45,
+      "VOICES": 1,
+      "SPREAD": 0.5,
+      "MIX": 0.5
+     }
+    },
+    {
+     "name": "Choir",
+     "description": "thick 4-voice ensemble",
+     "params": {
+      "RATE": 0.4,
+      "DEPTH": 0.6,
+      "VOICES": 4,
+      "SPREAD": 1.0,
+      "MIX": 0.7
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Swirl",
+   "programmes": [
+    {
+     "name": "Slow Swirl",
+     "description": "classic slow phaser",
+     "params": {
+      "RATE": 0.15,
+      "STAGES": 6,
+      "FEEDBACK": 0.3,
+      "DEPTH": 0.7,
+      "MIX": 0.5
+     }
+    },
+    {
+     "name": "Jet",
+     "description": "intense, resonant",
+     "params": {
+      "RATE": 0.3,
+      "STAGES": 12,
+      "FEEDBACK": 0.7,
+      "DEPTH": 0.9,
+      "MIX": 0.6
+     }
+    },
+    {
+     "name": "Bar Sync",
+     "description": "one sweep per bar",
+     "params": {
+      "SYNC": "ON",
+      "SYNC RATE": "1 BAR",
+      "STAGES": 8,
+      "FEEDBACK": 0.4,
+      "DEPTH": 0.8,
+      "MIX": 0.5
+     }
+    },
+    {
+     "name": "Subtle Move",
+     "description": "light motion",
+     "params": {
+      "RATE": 0.2,
+      "STAGES": 4,
+      "FEEDBACK": 0.2,
+      "DEPTH": 0.5,
+      "MIX": 0.3
+     }
+    },
+    {
+     "name": "Fast Vibe",
+     "description": "fast wobble",
+     "params": {
+      "RATE": 4.0,
+      "STAGES": 4,
+      "FEEDBACK": 0.3,
+      "DEPTH": 0.6,
+      "MIX": 0.5
+     }
+    },
+    {
+     "name": "Dreamy",
+     "description": "deep and wide",
+     "params": {
+      "RATE": 0.1,
+      "STAGES": 10,
+      "FEEDBACK": 0.5,
+      "DEPTH": 1.0,
+      "MIX": 0.45
+     }
+    },
+    {
+     "name": "Half Bar",
+     "description": "synced 1/2",
+     "params": {
+      "SYNC": "ON",
+      "SYNC RATE": "1/2",
+      "STAGES": 6,
+      "FEEDBACK": 0.5,
+      "DEPTH": 0.8,
+      "MIX": 0.5
+     }
+    },
+    {
+     "name": "Underwater",
+     "description": "dark slow phase",
+     "params": {
+      "RATE": 0.08,
+      "STAGES": 12,
+      "FEEDBACK": 0.6,
+      "DEPTH": 0.6,
+      "MIX": 0.7
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Ad-Lib Throw",
+   "programmes": [
+    {
+     "name": "Quarter Throw",
+     "description": "classic 1/4 echo",
+     "params": {
+      "TIME": "1/4",
+      "FEEDBACK": 0.3,
+      "MIX": 0.25
+     }
+    },
+    {
+     "name": "Dotted Eighth",
+     "description": "bouncy 1/8D",
+     "params": {
+      "TIME": "1/8D",
+      "FEEDBACK": 0.35,
+      "MIX": 0.25
+     }
+    },
+    {
+     "name": "Ping-Pong",
+     "description": "left / right echoes",
+     "params": {
+      "TIME": "1/8",
+      "FEEDBACK": 0.4,
+      "PING-PONG": "ON",
+      "MIX": 0.3
+     }
+    },
+    {
+     "name": "Slapback",
+     "description": "short single slap",
+     "params": {
+      "TIME": "1/16",
+      "FEEDBACK": 0.1,
+      "MIX": 0.2
+     }
+    },
+    {
+     "name": "Ad-Lib Throw",
+     "description": "long ducked throw",
+     "params": {
+      "TIME": "1/4D",
+      "FEEDBACK": 0.5,
+      "DUCKING": 0.6,
+      "MIX": 0.4
+     }
+    },
+    {
+     "name": "Dark Tape Echo",
+     "description": "filtered repeats",
+     "params": {
+      "TIME": "1/4",
+      "FEEDBACK": 0.55,
+      "LP": 2500,
+      "HP": 300,
+      "MIX": 0.3
+     }
+    },
+    {
+     "name": "Endless",
+     "description": "long feedback trail",
+     "params": {
+      "TIME": "1/2",
+      "FEEDBACK": 0.8,
+      "LP": 4000,
+      "DUCKING": 0.4,
+      "MIX": 0.3
+     }
+    },
+    {
+     "name": "Clean Vocal",
+     "description": "ducked, sits behind the vocal",
+     "params": {
+      "TIME": "1/8",
+      "FEEDBACK": 0.3,
+      "HP": 400,
+      "DUCKING": 0.8,
+      "MIX": 0.3
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Aura Room",
+   "programmes": [
+    {
+     "name": "Small Room",
+     "description": "tight natural room",
+     "params": {
+      "TYPE": "ROOM",
+      "SIZE": 0.3,
+      "DECAY": 0.8,
+      "MIX": 0.2
+     }
+    },
+    {
+     "name": "Vocal Plate",
+     "description": "bright plate",
+     "params": {
+      "TYPE": "PLATE",
+      "SIZE": 0.5,
+      "DECAY": 1.6,
+      "DAMPING": 0.2,
+      "PRE-DELAY": 20,
+      "MIX": 0.2
+     }
+    },
+    {
+     "name": "Big Hall",
+     "description": "wide and long",
+     "params": {
+      "TYPE": "HALL",
+      "SIZE": 0.8,
+      "DECAY": 4.0,
+      "MIX": 0.35
+     }
+    },
+    {
+     "name": "Dark Cave",
+     "description": "dark, creepy space",
+     "params": {
+      "TYPE": "DARK",
+      "SIZE": 0.7,
+      "DECAY": 3.5,
+      "DAMPING": 0.6,
+      "MIX": 0.35
+     }
+    },
+    {
+     "name": "Ducked Hall",
+     "description": "space only in the gaps",
+     "params": {
+      "TYPE": "HALL",
+      "SIZE": 0.7,
+      "DECAY": 3.0,
+      "DUCKING": 0.7,
+      "MIX": 0.4
+     }
+    },
+    {
+     "name": "Drum Room",
+     "description": "short room for drums",
+     "params": {
+      "TYPE": "ROOM",
+      "SIZE": 0.2,
+      "DECAY": 0.6,
+      "MIX": 0.18
+     }
+    },
+    {
+     "name": "Dream Wash",
+     "description": "huge pad wash",
+     "params": {
+      "TYPE": "HALL",
+      "SIZE": 1.0,
+      "DECAY": 8.0,
+      "DAMPING": 0.2,
+      "MIX": 0.55
+     }
+    },
+    {
+     "name": "808 Space",
+     "description": "tiny bit of air for bass",
+     "params": {
+      "TYPE": "ROOM",
+      "SIZE": 0.25,
+      "DECAY": 0.7,
+      "WIDTH": 0.6,
+      "MIX": 0.1
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Wide Body",
+   "programmes": [
+    {
+     "name": "Wide",
+     "description": "wider stereo",
+     "params": {
+      "WIDTH": 1.5
+     }
+    },
+    {
+     "name": "Ultra Wide",
+     "description": "very wide",
+     "params": {
+      "WIDTH": 1.9,
+      "MONO BELOW": 120
+     }
+    },
+    {
+     "name": "Mono",
+     "description": "collapse to mono",
+     "params": {
+      "WIDTH": 0.0
+     }
+    },
+    {
+     "name": "Bass Mono",
+     "description": "mono lows, wide top",
+     "params": {
+      "WIDTH": 1.3,
+      "MONO BELOW": 150
+     }
+    },
+    {
+     "name": "Haas Spread",
+     "description": "short delay stereo",
+     "params": {
+      "WIDTH": 1.2,
+      "HAAS": 12
+     }
+    },
+    {
+     "name": "Club Safe",
+     "description": "tight mono bass",
+     "params": {
+      "WIDTH": 1.0,
+      "MONO BELOW": 200
+     }
+    },
+    {
+     "name": "Narrow",
+     "description": "a bit narrower",
+     "params": {
+      "WIDTH": 0.7
+     }
+    },
+    {
+     "name": "Master Width",
+     "description": "subtle master widening",
+     "params": {
+      "WIDTH": 1.15,
+      "MONO BELOW": 120
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Chopped",
+   "programmes": [
+    {
+     "name": "Sidechain 1/4",
+     "description": "pumps on every beat",
+     "params": {
+      "MODE": "PUMP",
+      "RATE": "1/4",
+      "DEPTH": 0.6
+     }
+    },
+    {
+     "name": "Pump 1/8",
+     "description": "faster pump",
+     "params": {
+      "MODE": "PUMP",
+      "RATE": "1/8",
+      "DEPTH": 0.5
+     }
+    },
+    {
+     "name": "Trance Gate",
+     "description": "16th gate",
+     "params": {
+      "MODE": "PATTERN",
+      "PATTERN": 0,
+      "RATE": "1/16",
+      "DEPTH": 0.8
+     }
+    },
+    {
+     "name": "Stutter",
+     "description": "broken pattern",
+     "params": {
+      "MODE": "PATTERN",
+      "PATTERN": 5,
+      "RATE": "1/16",
+      "DEPTH": 0.7
+     }
+    },
+    {
+     "name": "Half Chop",
+     "description": "subtle chop",
+     "params": {
+      "MODE": "PATTERN",
+      "PATTERN": 1,
+      "RATE": "1/16",
+      "DEPTH": 0.35
+     }
+    },
+    {
+     "name": "Glitch 32",
+     "description": "fast glitch gate",
+     "params": {
+      "MODE": "PATTERN",
+      "PATTERN": 8,
+      "RATE": "1/32",
+      "DEPTH": 0.6
+     }
+    },
+    {
+     "name": "Noise Gate",
+     "description": "cuts the noise floor",
+     "params": {
+      "MODE": "NOISE GATE",
+      "THRESHOLD": -50,
+      "DEPTH": 1.0,
+      "SMOOTH": 0.3
+     }
+    },
+    {
+     "name": "Soft Pump",
+     "description": "gentle bus pump",
+     "params": {
+      "MODE": "PUMP",
+      "RATE": "1/4",
+      "DEPTH": 0.25,
+      "SMOOTH": 0.6
+     }
+    }
+   ]
+  },
+  {
+   "fx": "Red Line",
+   "programmes": [
+    {
+     "name": "Safe Ceiling",
+     "description": "transparent safety limiter",
+     "params": {
+      "CEILING": -1.0,
+      "DRIVE": 0,
+      "CHARACTER": 0.0
+     }
+    },
+    {
+     "name": "Loud",
+     "description": "louder, soft clipped",
+     "params": {
+      "CEILING": -0.3,
+      "DRIVE": 4,
+      "CHARACTER": 0.3
+     }
+    },
+    {
+     "name": "Hard Clip",
+     "description": "aggressive clipping",
+     "params": {
+      "CEILING": -0.3,
+      "DRIVE": 6,
+      "CHARACTER": 1.0
+     }
+    },
+    {
+     "name": "808 Clip",
+     "description": "clipped 808 punch",
+     "params": {
+      "CEILING": -0.5,
+      "DRIVE": 8,
+      "CHARACTER": 0.8
+     }
+    },
+    {
+     "name": "Master",
+     "description": "-1 dB master limiter",
+     "params": {
+      "CEILING": -1.0,
+      "DRIVE": 2,
+      "CHARACTER": 0.2
+     }
+    },
+    {
+     "name": "Rage",
+     "description": "slammed and loud",
+     "params": {
+      "CEILING": -0.1,
+      "DRIVE": 12,
+      "CHARACTER": 0.9
+     }
+    },
+    {
+     "name": "Gentle",
+     "description": "just catching peaks",
+     "params": {
+      "CEILING": -0.5,
+      "DRIVE": 1,
+      "CHARACTER": 0.0
+     }
+    },
+    {
+     "name": "Drum Bus",
+     "description": "snappy drum clipping",
+     "params": {
+      "CEILING": -0.3,
+      "DRIVE": 5,
+      "CHARACTER": 0.7
+     }
+    }
+   ]
+  }
+ ]
+}

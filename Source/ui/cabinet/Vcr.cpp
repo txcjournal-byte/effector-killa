@@ -40,7 +40,7 @@ static void drawVcrButton (Graphics& g, Rectangle<float> r, bool pressed, bool e
     g.drawRoundedRectangle (face.reduced (1.0f), 3.0f, 1.0f);
     const auto top = face.withHeight (face.getHeight() * 0.45f);
     const auto bottom = face.withTrimmedTop (face.getHeight() * 0.45f);
-    g.setColour (theme::cream.withAlpha (enabled ? 0.95f : 0.35f));
+    g.setColour (theme::silver.withAlpha (enabled ? 0.95f : 0.35f));
     g.setFont (theme::stencilFont (19.0f));
     if (icon) { icon (g, top.reduced (4.0f)); g.drawText (label, bottom, Justification::centred); }
     else if (label.isNotEmpty()) g.drawText (label, face, Justification::centred);
@@ -57,24 +57,24 @@ void VideoRecorder::paint (Graphics& g)
     auto disp = local (layout::vcrDisplay);
     g.setColour (Colour (0xff040605));
     g.fillRoundedRectangle (disp, 5.0f);
-    ColourGradient glass (Colour (0xff0e1a13), disp.getCentreX(), disp.getY(), Colour (0xff020302), disp.getCentreX(), disp.getBottom(), false);
+    ColourGradient glass (Colour (0xff0b1424), disp.getCentreX(), disp.getY(), Colour (0xff020302), disp.getCentreX(), disp.getBottom(), false);
     g.setGradientFill (glass);
     g.fillRoundedRectangle (disp.reduced (4.0f), 4.0f);
     // VFD dot grid
-    g.setColour (Colour (0xff1b2a20).withAlpha (0.5f));
+    g.setColour (Colour (0xff1a2a40).withAlpha (0.5f));
     for (float x = disp.getX() + 8.0f; x < disp.getRight() - 6.0f; x += 4.0f)
         g.drawVerticalLine ((int) x, disp.getY() + 6.0f, disp.getBottom() - 6.0f);
 
     String text = shownName.toUpperCase();
     if (proc.isCurrentFavourite()) text = String::fromUTF8 ("\xe2\x98\x85 ") + text;
-    theme::drawGlowText (g, text, local (layout::vcrText), theme::vfdFont (38.0f), theme::vfdGreen, Justification::centred, 1.0f);
+    theme::drawGlowText (g, text, local (layout::vcrText), theme::vfdFont (38.0f), theme::vfd, Justification::centred, 1.0f);
     // small channel / side indicators
     g.setFont (theme::vfdFont (14.0f));
-    g.setColour (theme::vfdGreen.withAlpha (0.7f));
+    g.setColour (theme::vfd.withAlpha (0.7f));
     const int ch = proc.getCurrentChannel();
     g.drawText ("CH" + String (ch + 1).paddedLeft ('0', 2), disp.withWidth (64.0f).reduced (8.0f, 6.0f), Justification::topLeft);
     g.drawText (proc.getSide() == 0 ? "SIDE A" : "SIDE B", disp.withTrimmedLeft (disp.getWidth() - 80.0f).reduced (8.0f, 6.0f), Justification::topRight);
-    g.setColour (theme::vfdGreen.withAlpha (0.35f));
+    g.setColour (theme::vfd.withAlpha (0.35f));
     g.drawText (proc.getMeta().factory ? "FACTORY" : "USER", disp.withTrimmedLeft (disp.getWidth() - 80.0f).reduced (8.0f, 6.0f), Justification::bottomRight);
 
     // buttons
@@ -110,7 +110,7 @@ void VideoRecorder::paint (Graphics& g)
     // REC: label on top, red LED below (as on the reference)
     {
         auto r = local (layout::rec).reduced (3.0f).translated (0.0f, down == Rec ? 1.5f : 0.0f);
-        g.setColour (theme::cream);
+        g.setColour (theme::silver);
         g.setFont (theme::stencilFont (19.0f));
         g.drawText ("REC", r.withHeight (r.getHeight() * 0.45f).translated (0.0f, 3.0f), Justification::centred);
         theme::drawLed (g, { r.getCentreX(), r.getY() + r.getHeight() * 0.7f }, 8.0f, theme::killRed, true, 0.7f);
@@ -122,14 +122,14 @@ void VideoRecorder::paint (Graphics& g)
     g.setColour (Colour (0xff171410));
     g.fillRect (labels);
     g.setFont (theme::stencilFont (18.0f));
-    g.setColour (theme::cream);
+    g.setColour (theme::silver);
     g.drawText ("SIDE A", labels.withWidth (labels.getWidth() * 0.5f), Justification::centred);
     g.drawText ("SIDE B", labels.withTrimmedLeft (labels.getWidth() * 0.5f), Justification::centred);
     theme::drawTrack (g, sw);
     const bool b = proc.getSide() == 1;
     auto thumb = Rectangle<float> (sw.getHeight() * 0.9f, sw.getHeight() + 2.0f).withCentre ({ b ? sw.getRight() - sw.getHeight() * 0.55f : sw.getX() + sw.getHeight() * 0.55f, sw.getCentreY() });
     theme::drawSliderThumb (g, thumb, false);
-    theme::drawLed (g, { b ? sw.getX() + 14.0f : sw.getRight() - 14.0f, sw.getCentreY() }, 5.5f, theme::amber, true);
+    theme::drawLed (g, { b ? sw.getX() + 14.0f : sw.getRight() - 14.0f, sw.getCentreY() }, 5.5f, theme::accent, true);
 }
 
 void VideoRecorder::mouseDown (const MouseEvent& e)

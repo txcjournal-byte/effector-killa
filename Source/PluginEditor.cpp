@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "EKBinaryData.h"
+#include "ui/cabinet/CabinetBackground.h"
 
 using namespace ek;
 
@@ -14,24 +15,7 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
 
     gl = std::make_unique<ui::TvGl> (cabinet.getTv(), [this] { return cabinet.getTv().getLocalBounds(); });
     // the AV3 screensaver logo is the cabinet logo
-    auto reference = juce::ImageCache::getFromMemory (EKData::reference_png, EKData::reference_pngSize);
-    if (reference.isValid())
-    {
-        juce::Image logo (juce::Image::ARGB, 330, 195, true);
-        juce::Graphics lg (logo);
-        lg.drawImage (reference, 0, 0, 330, 195, 40, 60, 330, 195);
-        // knock out the dark wood behind the letters
-        for (int y = 0; y < logo.getHeight(); ++y)
-            for (int x = 0; x < logo.getWidth(); ++x)
-            {
-                auto c = logo.getPixelAt (x, y);
-                const float lum = c.getPerceivedBrightness();
-                const float sat = c.getSaturation();
-                const float a = juce::jlimit (0.0f, 1.0f, (lum - 0.28f) * 3.0f + (sat > 0.55f && c.getRed() > 150 ? 1.0f : 0.0f));
-                logo.setPixelAt (x, y, c.withAlpha (a));
-            }
-        gl->setLogo (logo);
-    }
+    gl->setLogo (ui::CabinetBackground::renderLogo (440, 200));
     // EK_SOFTWARE_TV=1 forces the software TV (machines / VMs without a usable OpenGL driver)
     if (std::getenv ("EK_SOFTWARE_TV") != nullptr) processor.softwareTv = true;
     if (! processor.softwareTv) gl->attach();
@@ -129,7 +113,7 @@ bool EffectorKillaAudioProcessorEditor::keyPressed (const juce::KeyPress& k)
     if (! mods.isAnyModifierKeyDown() && code >= '1' && code <= '8')
     {
         const int slot = code - '1';
-        cabinet.selectSlot (processor.selectedSlot == slot || processor.getSlotMeta (slot).isEmpty() ? -1 : slot);
+        cabinet.selectSlot (processor.selectedSlot == slot ? -1 : slot);
         return true;
     }
     return false;
@@ -138,7 +122,7 @@ bool EffectorKillaAudioProcessorEditor::keyPressed (const juce::KeyPress& k)
 void EffectorKillaAudioProcessorEditor::showMainMenu()
 {
     juce::PopupMenu m;
-    m.addSectionHeader ("EFFECTOR KILLA 1.0 - Every effect. One Killa.");
+    m.addSectionHeader ("TRAPWIN EFFECTOR 1.0 - Every effect. One win.");
     juce::PopupMenu size;
     for (float s : { 1.0f, 1.25f, 1.5f })
         size.addItem ((int) (s * 100.0f), juce::String (juce::roundToInt (s * 100.0f)) + " %", true, std::abs (uiScale - s) < 0.01f);

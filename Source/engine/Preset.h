@@ -107,10 +107,21 @@ struct ChannelInfo
     Source source = Source::Melody;
 };
 
+// A "TV programme" on a cassette: a ready-made setting of one effect (Resources/Presets/tapes.json).
+struct TapeProgramme
+{
+    juce::String name, description;
+    SlotState slot;
+};
+
 class PresetBank
 {
 public:
     PresetBank();
+
+    // cassette programmes
+    void loadTapes (const juce::String& json);
+    const std::vector<TapeProgramme>& getTapes (EffectType t) const;
 
     // factory
     void loadFactory (const juce::String& json);
@@ -146,6 +157,7 @@ private:
     juce::File root() const;
 
     std::vector<ChannelInfo> channels;
+    std::array<std::vector<TapeProgramme>, (size_t) EffectType::Count> tapes;
     std::vector<std::vector<ProgramState>> presets;
     juce::StringArray favourites;
     juce::File rootOverride;

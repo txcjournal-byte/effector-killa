@@ -41,7 +41,7 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "Effector Killa"; }
+    const juce::String getName() const override { return "TrapWin Effector"; }
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
@@ -94,6 +94,8 @@ public:
 
     // slots
     void setSlotType (int slot, ek::EffectType t);
+    void playTape (int slot, ek::EffectType t, int programme);   // load a cassette programme into a slot
+    int findTape (int slot) const;                               // programme matching the slot, or -1
     void ejectSlot (int slot) { setSlotType (slot, ek::EffectType::None); }
     void moveSlot (int from, int to);
     void setSlotMs (int slot, ek::MSMode m);

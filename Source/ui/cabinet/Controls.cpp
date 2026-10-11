@@ -48,7 +48,7 @@ void Knob::paint (Graphics& g)
     {
         // tick marks around the knob
         const float r = b.getWidth() * 0.5f / 1.45f;
-        g.setColour (theme::cream.withAlpha (0.55f));
+        g.setColour (theme::silver.withAlpha (0.55f));
         for (int i = 0; i <= 10; ++i)
         {
             const float a = theme::knobStart + (float) i / 10.0f * (theme::knobEnd - theme::knobStart);
@@ -179,7 +179,7 @@ void ThreeWaySwitch::paint (Graphics& g)
     theme::drawTrack (g, track);
     if (showLeds)
         for (int i = 0; i < 3; ++i)
-            theme::drawLed (g, leds[(size_t) i], 6.0f, i == p ? Colour (0xffffe14a) : Colour (0xff2fae4f), i == p);
+            theme::drawLed (g, leds[(size_t) i], 6.0f, i == p ? theme::accent : theme::accentDeep, i == p);
     const float x = dragX >= 0.0f ? jlimit (pos[0], pos[2], dragX) : pos[(size_t) p];
     const auto thumb = Rectangle<float> (thumbW, track.getHeight() + 6.0f).withCentre ({ x, track.getCentreY() });
     theme::drawSliderThumb (g, thumb, litThumb);
@@ -241,7 +241,7 @@ void CableToggle::paint (Graphics& g)
         const float a = (float) i * MathConstants<float>::pi / 6.0f;
         g.drawLine (c.x, c.y, c.x + r * 0.9f * std::cos (a), c.y + r * 0.9f * std::sin (a), 0.8f);
     }
-    theme::drawLed (g, led, 7.0f, theme::amber, on);
+    theme::drawLed (g, led, 7.0f, theme::accent, on);
 }
 
 void CableToggle::refresh() { if ((isOn ? isOn() : false) != shown) repaint(); }
@@ -271,7 +271,7 @@ void ArrowButton::paint (Graphics& g)
     const float s = face.getHeight() * 0.28f;
     if (up) tri.addTriangle (c.x - s * 1.2f, c.y + s * 0.7f, c.x + s * 1.2f, c.y + s * 0.7f, c.x, c.y - s * 0.8f);
     else tri.addTriangle (c.x - s * 1.2f, c.y - s * 0.7f, c.x + s * 1.2f, c.y - s * 0.7f, c.x, c.y + s * 0.8f);
-    g.setColour (down ? theme::amber : theme::cream);
+    g.setColour (down ? theme::accent : theme::silver);
     g.fillPath (tri);
 }
 

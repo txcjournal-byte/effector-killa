@@ -90,6 +90,7 @@ EffectorKillaAudioProcessor::EffectorKillaAudioProcessor()
     pOffAir = apvts.getRawParameterValue (ParamIDs::offAir);
 
     bank.loadFactory (juce::String::fromUTF8 (EKData::factory_json, EKData::factory_jsonSize));
+    bank.loadTapes (juce::String::fromUTF8 (EKData::tapes_json, EKData::tapes_jsonSize));
 
     // start on CH 10 DRIFT – "Night Drive"
     if (bank.getFactory (9, 2) != nullptr) loadFactory (9, 2, false);
@@ -386,6 +387,37 @@ void EffectorKillaAudioProcessor::setSlotType (int slot, EffectType t)
     applyProgram (p, true);
 }
 
+void EffectorKillaAudioProcessor::playTape (int slot, EffectType t, int programme)
+{
+    const auto& list = bank.getTapes (t);
+    if (slot < 0 || slot >= kNumSlots || programme < 0 || programme >= (int) list.size()) return;
+    auto p = captureProgram();
+    auto& s = p.slots[(size_t) slot];
+    const auto ms = s.ms;
+    const bool lock = s.writeProtect;
+    const bool sameType = s.type == t;
+    s = list[(size_t) programme].slot;
+    s.ms = sameType ? ms : MSMode::Stereo;
+    s.writeProtect = lock;
+    if (! sameType)
+        p.maps.erase (std::remove_if (p.maps.begin(), p.maps.end(), [slot] (const MacroMapping& m) { return m.slot == slot; }), p.maps.end());
+    applyProgram (p, true);
+}
+
+int EffectorKillaAudioProcessor::findTape (int slot) const
+{
+    if (slot < 0 || slot >= kNumSlots) return -1;
+    const auto s = getSlotState (slot);
+    const auto& list = bank.getTapes (s.type);
+    for (int i = 0; i < (int) list.size(); ++i)
+    {
+        float d = std::abs (list[(size_t) i].slot.mix - s.mix);
+        for (int k = 0; k < kNumParams; ++k) d += std::abs (list[(size_t) i].slot.p[(size_t) k] - s.p[(size_t) k]);
+        if (d < 0.01f) return i;
+    }
+    return -1;
+}
+
 void EffectorKillaAudioProcessor::moveSlot (int from, int to)
 {
     if (from == to || from < 0 || to < 0 || from >= kNumSlots || to >= kNumSlots) return;
@@ -528,7 +560,7 @@ void EffectorKillaAudioProcessor::timerCallback() { engine.collectGarbage(); }
 // ---- state -------------------------------------------------------------------------------
 void EffectorKillaAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    juce::ValueTree root ("EffectorKilla");
+    juce::ValueTree root ("EffectorKilla"); // state tag kept for compatibility
     root.setProperty ("version", 1, nullptr);
     root.setProperty ("program", captureProgram().toJson(), nullptr);
     auto sideA = side == 0 ? captureProgram() : sides[0].value_or (captureProgram());

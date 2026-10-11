@@ -89,6 +89,18 @@ private:
 
     // detail panel
     int detailSlot = -1, dragCell = -1, hoverCell = -1;
+    // cassette menu ("films on a USB stick"): programmes of the tape, or the effect list for an empty slot
+    bool fineTune = false;
+    int hoverTile = -1;
+    bool menuOpen() const noexcept { return detailSlot >= 0 && ! (fineTune && proc.premiumCable); }
+    bool insertMode() const;
+    void paintTapeMenu (juce::Graphics& g);
+    juce::Rectangle<float> menuArea() const;
+    juce::Rectangle<float> tileRect (int i) const;
+    juce::Rectangle<float> menuButton (int i) const;   // 0 FINE TUNE, 1 EJECT, 2 CLOSE
+    juce::Rectangle<float> backButton() const;
+    int tileAt (juce::Point<float> p) const;
+    void closeMenu();
     float dragStartValue = 0.0f;
 
     bool osdDirty = true;

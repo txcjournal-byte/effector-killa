@@ -32,6 +32,32 @@ public:
             }
         }
 
+        beginTest ("cassette TV programmes: 8 per effect, all valid");
+        {
+            PresetBank tb;
+            tb.loadTapes (juce::String::fromUTF8 (EKData::tapes_json, EKData::tapes_jsonSize));
+            for (auto t : allEffectTypes())
+            {
+                const auto& list = tb.getTapes (t);
+                expectEquals ((int) list.size(), 8, effectInfo (t).name);
+                juce::StringArray names;
+                for (auto& tp : list)
+                {
+                    expect (tp.slot.type == t && tp.name.isNotEmpty());
+                    names.addIfNotAlreadyThere (tp.name);
+                    for (auto v : tp.slot.p) expect (v >= 0.0f && v <= 1.0f);
+                }
+                expectEquals (names.size(), 8, "duplicate programme names");
+            }
+            EffectorKillaAudioProcessor proc;
+            proc.prepareToPlay (44100.0, 256);
+            proc.playTape (2, EffectType::AuraRoom, 3);
+            expect (proc.getSlotType (2) == EffectType::AuraRoom);
+            expectEquals (proc.findTape (2), 3);
+            proc.undo();
+            expect (proc.findTape (2) != 3 || proc.getSlotType (2) != EffectType::AuraRoom);
+        }
+
         beginTest ("preset values are what section 11 says");
         {
             auto* dark = bank.getFactory (0, 1); // Dark Keys: Through The Wall LP 2.5k, VILLAIN ARC map 800..6k

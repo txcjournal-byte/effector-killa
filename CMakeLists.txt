@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(EffectorKilla VERSION 1.0.0 LANGUAGES C CXX)
+project(TrapWinEffector VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,13 +30,13 @@ if(APPLE)
 endif()
 
 juce_add_plugin(EffectorKilla
-    COMPANY_NAME                "Killa"
-    COMPANY_WEBSITE             "https://killa.audio"
-    BUNDLE_ID                   "audio.killa.effectorkilla"
-    PLUGIN_MANUFACTURER_CODE    Klla
-    PLUGIN_CODE                 EfKl
-    PRODUCT_NAME                "Effector Killa"
-    DESCRIPTION                 "Every effect. One Killa."
+    COMPANY_NAME                "TrapWin"
+    COMPANY_WEBSITE             "https://trapwin.com"
+    BUNDLE_ID                   "com.trapwin.effector"
+    PLUGIN_MANUFACTURER_CODE    Trpw
+    PLUGIN_CODE                 TwEf
+    PRODUCT_NAME                "TrapWin Effector"
+    DESCRIPTION                 "Every effect. One win."
     FORMATS                     ${EK_FORMATS}
     IS_SYNTH                    FALSE
     NEEDS_MIDI_INPUT            FALSE
@@ -49,7 +49,7 @@ juce_add_plugin(EffectorKilla
 
 # Graphic assets: reference.png is the cabinet placeholder. Drop in Resources/Design/cabinet.png and
 # fonts (Resources/Fonts/osd.ttf, vfd.ttf, hand.ttf) and they are picked up automatically.
-set(EK_DATA Resources/Presets/factory.json Resources/Design/reference.png)
+set(EK_DATA Resources/Presets/factory.json Resources/Presets/tapes.json)
 set(EK_DATA_DEFS)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Design/cabinet.png")
     list(APPEND EK_DATA Resources/Design/cabinet.png)

@@ -1,6 +1,6 @@
-# EFFECTOR KILLA – User Manual
+# TRAPWIN EFFECTOR – User Manual
 
-**Every effect. One Killa.** An 8-slot trap multi-effect: pick a channel and a preset, shape it with
+**Every effect. One win.** An 8-slot trap multi-effect: pick a channel and a preset, shape it with
 5 macros, or hit **KILL** for a new chain that is musical and level-matched.
 
 Formats: VST3 (Windows / macOS), AU (macOS), Standalone. Stereo or mono.
@@ -9,7 +9,7 @@ Formats: VST3 (Windows / macOS), AU (macOS), Standalone. Stereo or mono.
 
 ## Install
 
-**Windows:** run `EffectorKilla-…-Setup.exe`. The plugin goes to `C:\Program Files\Common Files\VST3`.
+**Windows:** run `TrapWinEffector-…-Setup.exe`. The plugin goes to `C:\Program Files\Common Files\VST3`.
 **macOS:** VST3 to `~/Library/Audio/Plug-Ins/VST3`, AU to `~/Library/Audio/Plug-Ins/Components`.
 
 Then rescan plugins in your DAW. In FL Studio: *Options → Manage plugins → Find plugins*.
@@ -18,7 +18,7 @@ Then rescan plugins in your DAW. In FL Studio: *Options → Manage plugins → F
 
 ## Quick start
 
-1. Put Effector Killa on a mixer insert.
+1. Put TrapWin Effector on a mixer insert.
 2. Turn the **channel dial** (01–12), or click a number, to choose a category.
 3. Use **PROGRAM ▲ ▼** to step through the 8 presets of the channel.
 4. Shape the sound with the 5 macro knobs.
@@ -60,26 +60,26 @@ Macros respect the source. On an 808, for example, AURA never pushes the reverb 
 
 ### Cassettes = the 8 slots
 
-- **Click** a cassette to select it. It slides out and the TV shows its parameters (PREMIUM).
-- **Drag** a cassette to change the order.
-- **Right-click** for the slot menu: change the effect, copy / paste, EJECT, save / load a slot
-  preset, WRITE PROTECT, PAUSE, SCREENING (solo) and M/S (process only the mid or the side).
-- The coloured dot shows the effect type.
-- A red **WRITE PROTECT** tag means KILL will never touch that slot.
-- A grey cassette is paused.
+**Click a cassette – the TV shows what is on the tape**, like a USB stick plugged into a TV:
+a list of 8 ready-made **programmes** of that effect (e.g. *Aura Room*: Small Room, Vocal Plate, Big Hall,
+Dark Cave…) with a preview on the right. Click a programme to play it – no knob tweaking needed.
+The playing one is marked **▶**.
 
-**Slot detail on the TV:**
-- Drag a bar left / right to set its value. Hold Shift for fine steps.
-- Double-click a bar to reset it; the mouse wheel changes it step by step.
-- **PAUSE**, **SCREEN** (solo), **ST/MID/SIDE** and **LOCK** are at the top.
-- Esc or a click outside closes the detail.
+- **Empty cassette** → the TV lists all 15 effects as folders – click one to insert it.
+- **FINE TUNE** (PREMIUM CABLE) opens the detailed parameters for advanced users (drag a bar left / right,
+  Shift = fine, double-click = default, wheel = step; PAUSE, SCREEN = solo, ST/MID/SIDE, LOCK).
+  **◀ PRESETS** brings the list back.
+- **EJECT** empties the cassette, **CLOSE** / Esc closes the menu.
+- **Drag** a cassette to change the order. **Right-click** = slot menu (copy / paste, slot presets,
+  WRITE PROTECT, PAUSE, SCREENING, M/S).
+- Coloured dot = effect type, red **WRITE PROTECT** tag = KILL never touches it, grey cassette = paused.
 
 ### Video recorder
 
 | Control | What it does |
 |---|---|
 | **Display** | Preset name. Click it to open the preset lists: channel, all channels, STAFF PICKS and USER TAPES. |
-| **REC** | Saves your own preset to `Documents/Killa/Effector Killa/Presets`. |
+| **REC** | Saves your own preset to `Documents/TrapWin/TrapWin Effector/Presets`. |
 | **◀◀ REWIND / ▶▶ FAST FWD** | Undo / redo (64 steps). |
 | **EJECT** | Empties the selected cassette. |
 | **SIDE A / SIDE B** | Two independent states for A/B comparison. |
@@ -146,6 +146,11 @@ Knobs:
 - Double-click to reset.
 - Use the mouse wheel to step.
 
+## Third-party
+
+Fonts: Archivo Black and IBM Plex Mono (SIL Open Font License 1.1), Permanent Marker (Apache License 2.0) –
+licence texts are installed in the *Licenses* folder. Built with JUCE. VST is a trademark of Steinberg Media Technologies GmbH.
+
 ## Settings (click the logo)
 
 - **UI size:** 100 / 125 / 150 %.
@@ -154,7 +159,7 @@ Knobs:
 
 ## Latency
 
-Effector Killa reports a **fixed** latency that depends only on oversampling. KILL and preset changes never
+TrapWin Effector reports a **fixed** latency that depends only on oversampling. KILL and preset changes never
 shift your timing. At 48 kHz this is about 1.5 ms at 1×, 6.7 ms at 2× and 7.8 ms at 4×.
 
 ## Troubleshooting

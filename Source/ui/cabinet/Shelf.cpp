@@ -50,8 +50,8 @@ void CassetteShelf::drawCassette (Graphics& g, Rectangle<float> r, const SlotSta
     // warm light behind a selected cassette
     if (glow > 0.01f)
     {
-        ColourGradient light (theme::amber.withAlpha (0.45f * glow), r.getCentreX(), r.getBottom(),
-                              theme::amber.withAlpha (0.0f), r.getCentreX(), r.getY() - 40.0f, false);
+        ColourGradient light (theme::accent.withAlpha (0.45f * glow), r.getCentreX(), r.getBottom(),
+                              theme::accent.withAlpha (0.0f), r.getCentreX(), r.getY() - 40.0f, false);
         g.setGradientFill (light);
         g.fillRect (r.expanded (22.0f, 10.0f));
     }
@@ -72,13 +72,13 @@ void CassetteShelf::drawCassette (Graphics& g, Rectangle<float> r, const SlotSta
 
     // cream label
     auto label = Rectangle<float> (r.getX() + 7.0f, r.getY() + 30.0f, r.getWidth() - 14.0f, r.getHeight() - 58.0f);
-    const Colour paper = paused ? Colour (0xff9a958c) : (selected ? Colour (0xfffff0c8) : theme::creamLabel);
+    const Colour paper = paused ? Colour (0xff9a958c) : (selected ? Colour (0xfff7fbff) : theme::labelPaper);
     ColourGradient lab (paper.brighter (0.08f), label.getX(), label.getY(), paper.darker (0.12f), label.getRight(), label.getBottom(), false);
     g.setGradientFill (lab);
     g.fillRoundedRectangle (label, 2.0f);
     if (selected)
     {
-        g.setColour (Colour (0xffffd98a).withAlpha (0.35f * glow));
+        g.setColour (theme::accent.withAlpha (0.25f * glow));
         g.fillRoundedRectangle (label, 2.0f);
     }
     g.setColour (Colours::black.withAlpha (0.25f));
@@ -108,7 +108,7 @@ void CassetteShelf::drawCassette (Graphics& g, Rectangle<float> r, const SlotSta
     if (s.ms != MSMode::Stereo || screening)
     {
         g.setFont (theme::stencilFont (13.0f));
-        g.setColour (screening ? theme::amber : theme::cream.withAlpha (0.8f));
+        g.setColour (screening ? theme::accent : theme::silver.withAlpha (0.8f));
         const String t = screening ? "SCREEN" : (s.ms == MSMode::Mid ? "MID" : "SIDE");
         g.drawText (t, Rectangle<float> (r.getX(), r.getY() + 1.0f, r.getWidth(), 12.0f), Justification::centred);
     }
@@ -133,7 +133,7 @@ void CassetteShelf::drawCassette (Graphics& g, Rectangle<float> r, const SlotSta
     {
         g.setColour (Colours::black.withAlpha (0.35f));
         g.fillRoundedRectangle (r, 4.0f);
-        g.setColour (theme::cream.withAlpha (0.7f));
+        g.setColour (theme::silver.withAlpha (0.7f));
         g.setFont (theme::stencilFont (13.0f));
         g.drawText ("PAUSE", Rectangle<float> (r.getX(), r.getBottom() - 16.0f, r.getWidth(), 14.0f), Justification::centred);
     }
@@ -144,18 +144,18 @@ void CassetteShelf::paint (Graphics& g)
 {
     const auto b = getLocalBounds().toFloat();
     // shelf interior
-    ColourGradient back (Colour (0xff1d130c), b.getCentreX(), b.getY(), Colour (0xff0a0705), b.getCentreX(), b.getBottom(), false);
+    ColourGradient back (Colour (0xff0d1320), b.getCentreX(), b.getY(), Colour (0xff04060a), b.getCentreX(), b.getBottom(), false);
     g.setGradientFill (back);
     g.fillRect (b);
-    ColourGradient lamp (Colour (0xff6b3a14).withAlpha (0.35f), b.getCentreX(), b.getBottom(), Colours::transparentBlack, b.getCentreX(), b.getY(), false);
+    ColourGradient lamp (Colour (0xff4676c4).withAlpha (0.3f), b.getCentreX(), b.getBottom(), Colours::transparentBlack, b.getCentreX(), b.getY(), false);
     g.setGradientFill (lamp);
     g.fillRect (b);
     // shelf floor
     auto floor = b.withTop (b.getBottom() - 14.0f);
-    ColourGradient wood (Colour (0xff5a3316), floor.getX(), floor.getY(), Colour (0xff2a160a), floor.getX(), floor.getBottom(), false);
+    ColourGradient wood (Colour (0xffc9d0dd), floor.getX(), floor.getY(), Colour (0xff3a4152), floor.getX(), floor.getBottom(), false);
     g.setGradientFill (wood);
     g.fillRect (floor);
-    g.setColour (Colour (0xffc98d4d).withAlpha (0.35f));
+    g.setColour (Colour (0xff9fc3ff).withAlpha (0.45f));
     g.drawLine (floor.getX(), floor.getY(), floor.getRight(), floor.getY(), 1.5f);
 
     // empty slot outlines (faint)
@@ -168,7 +168,7 @@ void CassetteShelf::paint (Graphics& g)
         if (hover == i)
         {
             g.setFont (theme::stencilFont (15.0f));
-            g.setColour (theme::cream.withAlpha (0.4f));
+            g.setColour (theme::silver.withAlpha (0.4f));
             g.drawText ("+", r, Justification::centred);
         }
     }
@@ -188,7 +188,7 @@ void CassetteShelf::paint (Graphics& g)
     {
         const int target = dropIndexFor (dragX);
         auto marker = cassetteRect (target);
-        g.setColour (theme::amber.withAlpha (0.5f));
+        g.setColour (theme::accent.withAlpha (0.5f));
         g.fillRect (Rectangle<float> (3.0f, marker.getHeight()).withCentre ({ marker.getX() - (layout::cassetteStep - layout::cassetteW) * 0.5f + (target > dragFrom ? layout::cassetteStep : 0.0f), marker.getCentreY() }));
         auto r = cassetteRect (dragFrom).withCentre ({ dragX - grabOffset, cassetteRect (dragFrom).getCentreY() + 10.0f }).expanded (4.0f);
         drawCassette (g, r, proc.getSlotState (dragFrom), dragFrom, true, false, 1.0f);
@@ -250,13 +250,10 @@ void CassetteShelf::mouseUp (const MouseEvent& e)
     }
     if (pressed >= 0 && slotAt (e.position) == pressed)
     {
-        if (proc.getSlotMeta (pressed).isEmpty()) showEffectMenu (pressed);
-        else
-        {
-            const int sel = proc.selectedSlot == pressed ? -1 : pressed;
-            proc.selectedSlot = sel;
-            if (onSelect) onSelect (sel);
-        }
+        // click = put the tape in: the TV shows its programmes (or the effect list for an empty slot)
+        const int sel = proc.selectedSlot == pressed ? -1 : pressed;
+        proc.selectedSlot = sel;
+        if (onSelect) onSelect (sel);
     }
     pressed = -1;
     repaint();

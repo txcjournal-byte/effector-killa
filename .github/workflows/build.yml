@@ -57,7 +57,7 @@ jobs:
         run: |
           curl -sSL -o pv.zip "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval }}"
           unzip -q pv.zip
-          VST3=$(find build -type d -name "Effector Killa.vst3" | head -n 1)
+          VST3=$(find build -type d -name "TrapWin Effector.vst3" | head -n 1)
           if [ "$RUNNER_OS" == "Linux" ]; then PREFIX="xvfb-run -a"; fi
           $PREFIX ./${{ matrix.exe }} --strictness-level 5 --validate-in-process --timeout-ms 600000 "$VST3"
 
@@ -65,14 +65,14 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          VST3=$(find build -type d -name "Effector Killa.vst3" | head -n 1)
+          VST3=$(find build -type d -name "TrapWin Effector.vst3" | head -n 1)
           cp -R "$VST3" dist/
-          find build -path "*Standalone*" \( -name "Effector Killa" -o -name "Effector Killa.exe" -o -name "Effector Killa.app" \) -maxdepth 6 \
+          find build -path "*Standalone*" \( -name "TrapWin Effector" -o -name "TrapWin Effector.exe" -o -name "TrapWin Effector.app" \) -maxdepth 6 \
             -exec cp -R {} dist/ \; || true
 
       - uses: actions/upload-artifact@v4
         with:
-          name: EffectorKilla-${{ matrix.name }}
+          name: TrapWinEffector-${{ matrix.name }}
           path: dist
 
       # ---- Windows installer (Inno Setup) ---------------------------------------------------
@@ -89,7 +89,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'
         with:
-          name: EffectorKilla-Windows-Installer
+          name: TrapWinEffector-Windows-Installer
           path: installer-out/*.exe
 
       # ---- macOS code signing + notarisation (runs only when the secrets exist) -----------------
@@ -116,22 +116,22 @@ jobs:
           security import cert.p12 -k "$KC" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KC"
           mkdir -p signed
-          AU=$(find build -type d -name "Effector Killa.component" | head -n 1)
-          APP=$(find build -type d -name "Effector Killa.app" | head -n 1)
-          for b in "dist/Effector Killa.vst3" "$AU" "$APP"; do
+          AU=$(find build -type d -name "TrapWin Effector.component" | head -n 1)
+          APP=$(find build -type d -name "TrapWin Effector.app" | head -n 1)
+          for b in "dist/TrapWin Effector.vst3" "$AU" "$APP"; do
             [ -n "$b" ] && [ -d "$b" ] || continue
             codesign --force --deep --options runtime --timestamp -s "$MACOS_SIGN_IDENTITY" "$b"
             cp -R "$b" signed/
           done
-          ditto -c -k --keepParent signed EffectorKilla-macOS-signed.zip
-          xcrun notarytool submit EffectorKilla-macOS-signed.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+          ditto -c -k --keepParent signed TrapWinEffector-macOS-signed.zip
+          xcrun notarytool submit TrapWinEffector-macOS-signed.zip --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_APP_PASSWORD" --wait
           for b in signed/*; do xcrun stapler staple "$b"; done
-          ditto -c -k --keepParent signed EffectorKilla-macOS-signed.zip
+          ditto -c -k --keepParent signed TrapWinEffector-macOS-signed.zip
 
       - uses: actions/upload-artifact@v4
         if: runner.os == 'macOS'
         with:
-          name: EffectorKilla-macOS-signed
-          path: EffectorKilla-macOS-signed.zip
+          name: TrapWinEffector-macOS-signed
+          path: TrapWinEffector-macOS-signed.zip
           if-no-files-found: ignore

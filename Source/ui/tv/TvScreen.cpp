@@ -1,5 +1,6 @@
 #include "TvScreen.h"
 #include "../cabinet/Layout.h"
+#include "../cabinet/CabinetBackground.h"
 
 namespace ek::ui
 {
@@ -100,8 +101,10 @@ void TvScreen::tick (double dt)
         << "|" << (clock < valueUntil ? valueName + valueText : String()) << "|" << (clock < messageUntil ? message : String())
         << "|" << (clock < overloadUntil ? 1 : 0) << "|" << (clock < nowPlayingUntil ? 1 : 0) << "|" << power << "|" << (proc.premiumCable ? 1 : 0)
         << "|" << (int) ((clock - killStart) * 10.0);
+    key << "|" << (fineTune ? 1 : 0) << "|" << hoverTile;
     if (detailSlot >= 0)
     {
+        key << "|" << proc.findTape (detailSlot);
         for (int c = 0; c < 9; ++c) key << "|" << roundToInt (getDetailValue (c) * 1000.0f);
         const auto s = proc.getSlotState (detailSlot);
         key << (s.pause ? 1 : 0) << (int) s.ms << (s.writeProtect ? 1 : 0) << proc.getScreening() << (int) s.type;
@@ -130,10 +133,11 @@ void TvScreen::showMessage (const String& text, double seconds)
 
 void TvScreen::setDetailSlot (int slot)
 {
-    const int s = (slot >= 0 && slot < kNumSlots && ! proc.getSlotMeta (slot).isEmpty()) ? slot : -1;
+    const int s = (slot >= 0 && slot < kNumSlots) ? slot : -1;
     if (s == detailSlot) return;
     detailSlot = s;
-    dragCell = hoverCell = -1;
+    fineTune = false;
+    dragCell = hoverCell = hoverTile = -1;
     osdDirty = true;
     repaint();
 }
@@ -680,12 +684,7 @@ void TvScreen::paintPlayLayer (Graphics& g)
         const float lw = 230.0f, lh = 64.0f;
         const Point<float> c (lw * 0.5f + f.logo.x * (W - lw), lh * 0.5f + (1.0f - f.logo.y) * (H - lh));
         auto r = Rectangle<float> (lw, lh).withCentre (c);
-        g.setFont (theme::stencilFont (30.0f).italicised());
-        g.setColour (Colour (0xffd8d8d8));
-        g.drawText ("EFFECTOR", r.withHeight (lh * 0.5f), Justification::centred);
-        g.setFont (theme::stencilFont (38.0f).italicised());
-        g.setColour (theme::killRed);
-        g.drawText ("KILLA", r.withTrimmedTop (lh * 0.42f), Justification::centred);
+        CabinetBackground::paintLogo (g, r, false);
     }
 }
 
@@ -713,15 +712,26 @@ void TvScreen::paintOsd (Graphics& g, bool)
         osdText (g, avName ((int) meta.mod.mode), r.withTrimmedLeft (46.0f), 30.0f, Justification::centredLeft);
     }
     osdText (g, "CH " + String (ch + 1).paddedLeft ('0', 2) + " " + chName, { W - 440.0f, 18.0f, 400.0f, 36.0f }, 30.0f, Justification::centredRight);
-    osdText (g, sourceNames[jlimit (0, 5, (int) meta.source)] + String (" SOURCE"), sourceLabel(), 17.0f, Justification::centredRight,
-             theme::osdWhite.withAlpha (0.75f));
+    if (detailSlot < 0)
+        osdText (g, sourceNames[jlimit (0, 5, (int) meta.source)] + String (" SOURCE"), sourceLabel(), 17.0f, Justification::centredRight,
+                 theme::osdWhite.withAlpha (0.75f));
     if (clock < overloadUntil)
         osdText (g, "OVERLOAD", { W - 250.0f, 84.0f, 210.0f, 26.0f }, 22.0f, Justification::centredRight, theme::killRed);
 
-    const bool detail = detailSlot >= 0 && proc.premiumCable;
+    const bool detail = detailSlot >= 0 && fineTune && proc.premiumCable && ! proc.getSlotMeta (detailSlot).isEmpty();
     if (detail)
     {
         paintDetailPanel (g);
+        const auto b = backButton();
+        g.setColour (Colours::black.withAlpha (0.7f));
+        g.fillRoundedRectangle (b, 6.0f);
+        g.setColour (theme::accent);
+        g.drawRoundedRectangle (b, 6.0f, 1.5f);
+        osdText (g, String::fromUTF8 ("\xe2\x97\x80 PRESETS"), b, 16.0f, Justification::centred, theme::accent);
+    }
+    else if (detailSlot >= 0)
+    {
+        paintTapeMenu (g);
     }
     else
     {
@@ -767,7 +777,7 @@ void TvScreen::paintOsd (Graphics& g, bool)
     }
 
     if (clock < messageUntil)
-        osdText (g, message, { 0.0f, 120.0f, W, 44.0f }, 34.0f, Justification::centred, theme::amber);
+        osdText (g, message, { 0.0f, 120.0f, W, 44.0f }, 34.0f, Justification::centred, theme::accent);
 
     if (clock < nowPlayingUntil && kt >= 0.7)
     {
@@ -776,7 +786,7 @@ void TvScreen::paintOsd (Graphics& g, bool)
         g.fillRoundedRectangle (card, 6.0f);
         g.setColour (theme::osdWhite.withAlpha (0.8f));
         g.drawRoundedRectangle (card, 6.0f, 2.0f);
-        osdText (g, "NOW PLAYING", card.withHeight (44.0f), 26.0f, Justification::centred, theme::amber);
+        osdText (g, "NOW PLAYING", card.withHeight (44.0f), 26.0f, Justification::centred, theme::accent);
         int row = 0;
         for (int s = 0; s < kNumSlots; ++s)
         {
@@ -808,7 +818,7 @@ void TvScreen::paintDetailPanel (Graphics& g)
     for (int i = 0; i < 4; ++i)
     {
         const auto r = detailToggle (i);
-        g.setColour (on[i] ? (i == 3 ? theme::killRed : theme::amber) : theme::osdWhite.withAlpha (0.12f));
+        g.setColour (on[i] ? (i == 3 ? theme::killRed : theme::accent) : theme::osdWhite.withAlpha (0.12f));
         g.fillRoundedRectangle (r, 4.0f);
         g.setColour (theme::osdWhite.withAlpha (0.8f));
         g.drawRoundedRectangle (r, 4.0f, 1.5f);
@@ -825,15 +835,205 @@ void TvScreen::paintDetailPanel (Graphics& g)
         const String name = c == 8 ? String ("SLOT MIX") : info.params[(size_t) c].name;
         const float v = getDetailValue (c);
         const bool hot = hoverCell == c || dragCell == c;
-        osdText (g, name, r.withHeight (20.0f), 16.0f, Justification::centredLeft, hot ? theme::amber : theme::osdWhite);
-        drawBlocks (g, { r.getX(), r.getY() + 24.0f, r.getWidth() * 0.62f, 18.0f }, v, 10, hot ? theme::amber : theme::osdWhite);
+        osdText (g, name, r.withHeight (20.0f), 16.0f, Justification::centredLeft, hot ? theme::accent : theme::osdWhite);
+        drawBlocks (g, { r.getX(), r.getY() + 24.0f, r.getWidth() * 0.62f, 18.0f }, v, 10, hot ? theme::accent : theme::osdWhite);
         String valueStr;
         if (c == 8) valueStr = String (roundToInt (v * 100.0f)) + " %";
         else { const auto& spec = info.params[(size_t) c]; valueStr = spec.format (spec.toReal (v)); }
         if (hot || info.params[(size_t) jlimit (0, 7, c)].isDiscrete())
             osdText (g, valueStr, { r.getX() + r.getWidth() * 0.64f, r.getY() + 20.0f, r.getWidth() * 0.36f + 10.0f, 26.0f }, 15.0f,
-                     Justification::centredLeft, hot ? theme::amber : theme::osdWhite.withAlpha (0.8f));
+                     Justification::centredLeft, hot ? theme::accent : theme::osdWhite.withAlpha (0.8f));
     }
+}
+
+
+// ============================================================================
+// cassette menu - the tape's programmes like films from a USB stick
+// ============================================================================
+bool TvScreen::insertMode() const { return detailSlot >= 0 && proc.getSlotMeta (detailSlot).isEmpty(); }
+
+Rectangle<float> TvScreen::menuArea() const { return { 26.0f, 62.0f, W - 52.0f, H - 84.0f }; }
+Rectangle<float> TvScreen::backButton() const { return { 26.0f, 176.0f, 150.0f, 30.0f }; }
+
+// list rows like a TV media browser: tapes = one column of 8 files (+ preview on the right),
+// empty slot = two columns of effect "folders"
+Rectangle<float> TvScreen::tileRect (int i) const
+{
+    const auto a = menuArea();
+    const float x0 = a.getX() + 12.0f, y0 = a.getY() + 66.0f, rowH = 33.0f;
+    if (insertMode())
+    {
+        const float colW = (a.getWidth() - 36.0f) / 2.0f;
+        return { x0 + (float) (i / 8) * (colW + 12.0f), y0 + (float) (i % 8) * rowH, colW, rowH - 2.0f };
+    }
+    return { x0, y0 + (float) i * rowH, a.getWidth() * 0.6f, rowH - 2.0f };
+}
+
+Rectangle<float> TvScreen::menuButton (int i) const
+{
+    const auto a = menuArea();
+    const float bw = 150.0f, gap = 12.0f;
+    const float right = a.getRight() - 12.0f;
+    return { right - (float) (3 - i) * bw - (float) (2 - i) * gap, a.getBottom() - 40.0f, bw, 32.0f };
+}
+
+int TvScreen::tileAt (Point<float> p) const
+{
+    if (! menuOpen()) return -1;
+    const int n = insertMode() ? kNumEffectTypes : (int) proc.bank.getTapes (proc.getSlotType (detailSlot)).size();
+    for (int i = 0; i < n; ++i)
+        if (tileRect (i).contains (p)) return i;
+    return -1;
+}
+
+static const char* categoryName (Category c)
+{
+    switch (c)
+    {
+        case Category::Saturation: return "SATURATION";
+        case Category::Distortion: return "DISTORTION";
+        case Category::LoFi:       return "LO-FI";
+        case Category::Filter:     return "FILTER";
+        case Category::Eq:         return "EQ";
+        case Category::Dynamics:   return "DYNAMICS";
+        case Category::Modulation: return "MODULATION";
+        case Category::Space:      return "SPACE";
+        case Category::Stereo:     return "STEREO";
+        case Category::Gate:       return "GATE";
+        case Category::Clipper:    return "CLIPPER";
+        default:                   return "";
+    }
+}
+
+static void drawFilmIcon (Graphics& g, Rectangle<float> r, Colour c)
+{
+    g.setColour (c);
+    g.fillRoundedRectangle (r, 2.0f);
+    g.setColour (Colours::black.withAlpha (0.7f));
+    for (int k = 0; k < 4; ++k)
+    {
+        const float x = r.getX() + 2.0f + (float) k * (r.getWidth() - 4.0f) / 3.5f;
+        g.fillRect (x, r.getY() + 1.5f, 2.0f, 2.0f);
+        g.fillRect (x, r.getBottom() - 3.5f, 2.0f, 2.0f);
+    }
+}
+
+static void drawFolderIcon (Graphics& g, Rectangle<float> r, Colour c)
+{
+    Path p;
+    p.addRoundedRectangle (r.withTrimmedTop (r.getHeight() * 0.2f), 2.0f);
+    p.addRoundedRectangle (r.withWidth (r.getWidth() * 0.45f).withHeight (r.getHeight() * 0.35f), 1.5f);
+    g.setColour (c);
+    g.fillPath (p);
+}
+
+void TvScreen::paintTapeMenu (Graphics& g)
+{
+    const auto a = menuArea();
+    g.setColour (Colour (0xff04060a).withAlpha (0.86f));
+    g.fillRoundedRectangle (a, 10.0f);
+    g.setColour (theme::accent.withAlpha (0.55f));
+    g.drawRoundedRectangle (a, 10.0f, 1.5f);
+
+    const bool insert = insertMode();
+    const auto header = Rectangle<float> (a.getX() + 18.0f, a.getY() + 8.0f, a.getWidth() - 36.0f, 28.0f);
+    const auto colHead = Rectangle<float> (a.getX() + 12.0f, a.getY() + 42.0f, a.getWidth() - 24.0f, 20.0f);
+    const String arrow = String::fromUTF8 (" \xe2\x96\xb8 ");
+    g.setColour (theme::accent.withAlpha (0.25f));
+    g.drawHorizontalLine ((int) colHead.getBottom(), colHead.getX(), colHead.getRight());
+
+    if (insert)
+    {
+        auto types = allEffectTypes();
+        osdText (g, "USB" + arrow + "TAPE " + String (detailSlot + 1) + arrow + "EMPTY", header, 20.0f, Justification::centredLeft, theme::accent);
+        osdText (g, String (types.size()) + " FOLDERS", header, 15.0f, Justification::centredRight, theme::osdWhite.withAlpha (0.6f));
+        osdText (g, "EFFECT", colHead.withTrimmedLeft (34.0f), 12.0f, Justification::centredLeft, theme::osdWhite.withAlpha (0.5f));
+        osdText (g, "TYPE", colHead.withWidth (colHead.getWidth() * 0.5f - 12.0f), 12.0f, Justification::centredRight, theme::osdWhite.withAlpha (0.5f));
+        for (int i = 0; i < types.size(); ++i)
+        {
+            const auto& info = effectInfo (types[i]);
+            const auto r = tileRect (i);
+            const bool hot = hoverTile == i;
+            if (hot) { g.setColour (theme::accent.withAlpha (0.22f)); g.fillRoundedRectangle (r, 4.0f); }
+            drawFolderIcon (g, Rectangle<float> (20.0f, 15.0f).withCentre ({ r.getX() + 16.0f, r.getCentreY() }), info.colour);
+            osdText (g, info.name.toUpperCase(), r.withTrimmedLeft (34.0f), 16.0f, Justification::centredLeft, hot ? theme::accent : theme::osdWhite);
+            osdText (g, categoryName (info.category), r.withTrimmedRight (8.0f), 12.0f, Justification::centredRight, theme::osdWhite.withAlpha (0.5f));
+        }
+    }
+    else
+    {
+        const auto type = proc.getSlotType (detailSlot);
+        const auto& info = effectInfo (type);
+        const auto& tapes = proc.bank.getTapes (type);
+        const int playing = proc.findTape (detailSlot);
+        osdText (g, "USB" + arrow + "TAPE " + String (detailSlot + 1) + arrow + info.name.toUpperCase(), header, 20.0f, Justification::centredLeft, theme::accent);
+        osdText (g, String ((int) tapes.size()) + " FILES", header, 15.0f, Justification::centredRight, theme::osdWhite.withAlpha (0.6f));
+        const auto listW = tileRect (0).getWidth();
+        osdText (g, "#", colHead.withWidth (30.0f).withTrimmedLeft (8.0f), 12.0f, Justification::centredLeft, theme::osdWhite.withAlpha (0.5f));
+        osdText (g, "TITLE", colHead.withTrimmedLeft (64.0f), 12.0f, Justification::centredLeft, theme::osdWhite.withAlpha (0.5f));
+        osdText (g, "VHS", colHead.withWidth (listW - 8.0f), 12.0f, Justification::centredRight, theme::osdWhite.withAlpha (0.5f));
+
+        for (int i = 0; i < (int) tapes.size(); ++i)
+        {
+            const auto r = tileRect (i);
+            const bool hot = hoverTile == i, on = playing == i;
+            if (on) { g.setColour (theme::accent.withAlpha (0.18f)); g.fillRoundedRectangle (r, 4.0f); }
+            if (hot) { g.setColour (theme::accent.withAlpha (0.28f)); g.fillRoundedRectangle (r, 4.0f); }
+            if (on) { g.setColour (theme::accent); g.fillRect (r.getX(), r.getY() + 3.0f, 3.0f, r.getHeight() - 6.0f); }
+            osdText (g, on ? String::fromUTF8 ("\xe2\x96\xb6") : String (i + 1).paddedLeft ('0', 2), r.withWidth (34.0f).withTrimmedLeft (8.0f),
+                     15.0f, Justification::centredLeft, on ? theme::accent : theme::osdWhite.withAlpha (0.6f));
+            drawFilmIcon (g, Rectangle<float> (20.0f, 14.0f).withCentre ({ r.getX() + 48.0f, r.getCentreY() }), info.colour);
+            osdText (g, tapes[(size_t) i].name.toUpperCase(), r.withTrimmedLeft (64.0f), 16.0f, Justification::centredLeft,
+                     on || hot ? theme::accent : theme::osdWhite);
+            osdText (g, "SP", r.withTrimmedRight (8.0f), 12.0f, Justification::centredRight, theme::osdWhite.withAlpha (0.45f));
+        }
+
+        // preview of the highlighted file (hover, else the playing one)
+        const int shown = (hoverTile >= 0 && hoverTile < (int) tapes.size()) ? hoverTile : jmax (0, playing);
+        const auto pv = Rectangle<float> (tileRect (0).getRight() + 14.0f, tileRect (0).getY(), a.getRight() - 12.0f - (tileRect (0).getRight() + 14.0f),
+                                          tileRect (7).getBottom() - tileRect (0).getY());
+        auto poster = pv.withHeight (pv.getHeight() * 0.52f);
+        ColourGradient grad (info.colour.withAlpha (0.9f), poster.getX(), poster.getY(), Colour (0xff04060a), poster.getRight(), poster.getBottom(), false);
+        g.setGradientFill (grad);
+        g.fillRoundedRectangle (poster, 6.0f);
+        g.setColour (Colours::black.withAlpha (0.25f));
+        for (float y = poster.getY(); y < poster.getBottom(); y += 3.0f) g.fillRect (poster.getX(), y, poster.getWidth(), 1.0f);
+        osdText (g, String (shown + 1).paddedLeft ('0', 2), poster.reduced (10.0f, 4.0f), 40.0f, Justification::bottomLeft, Colours::white);
+        osdText (g, shown == playing ? String::fromUTF8 ("\xe2\x96\xb6 PLAYING") : String::fromUTF8 ("\xe2\x96\xb6 CLICK TO PLAY"),
+                 poster.reduced (10.0f, 6.0f), 12.0f, Justification::topRight, Colours::white);
+        if (shown < (int) tapes.size())
+        {
+            osdText (g, tapes[(size_t) shown].name.toUpperCase(), { pv.getX(), poster.getBottom() + 8.0f, pv.getWidth(), 24.0f }, 18.0f,
+                     Justification::centredLeft, theme::accent);
+            g.setFont (theme::osdFont (13.0f));
+            g.setColour (theme::osdWhite.withAlpha (0.75f));
+            g.drawFittedText (tapes[(size_t) shown].description,
+                              Rectangle<float> (pv.getX(), poster.getBottom() + 36.0f, pv.getWidth(), pv.getBottom() - poster.getBottom() - 36.0f).toNearestInt(),
+                              Justification::topLeft, 4, 0.9f);
+        }
+    }
+
+    // bottom buttons
+    const String labels[3] = { "FINE TUNE", "EJECT", "CLOSE" };
+    for (int i = 0; i < 3; ++i)
+    {
+        if (i == 0 && (insert || ! proc.premiumCable)) continue;
+        if (i == 1 && insert) continue;
+        const auto bt = menuButton (i);
+        const bool hot = hoverTile == 100 + i;
+        g.setColour (hot ? theme::accent : Colours::black.withAlpha (0.6f));
+        g.fillRoundedRectangle (bt, bt.getHeight() * 0.5f);
+        g.setColour (theme::accent.withAlpha (0.8f));
+        g.drawRoundedRectangle (bt, bt.getHeight() * 0.5f, 1.5f);
+        osdText (g, labels[i], bt, 15.0f, Justification::centred, hot ? Colours::black : theme::osdWhite);
+    }
+}
+
+void TvScreen::closeMenu()
+{
+    proc.selectedSlot = -1;
+    setDetailSlot (-1);
+    if (onDetailClosed) onDetailClosed();
 }
 
 bool TvScreen::renderOsdIfDirty (Image& target)
@@ -855,6 +1055,13 @@ bool TvScreen::renderOsdIfDirty (Image& target)
 // ============================================================================
 void TvScreen::mouseMove (const MouseEvent& e)
 {
+    if (menuOpen())
+    {
+        int h = tileAt (e.position);
+        for (int i = 0; i < 3; ++i) if (menuButton (i).contains (e.position)) h = 100 + i;
+        if (h != hoverTile) { hoverTile = h; osdDirty = true; }
+        return;
+    }
     const int c = detailSlot >= 0 && proc.premiumCable ? detailCellAt (e.position) : -1;
     if (c != hoverCell) { hoverCell = c; osdDirty = true; }
 }
@@ -868,6 +1075,42 @@ void TvScreen::mouseDown (const MouseEvent& e)
 {
     const auto pos = e.position;
     auto mod = proc.getMeta().mod;
+
+    // cassette menu
+    if (menuOpen())
+    {
+        const int t = tileAt (pos);
+        if (t >= 0)
+        {
+            if (insertMode())
+            {
+                const auto type = allEffectTypes()[t];
+                proc.playTape (detailSlot, type, 0);
+                showMessage (effectInfo (type).name.toUpperCase() + " INSERTED", 1.0);
+            }
+            else
+            {
+                const auto type = proc.getSlotType (detailSlot);
+                proc.playTape (detailSlot, type, t);
+                showMessage (String::fromUTF8 ("\xe2\x96\xb6 ") + proc.bank.getTapes (type)[(size_t) t].name.toUpperCase(), 1.0);
+            }
+            osdDirty = true;
+            return;
+        }
+        const bool insert = insertMode();
+        if (! insert && proc.premiumCable && menuButton (0).contains (pos)) { fineTune = true; osdDirty = true; return; }
+        if (! insert && menuButton (1).contains (pos))
+        {
+            if (! proc.getSlotMeta (detailSlot).writeProtect) proc.ejectSlot (detailSlot);
+            osdDirty = true;
+            return;
+        }
+        if (menuButton (2).contains (pos) || ! menuArea().contains (pos)) { closeMenu(); return; }
+        return;
+    }
+
+    // fine tune: back to the programme list
+    if (detailSlot >= 0 && fineTune && backButton().contains (pos)) { fineTune = false; osdDirty = true; return; }
 
     // detail panel
     if (detailSlot >= 0 && proc.premiumCable)
@@ -899,10 +1142,9 @@ void TvScreen::mouseDown (const MouseEvent& e)
             }
             return;
         }
-        // click outside the panel closes it
-        proc.selectedSlot = -1;
-        setDetailSlot (-1);
-        if (onDetailClosed) onDetailClosed();
+        // click outside the panel: back to the programme list
+        fineTune = false;
+        osdDirty = true;
         return;
     }
 

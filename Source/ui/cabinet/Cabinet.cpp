@@ -1,5 +1,6 @@
 #include "Cabinet.h"
 #include "EKBinaryData.h"
+#include "CabinetBackground.h"
 
 namespace ek::ui
 {
@@ -68,11 +69,11 @@ void StaffPickButton::paint (Graphics& g)
     star.addStar (face.getCentre(), 5, face.getHeight() * 0.2f, face.getHeight() * 0.42f, 0.0f);
     if (on)
     {
-        g.setColour (theme::amber.withAlpha (0.35f));
+        g.setColour (theme::accent.withAlpha (0.35f));
         g.fillEllipse (face.reduced (2.0f));
-        g.setColour (Colour (0xffffd24a));
+        g.setColour (theme::accent);
     }
-    else g.setColour (Colour (0xff5a4a2a));
+    else g.setColour (Colour (0xff2b3446));
     g.fillPath (star);
     g.setColour (Colours::black.withAlpha (0.5f));
     g.strokePath (star, PathStrokeType (1.0f));
@@ -98,7 +99,7 @@ void OffAirSwitch::paint (Graphics& g)
     g.fillRoundedRectangle (face, 4.0f);
     g.setColour (Colours::white.withAlpha (0.14f));
     g.drawRoundedRectangle (face.reduced (1.0f), 4.0f, 1.2f);
-    g.setColour (on ? theme::killRed.brighter (0.3f) : theme::cream);
+    g.setColour (on ? theme::killRed.brighter (0.3f) : theme::silver);
     g.setFont (theme::stencilFont (24.0f));
     g.drawText ("OFF AIR", face, Justification::centred);
 }
@@ -146,7 +147,7 @@ void ChannelDial::paint (Graphics& g)
     // highlight the selected channel number
     const float a = angleForChannel (ch);
     const Point<float> np (c.x + layout::channelNumberRadius * std::sin (a), c.y - layout::channelNumberRadius * std::cos (a));
-    ColourGradient glow (theme::amber.withAlpha (0.35f), np.x, np.y, theme::amber.withAlpha (0.0f), np.x + 22.0f, np.y, true);
+    ColourGradient glow (theme::accent.withAlpha (0.35f), np.x, np.y, theme::accent.withAlpha (0.0f), np.x + 22.0f, np.y, true);
     g.setGradientFill (glow);
     g.fillEllipse (Rectangle<float> (44.0f, 44.0f).withCentre (np));
     theme::drawChickenHeadKnob (g, c, layout::channelKnobRadius, dragging ? dragAngle : a);
@@ -209,8 +210,6 @@ CabinetView::CabinetView (EffectorKillaAudioProcessor& p)
     setOpaque (true);
    #if EK_HAS_CABINET
     background = ImageCache::getFromMemory (EKData::cabinet_png, EKData::cabinet_pngSize);
-   #else
-    background = ImageCache::getFromMemory (EKData::reference_png, EKData::reference_pngSize); // placeholder
    #endif
 
     // KILL
@@ -355,19 +354,35 @@ void CabinetView::paint (Graphics& g)
         hole.addRoundedRectangle (layout::tvScreen, layout::tvCorner);
         g.excludeClipRegion (layout::tvScreen.reduced (layout::tvCorner * 0.3f).toNearestInt());
     }
-    if (background.isValid()) g.drawImage (background, getLocalBounds().toFloat(), RectanglePlacement::stretchToFit);
-    else g.fillAll (Colour (0xff3a2415));
+    if (background.isValid())
+    {
+        g.drawImage (background, getLocalBounds().toFloat(), RectanglePlacement::stretchToFit);
+    }
+    else
+    {
+        // vector cabinet, cached at the physical pixel scale (crisp at 100-150 % and on retina)
+        const float scale = jlimit (0.25f, 4.0f, g.getInternalContext().getPhysicalPixelScaleFactor());
+        if (! bgCache.isValid() || std::abs (scale - bgCacheScale) > 0.01f)
+        {
+            bgCacheScale = scale;
+            bgCache = Image (Image::RGB, roundToInt (layout::kWidth * scale), roundToInt (layout::kHeight * scale), false);
+            Graphics bg (bgCache);
+            bg.addTransform (AffineTransform::scale (scale));
+            CabinetBackground::paint (bg);
+        }
+        g.drawImage (bgCache, getLocalBounds().toFloat(), RectanglePlacement::stretchToFit);
+    }
 
-    // focus macro of the preset: amber marker next to the label
+    // focus macro of the preset: ice-blue marker next to the label
     const int focus = proc.getMeta().focusMacro;
     shownFocus = focus;
     if (focus >= 0 && focus < 5)
     {
         const auto r = layout::macroLabel[focus];
-        ColourGradient glow (theme::amber.withAlpha (0.5f), r.getRight() + 6.0f, r.getCentreY(), theme::amber.withAlpha (0.0f), r.getRight() + 20.0f, r.getCentreY(), true);
+        ColourGradient glow (theme::accent.withAlpha (0.5f), r.getRight() + 6.0f, r.getCentreY(), theme::accent.withAlpha (0.0f), r.getRight() + 20.0f, r.getCentreY(), true);
         g.setGradientFill (glow);
         g.fillEllipse (Rectangle<float> (30.0f, 30.0f).withCentre ({ r.getRight() + 7.0f, r.getCentreY() }));
-        g.setColour (theme::amber);
+        g.setColour (theme::accent);
         g.fillEllipse (Rectangle<float> (7.0f, 7.0f).withCentre ({ r.getRight() + 7.0f, r.getCentreY() }));
     }
 }
@@ -389,12 +404,6 @@ void CabinetView::selectSlot (int slot)
     tv.setDetailSlot (slot);
     shelf.repaint();
     vcr.repaint();
-    if (slot >= 0)
-    {
-        const auto t = proc.getSlotType (slot);
-        if (t != EffectType::None && ! proc.premiumCable)
-            tv.showMessage (String (slot + 1) + " " + effectInfo (t).name.toUpperCase(), 1.2);
-    }
 }
 
 void CabinetView::tick (double dt)
@@ -417,7 +426,6 @@ void CabinetView::tick (double dt)
 
 void CabinetView::refreshAll()
 {
-    if (proc.selectedSlot >= 0 && proc.getSlotMeta (proc.selectedSlot).isEmpty()) selectSlot (-1);
     tv.setDetailSlot (proc.selectedSlot);
     repaint();
     for (auto* c : getChildren()) c->repaint();

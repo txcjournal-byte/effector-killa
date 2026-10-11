@@ -1,6 +1,6 @@
-# EFFECTOR KILLA v1.0
+# TRAPWIN EFFECTOR v1.0
 
-**Every effect. One Killa.** – trap multi-efekt z řady Killa pluginů. Rack s 8 sloty (celý efektový řetězec
+**Every effect. One win.** – trap multi-efekt z řady Killa pluginů. Rack s 8 sloty (celý efektový řetězec
 v jednom pluginu), 12 kanálů × 8 presetů, 5 maker, KILL 🎲 generátor řetězců a 80s VHS obývák jako UI.
 
 - Formáty: **VST3 + Standalone** (AU na macOS), stereo in/out (mono taky), 44.1–192 kHz, libovolný buffer
@@ -11,13 +11,13 @@ v jednom pluginu), 12 kanálů × 8 presetů, 5 maker, KILL 🎲 generátor řet
 
 ## Instalace (Windows / FL Studio)
 
-1. Zkopíruj složku **`Effector Killa.vst3`** do
+1. Zkopíruj složku **`TrapWin Effector.vst3`** do
    **`C:\Program Files\Common Files\VST3`**.
 2. FL Studio → *Options → Manage plugins* → **Find plugins** (nebo *Find more plugins*).
-3. V mixeru na insert slotu vyber *Effector Killa* (kategorie Effects).
+3. V mixeru na insert slotu vyber *TrapWin Effector* (kategorie Effects).
 
 macOS: `~/Library/Audio/Plug-Ins/VST3` (VST3) a `~/Library/Audio/Plug-Ins/Components` (AU).
-Uživatelské presety: `Dokumenty/Killa/Effector Killa/Presets` (JSON), slot presety v `.../Slot Presets`.
+Uživatelské presety: `Dokumenty/Killa/TrapWin Effector/Presets` (JSON), slot presety v `.../Slot Presets`.
 
 ## Build
 
@@ -31,7 +31,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-Výstupy: `build/EffectorKilla_artefacts/Release/VST3/Effector Killa.vst3` a `.../Standalone/`.
+Výstupy: `build/EffectorKilla_artefacts/Release/VST3/TrapWin Effector.vst3` a `.../Standalone/`.
 Na Linuxu je potřeba `libasound2-dev libxrandr-dev libxinerama-dev libxcursor-dev libxcomposite-dev libgl1-mesa-dev libfreetype-dev libfontconfig1-dev`.
 
 Volby CMake: `-DEK_BUILD_TESTS=ON` (výchozí) – unit testy, `-DEK_BUILD_TOOLS=ON` – nástroj na snímky UI,
@@ -42,13 +42,13 @@ a nahrává hotové VST3 jako artefakty.
 
 ## Prodejní balíček
 
-- **Instalátor Windows:** CI vytváří `EffectorKilla-1.0.0-Windows-Setup.exe` (Inno Setup, `installer/EffectorKilla.iss`) –
-  artefakt *EffectorKilla-Windows-Installer*. Instaluje VST3 do `C:\Program Files\Common Files\VST3`, Standalone,
+- **Instalátor Windows:** CI vytváří `TrapWinEffector-1.0.0-Windows-Setup.exe` (Inno Setup, `installer/EffectorKilla.iss`) –
+  artefakt *TrapWinEffector-Windows-Installer*. Instaluje VST3 do `C:\Program Files\Common Files\VST3`, Standalone,
   manuál a EULA. Instalátor zatím není podepsaný (Windows SmartScreen ukáže varování) – pro podpis je potřeba
   code-signing certifikát.
 - **macOS podpis + notarizace:** v CI se spustí automaticky, jakmile v GitHubu (*Settings → Secrets and variables →
   Actions*) doplníš `MACOS_CERT_P12` (base64 .p12 „Developer ID Application“), `MACOS_CERT_PASSWORD`,
-  `MACOS_SIGN_IDENTITY`, `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD`. Výsledek: artefakt *EffectorKilla-macOS-signed*.
+  `MACOS_SIGN_IDENTITY`, `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD`. Výsledek: artefakt *TrapWinEffector-macOS-signed*.
 - **`EULA.txt`** – koncept licenční smlouvy (doplnit údaje, nechat zkontrolovat právníkem).
 - **`MANUAL.md`** – uživatelský manuál (anglicky, pro zákazníky).
 - Hlasitost: factory presety i KILL jsou srovnané na hlasitost vstupu; výjimkou jsou BUS/master presety (CH 12).
@@ -111,7 +111,7 @@ kompenzaci): 8 × latence oversamplingu + 1,5 ms lookahead Red Line. Při 48 kHz
 
 ## Testovací postup ve FL Studiu
 
-**Příprava:** projekt 140 BPM, na kanál mixeru dej loop (melodii / vokál / 808). Otevři Effector Killa.
+**Příprava:** projekt 140 BPM, na kanál mixeru dej loop (melodii / vokál / 808). Otevři TrapWin Effector.
 
 1. **Načtení** – plugin se otevře na *CH 10 DRIFT – Night Drive*, TV ukazuje noční dálnici, na videu
    zelený nápis NIGHT DRIVE. Zvětšení: klik na logo → *UI size* 125 % / 150 %.
