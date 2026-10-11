@@ -1,6 +1,7 @@
 // Renders the editor to PNG files - checks the UI without a DAW.
 //   EffectorKillaSnapshot <outDir>
 //   EffectorKillaSnapshot --analyzer <outDir>   SPECTRAL VIEW only (analyzer.png)
+//   EffectorKillaSnapshot --wiring <outDir>     editor with SPLIT / MOD / LEARN / SPECTRAL / audition active (wiring.png)
 //   EffectorKillaSnapshot --units <outDir>   (rack units + gear list only, Tools/SnapshotUnits.cpp)
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -527,6 +528,53 @@ static int renderAnalyzer (const juce::File& outDir)
     return 0;
 }
 
+// --wiring: the whole editor with the integrated features active (SPLIT columns, MOD assignment +
+// MACRO LEARN rings, SPECTRAL VIEW on a hovered unit, LEVEL-MATCHED POWER audition) -> wiring.png.
+// Also a smoke test of the RackView / editor wiring (asserts nothing, must not crash).
+static int renderWiring (const juce::File& outDir)
+{
+    EffectorKillaAudioProcessor proc;
+    proc.prepareToPlay (48000.0, 512);
+    proc.loadFactory (9, 2); // CH10 Night Drive: 4 units
+    proc.insertSplit (2);
+    const auto branchSlots = proc.getBranchSlots (0);
+    if (! branchSlots.empty()) proc.setSlotBranch (branchSlots.back(), 1);
+    proc.addModAssignment (0, 0, 1, 0.5f);
+    proc.assignMacro (0, 1, 1, 0.0f, 1.0f);
+
+    juce::AudioBuffer<float> buf (2, 512);
+    juce::MidiBuffer midi;
+    int blockIndex = 0;
+    auto render = [&] (int blocks)
+    {
+        for (int b = 0; b < blocks; ++b, ++blockIndex)
+        {
+            for (int c = 0; c < 2; ++c)
+                for (int i = 0; i < 512; ++i)
+                    buf.setSample (c, i, 0.25f * std::sin ((float) (blockIndex * 512 + i) * 0.05f));
+            proc.processBlock (buf, midi);
+        }
+    };
+    proc.uiScale = 1.0f;
+    std::unique_ptr<EffectorKillaAudioProcessorEditor> ed (dynamic_cast<EffectorKillaAudioProcessorEditor*> (proc.createEditor()));
+    if (ed == nullptr) return 1;
+    ed->setUiScale (1.0f);
+    ed->tickAll();
+    ed->getRackView().setHoveredSlot (0);   // SPECTRAL VIEW as if unit 1 were hovered
+    proc.setLevelMatchedAudition (1);       // as if POWER of unit 2 were held
+    for (int i = 0; i < 40; ++i) { render (2); ed->tickAll(); }
+    std::printf ("split at %d, audition gain %.2f dB, analyzed slot %d\n", proc.getSplitPosition(),
+                 (double) proc.getAuditionGainDb(), proc.getAnalyzedSlot());
+    auto img = ed->createComponentSnapshot (ed->getLocalBounds(), true, 1.0f);
+    proc.setLevelMatchedAudition (-1);
+    auto f = outDir.getChildFile ("wiring.png");
+    f.deleteFile();
+    juce::FileOutputStream os (f);
+    juce::PNGImageFormat().writeImageToStream (img, os);
+    std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
+    return 0;
+}
+
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
@@ -541,6 +589,7 @@ int main (int argc, char** argv)
         { "--mod", snapshotModUnit },
         { "--split", snapshotSplitUnit },
         { "--analyzer", renderAnalyzer },
+        { "--wiring", renderWiring },
     };
     // the output dir is the first argument that is not a flag (before or after the flag)
     juce::String dirArg;

@@ -31,8 +31,21 @@
 //     can hit-test without converting). knobAtLocal() does the same for RackView coordinates.
 //   * getKnobBounds (slot, param) - bounds of a control in RackView coordinates (empty if not shown).
 // ------------------------------------------------------------------------------------------------
+// FEATURE WIRING (keep when restyling):
+//   * SPLIT / MERGE: when proc.hasSplit(), layoutTargets() puts the serial units first, then the SplitUnit
+//     strip, then branch A (left column) and branch B (right column). Unit menu: insert / move / remove
+//     SPLIT, move to branch A / B. Add zone menu: add to branch A / B, add SPLIT. Gear drops into a
+//     column go to that branch (insertEffectInBranch / insertEffectInBranchAt); a unit dragged into
+//     the other column changes branch (setSlotBranch).
+//   * SPECTRAL VIEW: tick() polls the hovered unit -> spectrum->setSlot() (= proc SlotTap
+//     setAnalyzedSlot) and UnitComponent::paint() draws it behind the knobs via paintSpectrum().
+//   * LEVEL-MATCHED POWER: POWER SideButton onHoldStart / onHoldEnd (> 250 ms) ->
+//     proc.setLevelMatchedAudition (slot / -1); a short click still toggles POWER.
+// ------------------------------------------------------------------------------------------------
 
 #include "UnitControls.h"
+#include "SplitUnit.h"
+#include "SpectrumOverlay.h"
 #include "../../PluginProcessor.h"
 
 namespace ek::ui
@@ -101,6 +114,7 @@ private:
     bool dragStarted = false, firstTick = true;
     float flash = 0.0f;
     int lastProgramEvents = -1;
+    bool lastAudition = false;
 };
 
 class RackView : public juce::Component, public juce::DragAndDropTarget
@@ -130,6 +144,12 @@ public:
     juce::Rectangle<int> getKnobBounds (int slot, int param) const;
     void repaintKnobs();
 
+    // ---- SPLIT / SPECTRAL VIEW ------------------------------------------------------------------
+    SplitUnit* getSplitUnit() const noexcept { return splitUnit.get(); }
+    int getHoveredSlot() const noexcept { return hoverSlot; }
+    void setHoveredSlot (int slot);                       // -1 = none; drives the SPECTRAL VIEW tap
+    void paintSpectrum (juce::Graphics& g, int slot, juce::Rectangle<float> area) const;
+
     // ---- used by the units ----------------------------------------------------------------------
     void beginUnitDrag (UnitComponent& u, const juce::MouseEvent& e);
     double clock() const noexcept;
@@ -157,6 +177,8 @@ private:
         int slot = -1;     // slot to insert before / replace
         int gap = -1;      // Move: index in the compacted unit order where the dragged unit lands
         float y = 0.0f;    // indicator position
+        int branch = -1;   // SPLIT: branch (0 = A, 1 = B) the drop goes to, -1 = serial
+        int x = -1, w = -1; // SPLIT: indicator column (-1 = full width)
     };
     DropTarget dropTargetFor (juce::Point<int> pos, bool fromUnit, int fromSlot) const;
     juce::String signature() const;
@@ -165,6 +187,8 @@ private:
     bool isFull() const;
     int unitX() const;
     int unitWidth() const;
+    int contentBottom() const;                 // bottom of the units (and the split columns)
+    int branchColumnAt (juce::Point<int> pos) const; // SPLIT: 0 = A (left), 1 = B (right)
     void layoutTargets (bool snap);
     void endUnitDrag();
     UnitComponent* unitForSlot (int slot) const;
@@ -172,6 +196,11 @@ private:
     EffectorKillaAudioProcessor& proc;
     juce::OwnedArray<UnitComponent> units;
     std::vector<float> animY, targetY;
+    std::vector<int> targetX, targetW;
+    std::unique_ptr<SplitUnit> splitUnit;
+    std::unique_ptr<ek::SpectrumOverlay> spectrum;
+    int hoverSlot = -1, splitY = -1;
+    bool hoverFromMouse = false;
     juce::String builtFor;
     DropTarget drop;
     int draggingSlot = -1;

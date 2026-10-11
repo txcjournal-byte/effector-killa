@@ -118,7 +118,16 @@ UnitComponent::UnitComponent (EffectorKillaAudioProcessor& p, RackView& o, int s
         proc.pushUndo();
         proc.setSlotParam (slot, 9, proc.getSlotParam (slot, 9) > 0.5f ? 0.0f : 1.0f);
     };
-    powerBtn.setTooltip ("POWER - unit on / off. Off keeps running in the background, so echoes and reverb tails continue.");
+    powerBtn.setTooltip ("POWER - unit on / off. Off keeps running in the background, so echoes and reverb tails continue.\n"
+                         "Press and hold: LEVEL-MATCHED POWER - hear the rack without this unit at the same loudness.");
+    // LEVEL-MATCHED POWER: hold > 250 ms = audition the level-matched bypass while held
+    powerBtn.holdMs = 250;
+    powerBtn.onHoldStart = [this] { proc.setLevelMatchedAudition (slot); repaint(); };
+    powerBtn.onHoldEnd = [this]
+    {
+        if (proc.getLevelMatchedAudition() == slot) proc.setLevelMatchedAudition (-1);
+        repaint();
+    };
 
     soloBtn.isLit = [this] { return proc.getSolo() == slot; };
     soloBtn.blinkWhenLit = true;
@@ -245,6 +254,9 @@ void UnitComponent::tick (double timeSec)
     for (auto* b : { &menuBtn, &powerBtn, &soloBtn, &lockBtn }) b->tick();
     msBtn.tick();
     lcd.tick();
+    const bool audition = proc.getLevelMatchedAudition() == slot;
+    if (audition || audition != lastAudition) repaint (plateBounds().removeFromTop (30.0f).getSmallestIntegerContainer());
+    lastAudition = audition;
     lcd.setText (currentProgrammeName(), ! firstTick);
 
     const bool dim = ! state.powered || state.soloDimmed;
@@ -337,6 +349,7 @@ void UnitComponent::paint (Graphics& g)
     g.fillAll (shaft);
     const auto plate = plateBounds();
     faceplate::paintFaceplate (g, type, plate, state, false);
+    owner.paintSpectrum (g, slot, faceplate::knobArea (type, plate)); // SPECTRAL VIEW (hovered unit only)
 
     // engraved divider in front of DRY/WET
     if (controls.size() > 1)
@@ -381,6 +394,28 @@ void UnitComponent::paintOverChildren (Graphics& g)
         theme::drawLed (g, { pill.getX() + 9.0f, pill.getCentreY() }, 2.4f, ! state.powered ? theme::killRed : soloYellow, false, 0.6f);
         g.setColour (! state.powered ? Colour (0xffffd98f) : soloYellow);
         g.drawText (msg, pill.withTrimmedLeft (16.0f), Justification::centredLeft, false);
+    }
+    // SPLIT branch tag
+    if (const int br = proc.getSlotBranch (slot); br >= 0)
+    {
+        auto tag = Rectangle<float> (4.0f, 4.0f, 20.0f, 16.0f);
+        g.setColour (Colour (0xe0050608));
+        g.fillRoundedRectangle (tag, 4.0f);
+        g.setColour (theme::accent);
+        g.drawRoundedRectangle (tag, 4.0f, 1.0f);
+        g.setFont (theme::monoLabel (10.0f).boldened());
+        g.drawText (br == 0 ? "A" : "B", tag, Justification::centred, false);
+    }
+    // LEVEL-MATCHED POWER readout while the POWER button is held
+    if (proc.getLevelMatchedAudition() == slot)
+    {
+        auto pill = Rectangle<float> (plate.getX() + 30.0f, 4.0f, 250.0f, 18.0f);
+        g.setColour (Colour (0xf0050608));
+        g.fillRoundedRectangle (pill, 9.0f);
+        g.setColour (theme::accent);
+        g.drawRoundedRectangle (pill, 9.0f, 1.0f);
+        g.setFont (theme::monoLabel (9.5f).boldened());
+        g.drawText ("LEVEL-MATCHED BYPASS  " + String (proc.getAuditionGainDb(), 1) + " dB", pill, Justification::centred, false);
     }
     if (flash > 0.0f)
     {
@@ -453,6 +488,21 @@ void UnitComponent::showUnitMenu (Component* target)
     m.addItem (3, "Solo (hear only this unit)", true, proc.getSolo() == slot);
     m.addItem (6, "Lock", true, locked);
     m.addSeparator();
+    // SPLIT / MERGE
+    if (! proc.hasSplit())
+    {
+        m.addItem (800, "Insert SPLIT in front of this unit");
+        m.addItem (801, "Insert SPLIT after this unit");
+    }
+    else
+    {
+        const int br = proc.getSlotBranch (slot);
+        m.addItem (802, "Move to branch A", br != 0);
+        m.addItem (803, "Move to branch B", br != 1);
+        m.addItem (804, "Move SPLIT in front of this unit", proc.getSplitPosition() != slot);
+        m.addItem (805, "Remove SPLIT");
+    }
+    m.addSeparator();
     m.addItem (7, "Remove", ! locked);
 
     auto& p = proc;
@@ -488,6 +538,12 @@ void UnitComponent::showUnitMenu (Component* target)
             case 3: p.setSolo (p.getSolo() == s ? -1 : s); break;
             case 6: p.setWriteProtect (s, ! p.getSlotMeta (s).writeProtect); break;
             case 7: p.removeEffect (s); break;
+            case 800: p.insertSplit (s); break;
+            case 801: p.insertSplit (s + 1); break;
+            case 802: p.setSlotBranch (s, 0); break;
+            case 803: p.setSlotBranch (s, 1); break;
+            case 804: p.insertSplit (s); break;
+            case 805: p.removeSplit(); break;
             default: break;
         }
     });
@@ -497,10 +553,33 @@ void UnitComponent::showUnitMenu (Component* target)
 RackView::RackView (EffectorKillaAudioProcessor& p) : proc (p)
 {
     lastKillEvents = proc.killEvents.load();
+    splitUnit = std::make_unique<SplitUnit> (proc);
+    splitUnit->onRemoved = [this] { refresh(); };
+    addChildComponent (*splitUnit);
+    spectrum = std::make_unique<SpectrumOverlay> (proc.getSlotTap());
     refresh();
 }
 
-RackView::~RackView() = default;
+RackView::~RackView()
+{
+    spectrum.reset(); // switches the analyzer tap off
+}
+
+void RackView::setHoveredSlot (int slot)
+{
+    if (slot == hoverSlot) return;
+    const int old = hoverSlot;
+    hoverSlot = slot;
+    if (spectrum != nullptr) spectrum->setSlot (slot);
+    for (int s : { old, slot })
+        if (auto* u = unitForSlot (s)) u->repaint();
+}
+
+void RackView::paintSpectrum (Graphics& g, int slot, Rectangle<float> area) const
+{
+    if (spectrum != nullptr && slot >= 0 && spectrum->getSlot() == slot)
+        spectrum->paint (g, area);
+}
 
 double RackView::clock() const noexcept { return Time::getMillisecondCounterHiRes() * 0.001; }
 
@@ -508,6 +587,9 @@ String RackView::signature() const
 {
     String s;
     for (int i = 0; i < kNumSlots; ++i) s << (int) proc.getSlotType (i) << ",";
+    // SPLIT layout (position + branch of every unit)
+    s << "|" << proc.getSplitPosition() << ":";
+    for (int i = 0; i < kNumSlots; ++i) s << proc.getSlotBranch (i) << ",";
     return s;
 }
 
@@ -556,7 +638,10 @@ void RackView::refresh (bool repaintAll)
         builtFor = sig;
         draggingSlot = -1;
         drop = {};
+        setHoveredSlot (-1);
         units.clear();
+        splitUnit->setVisible (proc.hasSplit());
+        splitUnit->refresh();
         for (int i = 0; i < kNumSlots; ++i)
             if (proc.getSlotType (i) != EffectType::None)
             {
@@ -566,6 +651,8 @@ void RackView::refresh (bool repaintAll)
             }
         animY.assign ((size_t) units.size(), 0.0f);
         targetY.assign ((size_t) units.size(), 0.0f);
+        targetX.assign ((size_t) units.size(), 0);
+        targetW.assign ((size_t) units.size(), UnitComponent::width);
         if (getWidth() > 0) setSize (getWidth(), getIdealHeight());
         resized();
         layoutTargets (true);
@@ -574,29 +661,81 @@ void RackView::refresh (bool repaintAll)
     }
     else if (repaintAll)
     {
+        if (splitUnit->isVisible()) splitUnit->refresh();
         repaint();
     }
 }
 
+int RackView::contentBottom() const
+{
+    const int rowH = UnitComponent::height + gapY;
+    if (! proc.hasSplit()) return topMargin + units.size() * rowH;
+    int serial = 0, a = 0, b = 0;
+    for (auto* u : units)
+    {
+        const int br = proc.getSlotBranch (u->getSlot());
+        ++(br < 0 ? serial : (br == 0 ? a : b));
+    }
+    return topMargin + serial * rowH + SplitUnit::height + gapY + jmax (a, b, 1) * rowH;
+}
+
+int RackView::branchColumnAt (Point<int> pos) const
+{
+    return pos.x < unitX() + unitWidth() / 2 ? 0 : 1;
+}
+
 int RackView::getIdealHeight() const
 {
-    return topMargin + units.size() * (UnitComponent::height + gapY) + (isFull() ? 64 : addZoneHeight) + 8;
+    return contentBottom() + (isFull() ? 64 : addZoneHeight) + 8;
 }
 
 Rectangle<int> RackView::addZone() const
 {
-    const int y = topMargin + units.size() * (UnitComponent::height + gapY);
+    const int y = contentBottom();
     return { unitX(), y, unitWidth(), jmax (isFull() ? 56 : 90, jmin (isFull() ? 56 : addZoneHeight, getHeight() - y - 6)) };
 }
 
 void RackView::resized()
 {
-    for (auto* u : units) u->setSize (unitWidth(), UnitComponent::height);
     layoutTargets (true);
 }
 
 void RackView::layoutTargets (bool snap)
 {
+    targetX.assign ((size_t) units.size(), unitX());
+    targetW.assign ((size_t) units.size(), unitWidth());
+    if (targetY.size() != (size_t) units.size()) { targetY.assign ((size_t) units.size(), 0.0f); animY.assign ((size_t) units.size(), 0.0f); }
+
+    if (proc.hasSplit())
+    {
+        // serial units, then the SPLIT strip, then branch A (left) | branch B (right)
+        const int rowH = UnitComponent::height + gapY;
+        int y = topMargin;
+        for (int i = 0; i < units.size(); ++i)
+            if (proc.getSlotBranch (units[i]->getSlot()) < 0) { targetY[(size_t) i] = (float) y; y += rowH; }
+        splitY = y;
+        splitUnit->setBounds (unitX(), y, unitWidth(), SplitUnit::height);
+        y += SplitUnit::height + gapY;
+        const int colW = (unitWidth() - gapY) / 2;
+        int yA = y, yB = y;
+        for (int i = 0; i < units.size(); ++i)
+        {
+            const int br = proc.getSlotBranch (units[i]->getSlot());
+            if (br < 0) continue;
+            targetW[(size_t) i] = colW;
+            targetX[(size_t) i] = br == 0 ? unitX() : unitX() + colW + gapY;
+            targetY[(size_t) i] = (float) (br == 0 ? yA : yB);
+            (br == 0 ? yA : yB) += rowH;
+        }
+        for (int i = 0; i < units.size(); ++i)
+        {
+            if (snap || reduceMotion) animY[(size_t) i] = targetY[(size_t) i];
+            units[i]->setBounds (targetX[(size_t) i], roundToInt (animY[(size_t) i]), targetW[(size_t) i], UnitComponent::height);
+        }
+        return;
+    }
+    splitY = -1;
+
     int gapIndex = drop.kind == DropTarget::Move ? drop.gap : -1;
     if (draggingSlot >= 0 && gapIndex < 0)
     {
@@ -616,7 +755,7 @@ void RackView::layoutTargets (bool snap)
     for (int i = 0; i < units.size(); ++i)
     {
         if (snap || reduceMotion) animY[(size_t) i] = targetY[(size_t) i];
-        units[i]->setTopLeftPosition (unitX(), roundToInt (animY[(size_t) i]));
+        units[i]->setBounds (unitX(), roundToInt (animY[(size_t) i]), unitWidth(), UnitComponent::height);
     }
 }
 
@@ -666,9 +805,30 @@ void RackView::tick()
         if (std::abs (tgt - y) > 0.5f && ! reduceMotion) y += (tgt - y) * 0.38f;
         else y = tgt;
         const int iy = roundToInt (y);
-        if (units[i]->getY() != iy || units[i]->getX() != unitX()) units[i]->setTopLeftPosition (unitX(), iy);
+        const int ix = i < (int) targetX.size() ? targetX[(size_t) i] : unitX();
+        if (units[i]->getY() != iy || units[i]->getX() != ix) units[i]->setTopLeftPosition (ix, iy);
     }
 
+    // SPECTRAL VIEW: follow the hovered unit (polled, so the knobs on top do not interrupt it)
+    if (draggingSlot < 0 && isShowing() && isMouseOver (true))
+    {
+        int hovered = -1;
+        const auto mp = getMouseXYRelative();
+        for (auto* u : units)
+            if (! u->isLifted() && u->getBounds().contains (mp)) { hovered = u->getSlot(); break; }
+        setHoveredSlot (hovered);
+        hoverFromMouse = true;
+    }
+    else if (hoverFromMouse)
+    {
+        setHoveredSlot (-1);
+        hoverFromMouse = false;
+    }
+    if (spectrum != nullptr && spectrum->update() && hoverSlot >= 0)
+        if (auto* u = unitForSlot (hoverSlot))
+            u->repaint (faceplate::knobArea (u->getType(), u->plateBounds()).getSmallestIntegerContainer());
+
+    if (splitUnit->isVisible()) splitUnit->tick();
     for (auto* u : units) u->tick (now);
 }
 
@@ -755,7 +915,8 @@ void RackView::paintOverChildren (Graphics& g)
     const float ux = (float) unitX(), uw = (float) unitWidth();
     if (drop.kind == DropTarget::Insert)
     {
-        auto line = Rectangle<float> (ux + 6.0f, drop.y - 2.0f, uw - 12.0f, 4.0f);
+        auto line = drop.w > 0 ? Rectangle<float> ((float) drop.x + 6.0f, drop.y - 2.0f, (float) drop.w - 12.0f, 4.0f)
+                               : Rectangle<float> (ux + 6.0f, drop.y - 2.0f, uw - 12.0f, 4.0f);
         g.setColour (theme::accent.withAlpha (0.22f));
         g.fillRoundedRectangle (line.expanded (0.0f, 5.0f), 6.0f);
         g.setColour (theme::accent);
@@ -771,6 +932,18 @@ void RackView::paintOverChildren (Graphics& g)
             g.setColour (theme::accent);
             g.fillPath (tri);
         }
+    }
+    else if ((drop.kind == DropTarget::Append || drop.kind == DropTarget::Move) && drop.branch >= 0 && drop.w > 0)
+    {
+        // SPLIT: highlight the target column
+        auto col = Rectangle<float> ((float) drop.x, (float) (splitY + SplitUnit::height), (float) drop.w,
+                                     (float) (contentBottom() - splitY - SplitUnit::height));
+        g.setColour (theme::accent.withAlpha (0.10f));
+        g.fillRect (col);
+        g.setColour (theme::accent);
+        g.drawRect (col.reduced (1.0f), 2.0f);
+        g.setFont (theme::monoLabel (11.0f).boldened());
+        g.drawText (drop.branch == 0 ? "BRANCH A" : "BRANCH B", col.removeFromTop (24.0f), Justification::centred, false);
     }
     else if (drop.kind == DropTarget::Replace)
     {
@@ -802,11 +975,41 @@ void RackView::mouseUp (const MouseEvent& e)
 {
     if (! addZone().contains (e.getPosition()) || isFull()) return;
     SafePointer<RackView> safe (this);
-    showAddMenu (proc, this, [safe] (EffectType t)
+    // add an effect (SPLIT: to branch A / B), or add a SPLIT at the end of the rack
     {
-        if (safe == nullptr) return;
-        safe->proc.insertEffect (safe->lastOccupied() + 1, t);
-    });
+        PopupMenu m;
+        if (proc.hasSplit())
+        {
+            for (int br = 0; br < 2; ++br)
+            {
+                PopupMenu sub;
+                for (const auto& grp : gear::groups())
+                {
+                    sub.addSectionHeader (grp.name);
+                    for (auto t : grp.types) sub.addItem (1000 * (br + 1) + (int) t, effectInfo (t).name);
+                }
+                m.addSubMenu (br == 0 ? "Add to branch A" : "Add to branch B", sub);
+            }
+        }
+        else
+        {
+            for (const auto& grp : gear::groups())
+            {
+                m.addSectionHeader (grp.name);
+                for (auto t : grp.types) m.addItem ((int) t, effectInfo (t).name);
+            }
+            m.addSeparator();
+            m.addItem (999, "Add SPLIT (parallel branches A | B) here");
+        }
+        m.showMenuAsync (PopupMenu::Options().withTargetComponent (this).withMousePosition(), [safe] (int r)
+        {
+            if (safe == nullptr || r <= 0) return;
+            auto& p = safe->proc;
+            if (r == 999) { p.insertSplit (safe->lastOccupied() + 1); return; }
+            if (r >= 1000) { p.insertEffectInBranch (r / 1000 - 1, (EffectType) (r % 1000)); return; }
+            p.insertEffect (safe->lastOccupied() + 1, (EffectType) r);
+        });
+    }
 }
 
 void RackView::showAddMenu (EffectorKillaAudioProcessor&, Component* target, std::function<void (EffectType)> picked)
@@ -854,6 +1057,49 @@ void RackView::endUnitDrag()
 RackView::DropTarget RackView::dropTargetFor (Point<int> pos, bool fromUnit, int fromSlot) const
 {
     DropTarget d;
+    if (proc.hasSplit())
+    {
+        // SPLIT layout: hit-test the units (two columns), otherwise the column under the mouse
+        for (auto* u : units)
+        {
+            if (u->getSlot() == fromSlot && fromUnit) continue;
+            const auto b = u->getBounds();
+            if (! b.expanded (0, gapY).contains (pos)) continue;
+            const int s = u->getSlot();
+            const int br = proc.getSlotBranch (s);
+            d.branch = br;
+            if (br >= 0) { d.x = b.getX(); d.w = b.getWidth(); }
+            if (fromUnit)
+            {
+                // drop a unit on another one: take its place (same branch) / move into that branch
+                d.kind = DropTarget::Move;
+                d.slot = s;
+                return d;
+            }
+            const float rel = (float) (pos.y - b.getY()) / (float) b.getHeight();
+            if (rel > 0.25f && rel < 0.75f) { d.kind = DropTarget::Replace; d.slot = s; return d; }
+            const bool before = rel < 0.5f;
+            d.kind = DropTarget::Insert;
+            d.slot = before ? s : s + 1;
+            d.y = before ? (float) b.getY() - gapY * 0.5f : (float) b.getBottom() + gapY * 0.5f;
+            return d;
+        }
+        if (pos.y >= splitY + SplitUnit::height)
+        {
+            const int col = branchColumnAt (pos);
+            const int colW = (unitWidth() - gapY) / 2;
+            d.kind = fromUnit ? DropTarget::Move : DropTarget::Append;
+            d.branch = col;
+            d.x = col == 0 ? unitX() : unitX() + colW + gapY;
+            d.w = colW;
+            return d;
+        }
+        if (fromUnit) return d; // above the split: no reordering across it from here (use the unit menu)
+        d.kind = DropTarget::Insert;
+        d.slot = proc.getSplitPosition();
+        d.y = (float) splitY - gapY * 0.5f;
+        return d;
+    }
     if (fromUnit)
     {
         // where would the lifted panel land? use its centre, not the mouse
@@ -900,7 +1146,7 @@ void RackView::itemDragMove (const SourceDetails& d)
     int from = -1;
     const bool fromUnit = dnd::parseUnit (d.description, from);
     const auto t = dropTargetFor (d.localPosition, fromUnit, from);
-    if (t.kind != drop.kind || t.slot != drop.slot || t.y != drop.y || t.gap != drop.gap)
+    if (t.kind != drop.kind || t.slot != drop.slot || t.y != drop.y || t.gap != drop.gap || t.branch != drop.branch)
     {
         drop = t;
         if (fromUnit) layoutTargets (false);
@@ -939,11 +1185,13 @@ void RackView::itemDropped (const SourceDetails& d)
                 return;
             case DropTarget::Insert:
                 if (isFull()) { say ("RACK FULL - DROP ON A UNIT TO REPLACE IT"); return; }
-                proc.insertEffect (target.slot, t);
+                if (target.branch >= 0) proc.insertEffectInBranchAt (target.slot, target.branch, t);
+                else proc.insertEffect (target.slot, t);
                 return;
             case DropTarget::Append:
                 if (isFull()) { say ("RACK FULL - DROP ON A UNIT TO REPLACE IT"); return; }
-                proc.insertEffect (lastOccupied() + 1, t);
+                if (target.branch >= 0 && proc.hasSplit()) proc.insertEffectInBranch (target.branch, t);
+                else proc.insertEffect (lastOccupied() + 1, t);
                 return;
             case DropTarget::Move:
             case DropTarget::None: return;
@@ -951,6 +1199,16 @@ void RackView::itemDropped (const SourceDetails& d)
     }
     else if (dnd::parseUnit (d.description, from))
     {
+        if (target.kind == DropTarget::Move && proc.hasSplit())
+        {
+            // SPLIT: into the other column = change branch; onto a unit of the same branch = take its place
+            const int fromBranch = proc.getSlotBranch (from);
+            if (target.branch >= 0 && target.branch != fromBranch) proc.setSlotBranch (from, target.branch);
+            else if (target.slot >= 0 && target.slot != from && target.branch == fromBranch) proc.moveSlot (from, target.slot);
+            endUnitDrag();
+            refresh (false);
+            return;
+        }
         if (target.kind == DropTarget::Move)
         {
             std::vector<int> rest;

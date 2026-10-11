@@ -580,18 +580,43 @@ void SideButton::paint (Graphics& g)
     drawIcon (g, icon, ir, ic);
 }
 
-void SideButton::mouseDown (const MouseEvent&)
+SideButton::~SideButton()
+{
+    stopTimer();
+    if (held && onHoldEnd) onHoldEnd(); // never leave a hold (e.g. an audition) running
+}
+
+void SideButton::mouseDown (const MouseEvent& e)
 {
     if (isEnabledFn && ! isEnabledFn()) return;
+    if (e.mods.isPopupMenu()) return;
     down = true;
+    held = false;
+    if (onHoldStart) startTimer (juce::jmax (1, holdMs));
+    repaint();
+}
+
+void SideButton::timerCallback()
+{
+    stopTimer();
+    if (! down || held) return;
+    held = true;
+    if (onHoldStart) onHoldStart();
     repaint();
 }
 
 void SideButton::mouseUp (const MouseEvent& e)
 {
+    stopTimer();
     if (! down) return;
     down = false;
     repaint();
+    if (held)
+    {
+        held = false;
+        if (onHoldEnd) onHoldEnd();
+        return; // a hold is not a click
+    }
     if (onClick && getLocalBounds().contains (e.getPosition())) onClick();
 }
 

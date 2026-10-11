@@ -62,6 +62,21 @@ void EffectorKillaAudioProcessorEditor::Frame::paint (juce::Graphics& g)
 }
 
 // ============================================================================================
+void EffectorKillaAudioProcessorEditor::CableOverlay::paint (juce::Graphics& g)
+{
+    if (source < 0) return;
+    const auto c = ek::ui::modSourceColour (source);
+    if (! target.isEmpty())
+    {
+        g.setColour (c.withAlpha (0.25f));
+        g.fillRoundedRectangle (target.toFloat().expanded (3.0f), 6.0f);
+        g.setColour (c);
+        g.drawRoundedRectangle (target.toFloat().expanded (3.0f), 6.0f, 2.0f);
+    }
+    ek::ui::paintPatchCable (g, from, to, c);
+}
+
+// ============================================================================================
 void EffectorKillaAudioProcessorEditor::KillFlash::trigger()
 {
     if (hw::reduceMotion()) return;
@@ -110,6 +125,7 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     content.addChildComponent (killFlash);
     content.addAndMakeVisible (gearList);
     content.addChildComponent (browser);
+    content.addAndMakeVisible (cableOverlay);   // topmost
 
     toolbar.onBrowse = [this] { showBrowser (! browser.isVisible()); };
     toolbar.isBrowserShown = [this] { return browser.isVisible(); };
@@ -124,6 +140,14 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     browser.onClose = [this] { showBrowser (false); };
     auto say = [this] (const juce::String& m) { toolbar.showMessage (m); };
     rackView.onMessage = say;
+    // MOD patching + knob right-click (modulation list, MACRO LEARN) + modulation rings
+    modUnit.onHandleDrag = [this] (int src, juce::Point<int> screen) { modHandleDragged (src, screen, false); };
+    modUnit.onHandleDrop = [this] (int src, juce::Point<int> screen) { modHandleDragged (src, screen, true); };
+    rackView.onKnobRightClick = [this] (int slot, int param, juce::Point<int>) { showKnobMenu (slot, param); };
+    rackView.paintKnobOverlay = [this] (juce::Graphics& g, juce::Rectangle<float> face, int slot, int param)
+    {
+        paintKnobOverlay (g, face, slot, param);
+    };
     gearList.onMessage = say;
 
     getLookAndFeel().setColour (juce::TooltipWindow::backgroundColourId, juce::Colour (0xf00b0d12));
@@ -215,6 +239,8 @@ void EffectorKillaAudioProcessorEditor::layoutBody()
     gearList.setBounds (gearArea());
     // the browser covers the rack shaft under the control unit; the gear list stays visible
     browser.setBounds (shaftArea().getX(), performerArea().getY(), shaftArea().getWidth(), rack.getBottom() - performerArea().getY());
+    cableOverlay.setBounds (0, 0, w, kHeight);
+    cableOverlay.toFront (false);
 }
 
 void EffectorKillaAudioProcessorEditor::setGearShown (bool shown)
@@ -381,5 +407,143 @@ void EffectorKillaAudioProcessorEditor::showInfoMenu()
                 "(c) TrapWin - trapwin.com", "OK", safe.getComponent());
         else if (r == 2)
             juce::URL ("https://trapwin.com").launchInDefaultBrowser();
+    });
+}
+
+// ============================================================================================
+// MOD patching / knob menu / modulation rings
+// ============================================================================================
+void EffectorKillaAudioProcessorEditor::modHandleDragged (int source, juce::Point<int> screen, bool dropped)
+{
+    ek::ui::RackView::KnobHit hit;
+    if (rackViewport.isShowing() && rackViewport.getScreenBounds().contains (screen))
+        hit = rackView.knobAt (screen);
+    const int macro = hit.slot < 0 ? performer.macroAt (screen) : -1;
+
+    if (! dropped)
+    {
+        cableOverlay.source = source;
+        cableOverlay.from = content.getLocalPoint (nullptr, modUnit.getHandleScreenPosition (source)).toFloat();
+        cableOverlay.to = content.getLocalPoint (nullptr, screen).toFloat();
+        cableOverlay.target = hit.slot >= 0 ? content.getLocalArea (&rackView, hit.bounds) : juce::Rectangle<int>();
+        cableOverlay.repaint();
+        return;
+    }
+
+    cableOverlay.source = -1;
+    cableOverlay.target = {};
+    cableOverlay.repaint();
+    const juce::String src (ek::modSourceName (source));
+    if (hit.slot >= 0)
+    {
+        const int idx = processor.addModAssignment (source, hit.slot, hit.param, 0.5f);
+        toolbar.showMessage (idx >= 0 ? src + " -> S" + juce::String (hit.slot + 1) + (hit.param < kNumParams ? " P" + juce::String (hit.param + 1) : juce::String (" DRY/WET"))
+                                      : juce::String ("MODULATION FULL (16 MAX)"));
+        rackView.repaintKnobs();
+    }
+    else if (macro >= 0)
+    {
+        const int idx = processor.addMacroModAssignment (source, macro, 0.5f);
+        toolbar.showMessage (idx >= 0 ? src + " -> " + MacroEngine::macroName (macro) : juce::String ("MODULATION FULL (16 MAX)"));
+    }
+}
+
+void EffectorKillaAudioProcessorEditor::paintKnobOverlay (juce::Graphics& g, juce::Rectangle<float> face, int slot, int param)
+{
+    const auto idx = processor.findModAssignments (slot, param);
+    if (! idx.empty())
+    {
+        const auto all = processor.getModAssignments();
+        const float base = processor.getSlotParam (slot, param);
+        const float cur = processor.getEffectiveSlotParam (slot, param);
+        int ring = 0;
+        for (int i : idx)
+        {
+            if (i < 0 || i >= (int) all.size()) continue;
+            const auto& a = all[(size_t) i];
+            const bool bipolar = a.source == (int) ModSourceId::Lfo1 || a.source == (int) ModSourceId::Lfo2;
+            ek::ui::paintModRing (g, face, base, a.depth, ek::ui::modSourceColour (a.source), bipolar, cur, ring++);
+        }
+    }
+    // MACRO LEARN: a small dot per learned macro assignment
+    int k = 0;
+    for (const auto& mm : processor.getMacroAssignmentsFor (slot, param))
+        if (mm.learned)
+        {
+            g.setColour (hw::col::ice);
+            g.fillEllipse (face.getX() + 1.0f + 6.0f * (float) k++, face.getY() + 1.0f, 4.0f, 4.0f);
+        }
+}
+
+void EffectorKillaAudioProcessorEditor::showKnobMenu (int slot, int param)
+{
+    const auto type = processor.getSlotType (slot);
+    if (type == EffectType::None) return;
+    const auto& info = effectInfo (type);
+    const juce::String pname = param < kNumParams ? info.params[(size_t) param].name : juce::String ("DRY/WET");
+    const float defaultValue = param < kNumParams ? info.params[(size_t) param].defaultNorm() : 1.0f;
+    static constexpr float depths[] = { 1.0f, 0.5f, 0.25f, -0.25f, -0.5f, -1.0f };
+
+    juce::PopupMenu m;
+    m.addSectionHeader ("S" + juce::String (slot + 1) + "  " + info.name.toUpperCase() + "  -  " + pname.toUpperCase());
+    m.addItem (1, "Reset to default");
+
+    m.addSeparator();
+    m.addSectionHeader ("MODULATION");
+    const auto all = processor.getModAssignments();
+    const auto idx = processor.findModAssignments (slot, param);
+    if (idx.empty()) m.addItem (2, "(drag a MOD jack onto this knob)", false);
+    for (int i : idx)
+    {
+        if (i < 0 || i >= (int) all.size()) continue;
+        const auto& a = all[(size_t) i];
+        juce::PopupMenu sub;
+        for (int d = 0; d < 6; ++d)
+            sub.addItem (2000 + i * 10 + d, "Depth " + juce::String (juce::roundToInt (depths[d] * 100.0f)) + " %", true,
+                         std::abs (a.depth - depths[d]) < 0.001f);
+        sub.addSeparator();
+        sub.addItem (1000 + i, "Remove");
+        m.addSubMenu (juce::String (ek::modSourceName (a.source)) + "   depth " + juce::String (juce::roundToInt (a.depth * 100.0f)) + " %", sub);
+    }
+    juce::PopupMenu add;
+    for (int src = 0; src < kNumModSources; ++src) add.addItem (3000 + src, ek::modSourceName (src));
+    m.addSubMenu ("Add modulation (depth 50 %)", add);
+    if (! idx.empty()) m.addItem (3, "Remove all modulation of this knob");
+
+    m.addSeparator();
+    m.addSectionHeader ("MACRO LEARN");
+    const auto maps = processor.getMacroAssignmentsFor (slot, param);
+    for (int mc = 0; mc < kNumMacros; ++mc)
+    {
+        const bool learned = std::any_of (maps.begin(), maps.end(), [mc] (const MacroMapping& x) { return x.macro == mc && x.learned; });
+        juce::PopupMenu sub;
+        sub.addItem (4000 + mc * 10 + 0, "Range: full (macro 0 = 0 %, 100 = 100 %)");
+        sub.addItem (4000 + mc * 10 + 1, "Range: inverted (macro 0 = 100 %, 100 = 0 %)");
+        sub.addItem (4000 + mc * 10 + 2, "Range: subtle (knob +- 25 %)");
+        m.addSubMenu (juce::String ("Assign to ") + MacroEngine::macroName (mc) + (learned ? "   (assigned)" : ""), sub);
+        if (learned) m.addItem (5000 + mc, juce::String ("Remove from ") + MacroEngine::macroName (mc));
+    }
+
+    juce::Component::SafePointer<EffectorKillaAudioProcessorEditor> safe (this);
+    m.showMenuAsync (juce::PopupMenu::Options().withMousePosition(), [safe, slot, param, defaultValue] (int r)
+    {
+        if (safe == nullptr || r <= 0) return;
+        auto& p = safe->processor;
+        if (r == 1) { p.pushUndo(); p.setSlotParam (slot, param, defaultValue); }
+        else if (r == 3) p.removeModAssignmentsFor (slot, param);
+        else if (r >= 1000 && r < 2000) p.removeModAssignment (r - 1000);
+        else if (r >= 2000 && r < 3000) { p.pushUndo(); p.setModDepth ((r - 2000) / 10, depths[(r - 2000) % 10]); }
+        else if (r >= 3000 && r < 4000) p.addModAssignment (r - 3000, slot, param, 0.5f);
+        else if (r >= 4000 && r < 5000)
+        {
+            const int mc = (r - 4000) / 10, kind = (r - 4000) % 10;
+            const float v = p.getSlotParam (slot, param);
+            float lo = 0.0f, hi = 1.0f;
+            if (kind == 1) { lo = 1.0f; hi = 0.0f; }
+            else if (kind == 2) { lo = juce::jlimit (0.0f, 1.0f, v - 0.25f); hi = juce::jlimit (0.0f, 1.0f, v + 0.25f); }
+            p.assignMacro (mc, slot, param, lo, hi);
+        }
+        else if (r >= 5000) p.removeMacroAssignment (r - 5000, slot, param);
+        safe->rackView.repaintKnobs();
     });
 }

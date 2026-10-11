@@ -461,4 +461,11 @@ void PerformerUnit::paint (Graphics& g)
         g.drawRoundedRectangle (k.expanded ((float) i * 0.9f), 8.0f + (float) i * 0.6f, 1.2f);
     }
 }
+int PerformerUnit::macroAt (juce::Point<int> screenPos) const
+{
+    for (int m = 0; m < macros.size(); ++m)
+        if (macros[m]->isShowing() && macros[m]->getScreenBounds().contains (screenPos)) return m;
+    return -1;
+}
+
 } // namespace ek::ui

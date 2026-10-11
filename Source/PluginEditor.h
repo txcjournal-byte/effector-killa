@@ -11,14 +11,19 @@
 
 #include "ui/rack/PerformerUnit.h"
 
-// The MOD unit is built as a standalone component. Until it is merged the editor shows a blank
-// placeholder panel (ControlPanel.h) in its place.
-#if __has_include("ui/rack/ModUnit.h")
- #include "ui/rack/ModUnit.h"
- using EkModUnit = ek::ui::ModUnit;
-#else
- using EkModUnit = ek::ui::ModFallback;
-#endif
+#include "ui/rack/ModUnit.h"
+using EkModUnit = ek::ui::ModUnit;
+
+// FEATURE WIRING (keep when restyling the editor):
+//   * MOD patching: modUnit.onHandleDrag -> CableOverlay (cable + target highlight);
+//     modUnit.onHandleDrop -> rackView.knobAt (screenPos) -> proc.addModAssignment (source, slot, param, 0.5)
+//     or performer.macroAt (screenPos) -> proc.addMacroModAssignment (source, macro, 0.5).
+//   * Knob right-click: rackView.onKnobRightClick -> showKnobMenu(): reset, modulation list (depth /
+//     remove / add / remove all) and MACRO LEARN (assignMacro with full / inverted / subtle range,
+//     removeMacroAssignment).
+//   * Knob overlay: rackView.paintKnobOverlay -> paintKnobOverlay(): paintModRing per assignment and a
+//     dot for learned macro assignments.
+//   * SPLIT, SPECTRAL VIEW and LEVEL-MATCHED POWER live in RackView (see RackView.h).
 
 // Window (DESIGN-RACK.md section 2), base size 1280 x 900 with the gear list, 980 x 900 without:
 //   toolbar (40 px) on top, walnut frame, dark rack shaft with rails, control unit, performer unit,
@@ -77,6 +82,17 @@ private:
         ek::ui::hw::BackgroundCache cache;
     };
 
+    // patch cable while a MOD jack is dragged (content coordinates)
+    class CableOverlay : public juce::Component
+    {
+    public:
+        CableOverlay() { setInterceptsMouseClicks (false, false); }
+        void paint (juce::Graphics&) override;
+        int source = -1;
+        juce::Point<float> from, to;
+        juce::Rectangle<int> target;
+    };
+
     // short ice-blue flash over the rack after a KILL (DESIGN-RACK.md section 9)
     class KillFlash : public juce::Component
     {
@@ -93,6 +109,9 @@ private:
     void timerCallback() override;
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
     void showSettingsMenu();
+    void showKnobMenu (int slot, int param);
+    void paintKnobOverlay (juce::Graphics&, juce::Rectangle<float> face, int slot, int param);
+    void modHandleDragged (int source, juce::Point<int> screenPos, bool dropped);
     void showInfoMenu();
     void showSaveDialog();
     void layoutBody();
@@ -113,6 +132,7 @@ private:
     ek::ui::RackView rackView;
     ek::ui::GearList gearList;
     ek::ui::PresetBrowser browser;
+    CableOverlay cableOverlay;
     juce::TooltipWindow tooltips { this, 650 };
     bool focusGrabbed = false, settingSize = false;
 

@@ -44,6 +44,7 @@ public:
         testFifo();
         testAnalyzerPeak();
         testTapThroughRack();
+        testTapsThroughSplit();
         testAuditionLevel();
         testAuditionLatency();
         testAuditionClicks();
@@ -228,6 +229,66 @@ public:
         expectEquals (tap.getAnalyzedSlot(), -1);
         run (5);
         expectEquals (tap.getFifo().getNumReady(), 0);
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Integration: the SPLIT code path must feed both tap systems (SlotTap + UnitTaps) like the serial one.
+    void testTapsThroughSplit()
+    {
+        beginTest ("SPLIT path feeds SlotTap (analyzer + audition) and UnitTaps");
+        const double sr = 48000.0;
+        auto cfg = config ({ EffectType::WideBody, EffectType::ToneUp });
+        cfg.split.at = 1;
+        cfg.split.mode = SplitMode::Parallel;
+        cfg.split.branch[1] = 1; // Tone Up in branch B
+        Rack rack;
+        rack.setConfig (cfg);
+        rack.prepare (sr, 1);
+        auto params = defaults (cfg);
+        toneUpPlus6 (params, 1);
+        ProcessContext ctx; ctx.sampleRate = sr;
+        auto& tap = rack.getSlotTap();
+        auto& unitTaps = rack.getTaps();
+
+        std::vector<float> inL ((size_t) (sr * 3)), inR (inL.size());
+        TestSignals::generate (TestSignals::Kind::PinkNoise, sr, inL.data(), inR.data(), (int) inL.size(), 5);
+        std::vector<float> L (512), R (512);
+        int pos = 0;
+        bool finite = true;
+        auto run = [&] (int blocks)
+        {
+            for (int b = 0; b < blocks; ++b, pos = (pos + 512) % ((int) inL.size() - 512))
+            {
+                std::copy (inL.begin() + pos, inL.begin() + pos + 512, L.begin());
+                std::copy (inR.begin() + pos, inR.begin() + pos + 512, R.begin());
+                rack.process (L.data(), R.data(), 512, params, ctx);
+                finite = finite && allFinite (L.data(), 512) && allFinite (R.data(), 512);
+            }
+        };
+
+        run (20);
+        (void) unitTaps.takeInPeak (1);
+        (void) unitTaps.takeOutPeak (1);
+        run (4);
+        expect (unitTaps.takeInPeak (1) > 0.0f, "UnitTaps: no input level for the branch unit");
+        expect (unitTaps.takeOutPeak (1) > 0.0f, "UnitTaps: no output level for the branch unit");
+
+        tap.setAnalyzedSlot (1);
+        tap.getFifo().discardAll();
+        run (10);
+        expect (tap.getFifo().getNumReady() >= 4096, "SlotTap: the branch unit must feed the analyzer");
+        tap.setAnalyzedSlot (-1);
+        tap.getFifo().discardAll();
+
+        tap.setAuditionSlot (1);
+        run (150); // ~1.6 s: meters settle, 20 ms fade completes
+        expectWithinAbsoluteError (tap.getAuditionAmount(), 1.0f, 1.0e-3f);
+        logMessage ("split audition gain " + juce::String (tap.getAuditionGainDb(), 2) + " dB");
+        expect (tap.getAuditionGainDb() > 3.0f && tap.getAuditionGainDb() <= SlotTap::maxMatchDb,
+                "audition gain of the +6 dB branch unit, got " + juce::String (tap.getAuditionGainDb()));
+        tap.setAuditionSlot (-1);
+        run (10);
+        expect (finite, "NaN / runaway output");
     }
 
     // ------------------------------------------------------------------------------------------

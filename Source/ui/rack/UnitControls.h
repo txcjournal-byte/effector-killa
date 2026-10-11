@@ -72,13 +72,19 @@ private:
 };
 
 // ----------------------------------------------------------------------------------------------
-class SideButton : public juce::Component, public juce::SettableTooltipClient
+class SideButton : public juce::Component, public juce::SettableTooltipClient, private juce::Timer
 {
 public:
     enum class Icon { Menu, Power, Solo, Lock };
     SideButton (Icon icon, juce::Colour litColour);
+    ~SideButton() override;
 
     std::function<void()> onClick;
+    // Press-and-hold (optional): when set, holding the button longer than holdMs calls onHoldStart,
+    // releasing it calls onHoldEnd and suppresses onClick (LEVEL-MATCHED POWER uses this).
+    std::function<void()> onHoldStart, onHoldEnd;
+    int holdMs = 250;
+    bool isHeld() const noexcept { return held; }
     std::function<bool()> isLit;
     std::function<bool()> isEnabledFn;
     bool blinkWhenLit = false;
@@ -91,9 +97,11 @@ public:
     static void drawIcon (juce::Graphics&, Icon, juce::Rectangle<float> r, juce::Colour c);
 
 private:
+    void timerCallback() override;
+
     Icon icon;
     juce::Colour colour;
-    bool down = false, lastLit = false, lastBlink = false, lastEnabled = true;
+    bool down = false, held = false, lastLit = false, lastBlink = false, lastEnabled = true;
     bool litNow() const;
 };
 

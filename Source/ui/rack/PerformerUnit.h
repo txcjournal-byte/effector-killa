@@ -36,6 +36,9 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
+    // Macro knob under a screen position (0..4), -1 = none. Used to drop MOD jacks onto macros.
+    int macroAt (juce::Point<int> screenPos) const;
+
     class KillKey;
     class RatingSelector;
     class BootlegKey;

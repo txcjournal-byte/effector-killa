@@ -145,6 +145,7 @@ public:
     void setSlotBranch (int slot, int branch); // move a unit to branch A (0) / B (1); a unit in front of the split moves behind it
     int getSlotBranch (int slot) const noexcept; // -1 = serial (no split or in front of it), 0 = A, 1 = B
     int insertEffectInBranch (int branch, ek::EffectType t); // new unit at the end of branch A/B, returns its slot or -1
+    int insertEffectInBranchAt (int at, int branch, ek::EffectType t) { return insertEffectImpl (at, t, branch < 0 ? -1 : (branch != 0 ? 1 : 0)); } // insert at `at` inside branch A/B
     std::vector<int> getBranchSlots (int branch) const; // non-empty slots of a branch in processing order (-1 = in front of the split)
 
     // source / modulation / settings
