@@ -1,6 +1,7 @@
 #include "RackView.h"
 #include "GearList.h"
 #include "CardStyle.h"
+#include "../SharedResources.h"
 
 namespace ek::ui
 {
@@ -722,9 +723,11 @@ void UnitComponent::showUnitMenu (Component* target)
                 w->addButton ("CANCEL", 0, KeyPress (KeyPress::escapeKey));
                 w->enterModalState (true, ModalCallbackFunction::create ([&p, s, w] (int res)
                 {
+                    if (res != 1) return;   // 0 also when the editor closed the dialog (w / p may be gone)
                     const auto name = w->getTextEditorContents ("name").trim();
-                    if (res == 1 && name.isNotEmpty()) p.saveSlotPreset (s, name);
+                    if (name.isNotEmpty()) p.saveSlotPreset (s, name);
                 }), true);
+                ui::trackDialog (w, &p);   // closed with the editor (ui/SharedResources)
                 break;
             }
             case 901: p.copySlot (s); break;

@@ -7,6 +7,7 @@
 #include "ui/rack/RackView.h"
 #include "ui/rack/GearList.h"
 #include "ui/rack/PresetBrowser.h"
+#include "ui/SharedResources.h"
 
 #include "ui/rack/ModUnit.h"
 using EkModUnit = ek::ui::ModUnit;
@@ -121,6 +122,7 @@ private:
     bool libraryShown() const noexcept { return processor.showGear; }
     void mouseDown (const juce::MouseEvent&) override;
 
+    ek::ui::UiResourceHolder uiResources;   // fonts / image caches, released with the last editor (keep first)
     EffectorKillaAudioProcessor& processor;
     juce::Component content;
     Frame frame;

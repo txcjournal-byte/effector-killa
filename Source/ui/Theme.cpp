@@ -1,23 +1,16 @@
 #include "Theme.h"
-#include "EKBinaryData.h"
+#include "SharedResources.h"
 
 namespace ek::theme
 {
 using namespace juce;
 
 // Licensed fonts are embedded when present in Resources/Fonts (osd.ttf, vfd.ttf, hand.ttf).
-static Typeface::Ptr embedded (const char* resourceName)
-{
-    int size = 0;
-    if (const char* data = EKData::getNamedResource (resourceName, size))
-        return Typeface::createSystemTypefaceFor (data, (size_t) size);
-    return nullptr;
-}
-
-static Typeface::Ptr osdFace()  { static auto t = embedded ("osd_ttf");  return t; }
-static Typeface::Ptr vfdFace()  { static auto t = embedded ("vfd_ttf");  return t; }
-static Typeface::Ptr handFace() { static auto t = embedded ("hand_ttf"); return t; }
-static Typeface::Ptr displayFace() { static auto t = embedded ("display_ttf"); return t; }
+// Cached in the shared UI resources, never in statics (see ui/SharedResources.h).
+static Typeface::Ptr osdFace()  { return ek::ui::embeddedTypeface ("osd_ttf"); }
+static Typeface::Ptr vfdFace()  { return ek::ui::embeddedTypeface ("vfd_ttf"); }
+static Typeface::Ptr handFace() { return ek::ui::embeddedTypeface ("hand_ttf"); }
+static Typeface::Ptr displayFace() { return ek::ui::embeddedTypeface ("display_ttf"); }
 
 Font osdFont (float h)
 {

@@ -1,15 +1,14 @@
 #include "Brand.h"
 #include "Theme.h"
-#include "EKBinaryData.h"
+#include "SharedResources.h"
 
 namespace ek::ui::brand
 {
 using namespace juce;
 
-const Image& logo()
+Image logo()
 {
-    static const Image img = ImageCache::getFromMemory (EKData::trapwin_logo_png, EKData::trapwin_logo_pngSize);
-    return img;
+    return ek::ui::logoImage();   // cached in the shared UI resources (no static: see SharedResources.h)
 }
 
 void paintLogoBlock (Graphics& g, Rectangle<float> r, bool tagline)

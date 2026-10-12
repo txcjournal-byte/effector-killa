@@ -163,6 +163,8 @@ EffectorKillaAudioProcessorEditor::~EffectorKillaAudioProcessorEditor()
 {
     stopTimer();
     processor.removeChangeListener (this);
+    removeMouseListener (this);
+    ek::ui::closeEditorOverlays (&processor);   // open menus + dialogs (ui/SharedResources)
 }
 
 void EffectorKillaAudioProcessorEditor::paint (juce::Graphics& g)
@@ -338,6 +340,7 @@ void EffectorKillaAudioProcessorEditor::showSaveDialog()
         const bool ok = safe->processor.saveUserPreset (name);
         safe->toolbar.showMessage (ok ? "SAVED" : "SAVE FAILED");
     }), true);
+    ek::ui::trackDialog (w, &processor);   // closed with the editor
 }
 
 void EffectorKillaAudioProcessorEditor::showSettingsMenu()
@@ -389,10 +392,15 @@ void EffectorKillaAudioProcessorEditor::showInfoMenu()
     {
         if (safe == nullptr) return;
         if (r == 1)
-            juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon, "TrapWin Effector",
+        {
+            auto* w = new juce::AlertWindow ("TrapWin Effector",
                 "Version " + juce::String (JucePlugin_VersionString) + "\nEvery effect. One win.\n\n"
                 "15 effects in one chain, KILL, macros, MOD, A / B and level-matched compare.\n"
-                "(c) TrapWin - trapwin.com", "OK", safe.getComponent());
+                "(c) TrapWin - trapwin.com", juce::MessageBoxIconType::NoIcon, safe.getComponent());
+            w->addButton ("OK", 0, juce::KeyPress (juce::KeyPress::returnKey));
+            w->enterModalState (true, nullptr, true);
+            ek::ui::trackDialog (w, &safe->processor);   // closed with the editor
+        }
         else if (r == 2)
             juce::URL ("https://trapwin.com").launchInDefaultBrowser();
     });

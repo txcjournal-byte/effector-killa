@@ -126,6 +126,26 @@ juce::AudioProcessorValueTreeState::ParameterLayout EffectorKillaAudioProcessor:
 }
 
 // ============================================================================
+ek::FactoryLibrary::FactoryLibrary()
+{
+    bank.loadFactory (juce::String::fromUTF8 (EKData::factory_json, EKData::factory_jsonSize));
+    bank.loadTapes (juce::String::fromUTF8 (EKData::tapes_json, EKData::tapes_jsonSize));
+}
+
+std::optional<float> ek::FactoryLibrary::findTrim (int key) const
+{
+    const juce::ScopedLock sl (lock);
+    if (auto it = trims.find (key); it != trims.end()) return it->second;
+    return std::nullopt;
+}
+
+void ek::FactoryLibrary::storeTrim (int key, float trimDb)
+{
+    const juce::ScopedLock sl (lock);
+    trims[key] = trimDb;
+}
+
+// ============================================================================
 EffectorKillaAudioProcessor::EffectorKillaAudioProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
@@ -156,12 +176,21 @@ EffectorKillaAudioProcessor::EffectorKillaAudioProcessor()
     pTempoMode = apvts.getRawParameterValue (ParamIDs::tempoMode);
     pTempoBpm = apvts.getRawParameterValue (ParamIDs::tempoBpm);
 
-    bank.loadFactory (juce::String::fromUTF8 (EKData::factory_json, EKData::factory_jsonSize));
-    bank.loadTapes (juce::String::fromUTF8 (EKData::tapes_json, EKData::tapes_jsonSize));
+    // Load time: the factory JSON is parsed once per process (shared FactoryLibrary), and the start
+    // preset's loudness trim (an offline render of the chain) is NOT estimated here - a host restoring a
+    // project replaces the program right away anyway. The first timer tick fills it in (smoothed).
+    bank.copyFactoryFrom (factoryLibrary->getBank());
 
     // start on CH 10 DRIFT – "Night Drive"
-    if (bank.getFactory (9, 2) != nullptr) loadFactory (9, 2, false);
-    else if (bank.getFactory (0, 0) != nullptr) loadFactory (0, 0, false);
+    const std::pair<int, int> start = bank.getFactory (9, 2) != nullptr ? std::pair<int, int> { 9, 2 } : std::pair<int, int> { 0, 0 };
+    if (auto* p = bank.getFactory (start.first, start.second))
+    {
+        auto copy = *p;
+        const auto known = factoryLibrary->findTrim (start.first * 100 + start.second);
+        copy.trimDb = p->source == Source::Bus ? 0.0f : known.value_or (0.0f);
+        applyProgram (copy, false);
+        if (p->source != Source::Bus && ! known.has_value()) pendingInitialTrim = start;
+    }
     sides[0] = captureProgram();
 
     startTimerHz (20);
@@ -170,6 +199,7 @@ EffectorKillaAudioProcessor::EffectorKillaAudioProcessor()
 EffectorKillaAudioProcessor::~EffectorKillaAudioProcessor()
 {
     stopTimer();
+    removeAllChangeListeners();   // (the ChangeBroadcaster base also drops pending messages)
     for (int m = 0; m < kNumMacros; ++m)
         apvts.removeParameterListener (ParamIDs::macro (m), this);
 }
@@ -177,6 +207,9 @@ EffectorKillaAudioProcessor::~EffectorKillaAudioProcessor()
 // ============================================================================
 void EffectorKillaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    // Plugin wrappers run processBlock under the callback lock; holding it here makes a (re-)prepare
+    // from another thread while audio is still running safe (the rack rebuilds its chains).
+    const juce::ScopedLock sl (getCallbackLock());
     currentSampleRate = sampleRate;
     engine.prepare (sampleRate, samplesPerBlock, oversampling);
     pushExtrasToEngine();
@@ -291,6 +324,7 @@ ProgramState EffectorKillaAudioProcessor::captureProgram() const
 
 void EffectorKillaAudioProcessor::applyProgram (const ProgramState& p, bool undoable)
 {
+    pendingInitialTrim.reset();   // a new program replaces the start preset
     if (undoable) pushUndo();
     applying = true;
     meta = p;
@@ -382,9 +416,9 @@ float EffectorKillaAudioProcessor::factoryTrimDb (int channel, int index)
     const auto* p = bank.getFactory (channel, index);
     if (p == nullptr || p->source == Source::Bus) return 0.0f;
     const int key = channel * 100 + index;
-    if (auto it = factoryTrims.find (key); it != factoryTrims.end()) return it->second;
+    if (auto known = factoryLibrary->findTrim (key)) return *known;   // shared by all instances
     const float trim = juce::jlimit (-12.0f, 6.0f, estimateProgramTrimDb (*p, 44100.0));
-    factoryTrims[key] = trim;
+    factoryLibrary->storeTrim (key, trim);
     return trim;
 }
 
@@ -875,7 +909,22 @@ void EffectorKillaAudioProcessor::parameterChanged (const juce::String& id, floa
             lastHostMacroChange[(size_t) m] = juce::jmax ((juce::uint32) 1, juce::Time::getMillisecondCounter());
 }
 
-void EffectorKillaAudioProcessor::timerCallback() { engine.collectGarbage(); }
+void EffectorKillaAudioProcessor::timerCallback()
+{
+    engine.collectGarbage();
+
+    // deferred loudness trim of the start preset (see the constructor)
+    if (auto pending = std::exchange (pendingInitialTrim, std::nullopt))
+    {
+        if (meta.factory && meta.channel == pending->first && meta.index == pending->second && meta.trimDb == 0.0f)
+        {
+            meta.trimDb = factoryTrimDb (pending->first, pending->second);
+            if (sides[0].has_value() && sides[0]->factory && sides[0]->channel == meta.channel && sides[0]->index == meta.index)
+                sides[0]->trimDb = meta.trimDb;
+            pushExtrasToEngine();   // the engine smooths the trim change
+        }
+    }
+}
 
 // ---- MOD SOURCES ---------------------------------------------------------------------------
 void EffectorKillaAudioProcessor::modChanged()
@@ -1091,6 +1140,7 @@ void EffectorKillaAudioProcessor::setStateInformation (const void* data, int siz
     if (xml == nullptr) return;
     auto root = juce::ValueTree::fromXml (*xml);
     if (! root.hasType ("EffectorKilla")) return;
+    pendingInitialTrim.reset();   // restored state carries its own trim
 
     const auto params = root.getChildWithName (apvts.state.getType());
     applying = true;

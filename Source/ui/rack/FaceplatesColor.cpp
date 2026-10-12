@@ -13,6 +13,7 @@
 #include "../Theme.h"
 #include <functional>
 #include <map>
+#include "../SharedResources.h"
 
 namespace ek::faceplate
 {
@@ -985,23 +986,22 @@ void paintLive (Graphics& g, EffectType t, Rectangle<float> p, const State& s, b
 // ---------------------------------------------------------------------------------------------
 // static layer cache (UI thread only), keyed by type / size / pixel scale / miniature
 // ---------------------------------------------------------------------------------------------
-const Image& staticLayer (EffectType t, Rectangle<float> plate, float scale, bool mini)
+Image staticLayer (EffectType t, Rectangle<float> plate, float scale, bool mini)
 {
-    static std::map<int64, Image> cache;
+    // cached in the shared UI resources (released with the last editor), never in a static
     const int w = roundToInt (plate.getWidth()), h = roundToInt (plate.getHeight());
     const int sc = roundToInt (scale * 100.0f);
     const int64 key = ((int64) t << 48) ^ ((int64) w << 32) ^ ((int64) h << 16) ^ ((int64) sc << 1) ^ (mini ? 1 : 0);
-    auto it = cache.find (key);
-    if (it != cache.end()) return it->second;
-    if (cache.size() > 96) cache.clear();
-
-    Image img (Image::ARGB, jmax (1, roundToInt ((float) w * scale)), jmax (1, roundToInt ((float) h * scale)), true);
+    return ui::cachedImage ("faceplates.color", key, 96, [&]
     {
-        Graphics ig (img);
-        ig.addTransform (AffineTransform::scale (scale));
-        paintStatic (ig, t, { 0.0f, 0.0f, (float) w, (float) h }, mini);
-    }
-    return cache.emplace (key, std::move (img)).first->second;
+        Image img (Image::ARGB, jmax (1, roundToInt ((float) w * scale)), jmax (1, roundToInt ((float) h * scale)), true);
+        {
+            Graphics ig (img);
+            ig.addTransform (AffineTransform::scale (scale));
+            paintStatic (ig, t, { 0.0f, 0.0f, (float) w, (float) h }, mini);
+        }
+        return img;
+    });
 }
 } // namespace
 

@@ -105,7 +105,8 @@ if(EK_BUILD_TESTS)
         Source/ui/rack/SpectrumOverlay.cpp)   # SPECTRAL VIEW analyzer (UI side, tested)
     target_include_directories(EffectorKillaTests PRIVATE Source Tests)
     target_compile_definitions(EffectorKillaTests PRIVATE
-        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 EK_TESTS=1)
+        JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 EK_TESTS=1
+        JUCE_MODAL_LOOPS_PERMITTED=1)   # lifecycle tests pump the message loop
     target_link_libraries(EffectorKillaTests PRIVATE
         EffectorKillaData
         juce::juce_audio_basics
@@ -129,4 +130,15 @@ if(EK_BUILD_TOOLS)
     target_link_libraries(EffectorKillaSnapshot PRIVATE EffectorKillaData juce::juce_audio_processors juce::juce_gui_extra juce::juce_dsp
         juce::juce_recommended_config_flags)
 
+    # Lifecycle test with the real editor (Tests/LifecycleTests.cpp, EK_LIFECYCLE_GUI):
+    # create / destroy processor + editor, open menus / dialogs at teardown, timings.
+    # Headless: xvfb-run -a ./EffectorKillaLifecycle
+    juce_add_console_app(EffectorKillaLifecycle PRODUCT_NAME "EffectorKillaLifecycle")
+    target_sources(EffectorKillaLifecycle PRIVATE Tests/Main.cpp Tests/LifecycleTests.cpp
+        Source/PluginProcessor.cpp Source/PluginEditor.cpp ${EK_ENGINE_SOURCES} ${EK_UI_SOURCES})
+    target_include_directories(EffectorKillaLifecycle PRIVATE Source Tests)
+    target_compile_definitions(EffectorKillaLifecycle PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0
+        EK_LIFECYCLE_GUI=1 JUCE_MODAL_LOOPS_PERMITTED=1)
+    target_link_libraries(EffectorKillaLifecycle PRIVATE EffectorKillaData juce::juce_audio_processors juce::juce_gui_extra
+        juce::juce_dsp juce::juce_recommended_config_flags)
 endif()

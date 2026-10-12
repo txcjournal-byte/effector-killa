@@ -378,6 +378,13 @@ bool ProgramState::sameSound (const ProgramState& o) const
 // ============================================================================
 PresetBank::PresetBank() { loadFavourites(); }
 
+void PresetBank::copyFactoryFrom (const PresetBank& other)
+{
+    channels = other.channels;
+    tapes = other.tapes;
+    presets = other.presets;
+}
+
 void PresetBank::loadTapes (const juce::String& json)
 {
     for (auto& t : tapes) t.clear();

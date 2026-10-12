@@ -29,6 +29,22 @@ struct HostInfo
 {
     std::array<std::atomic<int>, ek::kNumSlots> type {};
 };
+// Factory presets + cassette programmes parsed ONCE per process and the loudness trims of the factory
+// presets (an offline render each), shared by every plugin instance through a juce::SharedResourcePointer:
+// created with the first processor, released with the last one (no statics holding JUCE objects).
+class FactoryLibrary
+{
+public:
+    FactoryLibrary();
+    const PresetBank& getBank() const noexcept { return bank; }
+    std::optional<float> findTrim (int key) const;
+    void storeTrim (int key, float trimDb);
+
+private:
+    PresetBank bank;
+    mutable juce::CriticalSection lock;   // instances may be created on different threads
+    std::map<int, float> trims;
+};
 } // namespace ek
 
 class EffectorKillaAudioProcessor : public juce::AudioProcessor,
@@ -66,6 +82,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     // ---- Effector Killa API (message thread) --------------------------------------------------
+    juce::SharedResourcePointer<ek::FactoryLibrary> factoryLibrary;   // parsed factory data (shared, first member)
     std::shared_ptr<ek::HostInfo> hostInfo = std::make_shared<ek::HostInfo>();
     juce::AudioProcessorValueTreeState apvts;
     ek::Engine engine;
@@ -234,7 +251,7 @@ private:
 
     ek::ProgramState meta;             // non-parameter program data (types, names, maps, mod ...)
     int lastChannel = 0;
-    std::map<int, float> factoryTrims;
+    std::optional<std::pair<int, int>> pendingInitialTrim;   // start preset: trim estimated on the first timer tick
     int screening = -1, solo = -1;
     int oversampling = 1;
     double currentSampleRate = 44100.0;

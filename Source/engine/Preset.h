@@ -131,6 +131,7 @@ public:
 
     // factory
     void loadFactory (const juce::String& json);
+    void copyFactoryFrom (const PresetBank& other);   // factory presets + cassette programmes (no re-parse)
     const std::vector<ChannelInfo>& getChannels() const noexcept { return channels; }
     int getNumChannels() const noexcept { return (int) channels.size(); }
     const std::vector<ProgramState>& getChannelPresets (int channel) const;

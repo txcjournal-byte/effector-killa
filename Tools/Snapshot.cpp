@@ -682,6 +682,7 @@ static int renderWiring (const juce::File& outDir)
 int main (int argc, char** argv)
 {
     juce::ScopedJuceInitialiser_GUI init;
+    ek::ui::UiResourceHolder uiResources;   // fonts / image caches for units painted without an editor
     // Special snapshot modes: EffectorKillaSnapshot --<mode> [outDir]
     struct Mode { const char* flag; int (*fn) (const juce::File&); };
     const Mode modes[] = {
