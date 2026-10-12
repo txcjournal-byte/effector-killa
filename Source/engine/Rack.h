@@ -153,6 +153,7 @@ private:
 
     PrepareSpec spec;
     int fixedLatency = 0;
+    bool prepared = false;            // before the first prepare() only lastConfig is kept (no chain is built)
     mutable UnitTaps taps;
     RackConfig lastConfig;
     juce::CriticalSection configLock; // message side only – never taken by the audio thread

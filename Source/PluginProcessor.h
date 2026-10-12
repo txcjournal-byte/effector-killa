@@ -234,7 +234,13 @@ private:
 
     ek::ProgramState meta;             // non-parameter program data (types, names, maps, mod ...)
     int lastChannel = 0;
-    std::map<int, float> factoryTrims;
+    // start-up preset: its loudness trim is computed on first use (prepareToPlay, state / program capture)
+    void loadFactoryDeferred (int channel, int index);
+    void resolvePendingTrim() const;
+    std::optional<float> cachedFactoryTrimDb (int channel, int index) const;
+    ek::ProgramState captureProgramUnresolved() const;
+    int pendingTrimKey = -1;           // channel * 100 + index, -1 = none
+    bool pendingTrimSide0 = false;
     int screening = -1, solo = -1;
     int oversampling = 1;
     double currentSampleRate = 44100.0;

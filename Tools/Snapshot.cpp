@@ -5,8 +5,11 @@
 //   EffectorKillaSnapshot --library <outDir>   FX LIBRARY sidebar (library.png)
 //   EffectorKillaSnapshot --ux <outDir>        1x readability shots (ux_browser / ux_library / ux_mod_* / ux_split)
 //   EffectorKillaSnapshot --units <outDir>   (rack units + gear list only, Tools/SnapshotUnits.cpp)
+//   EffectorKillaSnapshot --lifecycle         load / open / close / quit timings and teardown checks (Tools/SnapshotLifecycle.cpp)
+#include <cstring>
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ui/UiResources.h"
 #include "ui/rack/MasterColumn.h"
 #include "ui/rack/PresetBrowser.h"
 
@@ -785,10 +788,20 @@ static int renderWiring (const juce::File& outDir)
     return 0;
 }
 
+int runLifecycle (const juce::File&);   // Tools/SnapshotLifecycle.cpp
+void prepareBareXServer();               // Tools/SnapshotLifecycle.cpp
+
 int main (int argc, char** argv)
 {
+    for (int a = 1; a < argc; ++a)
+        if (std::strcmp (argv[a], "--lifecycle") == 0) prepareBareXServer();   // before JUCE opens the display
     juce::ScopedJuceInitialiser_GUI init;
-    // Special snapshot modes: EffectorKillaSnapshot --<mode> [outDir]
+    // Special snapshot modes (painting without an editor uses the shared UI caches like the plugin)
+    // --lifecycle checks the release of those resources itself, so it runs without a holder.
+    for (int a = 1; a < argc; ++a)
+        if (juce::String (argv[a]) == "--lifecycle") return runLifecycle (juce::File());
+    ek::ui::UiResourceHolder uiResources;
+    // EffectorKillaSnapshot --<mode> [outDir]
     struct Mode { const char* flag; int (*fn) (const juce::File&); };
     const Mode modes[] = {
         { "--shell", renderFrameSnapshots },

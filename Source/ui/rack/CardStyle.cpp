@@ -1,5 +1,5 @@
 #include "CardStyle.h"
-#include "EKBinaryData.h"
+#include "../UiResources.h"
 
 namespace ek::card
 {
@@ -7,16 +7,10 @@ using namespace juce;
 
 namespace
 {
-Typeface::Ptr embedded (const char* resourceName)
-{
-    int size = 0;
-    if (const char* data = EKData::getNamedResource (resourceName, size))
-        return Typeface::createSystemTypefaceFor (data, (size_t) size);
-    return nullptr;
-}
-Typeface::Ptr archivo()  { static auto t = embedded ("display_ttf"); return t; }   // Archivo Black
-Typeface::Ptr plexMed()  { static auto t = embedded ("vfd_ttf");     return t; }   // IBM Plex Mono Medium
-Typeface::Ptr plexBold() { static auto t = embedded ("osd_ttf");     return t; }   // IBM Plex Mono Bold
+// shared typefaces (ui::UiResources: created with the first editor, freed with the last one)
+Typeface::Ptr archivo()  { return ek::ui::UiResources::getTypeface ("display_ttf"); }   // Archivo Black
+Typeface::Ptr plexMed()  { return ek::ui::UiResources::getTypeface ("vfd_ttf"); }       // IBM Plex Mono Medium
+Typeface::Ptr plexBold() { return ek::ui::UiResources::getTypeface ("osd_ttf"); }       // IBM Plex Mono Bold
 
 constexpr float pi = MathConstants<float>::pi;
 }

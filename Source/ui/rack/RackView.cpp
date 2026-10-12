@@ -1,4 +1,5 @@
 #include "RackView.h"
+#include "../Prompt.h"
 #include "GearList.h"
 #include "CardStyle.h"
 
@@ -273,9 +274,10 @@ UnitComponent::UnitComponent (EffectorKillaAudioProcessor& p, RackView& o, int s
     removeBtn.onClick = [this]
     {
         if (proc.getSlotMeta (slot).writeProtect) return;
-        auto& p = proc;
+        // the card is rebuilt afterwards; a no-op when the window closed in between
+        SafePointer<UnitComponent> self (this);
         const int s = slot;
-        MessageManager::callAsync ([&p, s] { p.removeEffect (s); });   // the card is rebuilt afterwards
+        MessageManager::callAsync ([self, s] { if (self != nullptr) self->proc.removeEffect (s); });
     };
     removeBtn.setTooltip ("Remove this effect from the chain");
 
@@ -675,32 +677,28 @@ void UnitComponent::showUnitMenu (Component* target)
     m.addSeparator();
     m.addItem (7, "Remove", ! locked);
 
-    auto& p = proc;
+    // the result may arrive after the window closed: only act while this card (and so the editor and
+    // the processor) still exists
+    SafePointer<UnitComponent> self (this);
     const int s = slot;
     const auto t = type;
     auto opts = PopupMenu::Options();
     opts = target != nullptr ? opts.withTargetComponent (target) : opts.withTargetComponent (this).withMousePosition();
-    m.showMenuAsync (opts, [&p, s, t, matching] (int r)
+    m.showMenuAsync (opts, [self, s, t, matching] (int r)
     {
-        if (r <= 0) return;
+        if (r <= 0 || self == nullptr) return;
+        auto& p = self->proc;   // `self` may be rebuilt (deleted) by the calls below: use `p` only
         if (r >= 3000) { p.loadSlotPreset (s, matching[(size_t) (r - 3000)]); return; }
         if (r >= 1000) { p.playTape (s, t, r - 1000); return; }
         if (r >= 100 && r < 900) { const auto nt = (EffectType) (r - 100); if (nt != t) p.playTape (s, nt, 0); return; }
         switch (r)
         {
             case 900:
-            {
-                auto* w = new AlertWindow ("SAVE UNIT PRESET", effectInfo (t).name + " preset name:", MessageBoxIconType::NoIcon);
-                w->addTextEditor ("name", "My " + effectInfo (t).name);
-                w->addButton ("SAVE", 1, KeyPress (KeyPress::returnKey));
-                w->addButton ("CANCEL", 0, KeyPress (KeyPress::escapeKey));
-                w->enterModalState (true, ModalCallbackFunction::create ([&p, s, w] (int res)
-                {
-                    const auto name = w->getTextEditorContents ("name").trim();
-                    if (res == 1 && name.isNotEmpty()) p.saveSlotPreset (s, name);
-                }), true);
+                // owned by the editor: closed with it, onSave only runs while it (and the processor) exists
+                if (auto* owner = self->findParentComponentOfClass<PromptOwner>())
+                    owner->showNamePrompt ("SAVE UNIT PRESET", effectInfo (t).name + " preset name:", "My " + effectInfo (t).name,
+                                           [&p, s] (const String& name) { p.saveSlotPreset (s, name); });
                 break;
-            }
             case 901: p.copySlot (s); break;
             case 902: p.pasteSlot (s); break;
             case 1: p.pushUndo(); p.setSlotType (s, t); break;

@@ -1,20 +1,19 @@
 #include "Brand.h"
 #include "Theme.h"
-#include "EKBinaryData.h"
+#include "UiResources.h"
 
 namespace ek::ui::brand
 {
 using namespace juce;
 
-const Image& logo()
+Image logo()
 {
-    static const Image img = ImageCache::getFromMemory (EKData::trapwin_logo_png, EKData::trapwin_logo_pngSize);
-    return img;
+    return ek::ui::UiResources::getLogo();   // shared, freed with the last editor
 }
 
 void paintLogoBlock (Graphics& g, Rectangle<float> r, bool tagline)
 {
-    const auto& img = logo();
+    const auto img = logo();
     const float aspect = img.isValid() ? (float) img.getWidth() / (float) img.getHeight() : 2.74f;
 
     // never redraw the logo as text - always the official artwork

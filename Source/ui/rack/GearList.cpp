@@ -1,4 +1,5 @@
 #include "GearList.h"
+#include "../UiResources.h"
 #include "CardStyle.h"
 #include <map>
 #include <tuple>
@@ -53,35 +54,26 @@ String categoryName (EffectType t)
     return names[jlimit (0, 10, (int) effectInfo (t).category)];
 }
 
-namespace
-{
-struct MiniatureCache : public DeletedAtShutdown
-{
-    ~MiniatureCache() override { clearSingletonInstance(); }
-    std::map<std::tuple<int, int, int>, Image> images;
-    JUCE_DECLARE_SINGLETON_INLINE (MiniatureCache, true)
-};
-} // namespace
-
 Image miniature (EffectType t, int w, int h)
 {
-    auto* mc = MiniatureCache::getInstance();
-    if (mc == nullptr) return {};
-    auto& cache = mc->images;
-    const auto key = std::make_tuple ((int) t, w, h);
-    if (auto it = cache.find (key); it != cache.end()) return it->second;
-
-    faceplate::State st;
-    const auto& info = effectInfo (t);
-    for (int i = 0; i < kNumParams; ++i) st.params[(size_t) i] = info.params[(size_t) i].defaultNorm();
-    Image img (Image::ARGB, w * 2, h * 2, true);
+    const auto render = [&]
     {
+        faceplate::State st;
+        const auto& info = effectInfo (t);
+        for (int i = 0; i < kNumParams; ++i) st.params[(size_t) i] = info.params[(size_t) i].defaultNorm();
+        Image img (Image::ARGB, w * 2, h * 2, true);
         Graphics g (img);
         g.addTransform (AffineTransform::scale (2.0f));
         faceplate::paintFaceplate (g, t, Rectangle<float> (0.0f, 0.0f, (float) w, (float) h), st, true);
-    }
-    cache[key] = img;
-    return img;
+        return img;
+    };
+    // cached in the shared ui::UiResources (freed with the last editor); none alive = uncached
+    auto* res = ek::ui::UiResources::current();
+    if (res == nullptr) return render();
+    auto& cache = res->miniatures;
+    const auto key = std::make_tuple ((int) t, w, h);
+    if (auto it = cache.find (key); it != cache.end()) return it->second;
+    return cache.emplace (key, render()).first->second;
 }
 } // namespace gear
 

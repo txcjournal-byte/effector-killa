@@ -7,7 +7,7 @@
 
 namespace ek::ui::brand
 {
-const juce::Image& logo();
+juce::Image logo();   // ui::UiResources (no static Image: it would outlive JUCE at library unload)
 
 // Logo on top, chrome product name ("EFFECTOR") under it, optional tagline.
 void paintLogoBlock (juce::Graphics& g, juce::Rectangle<float> r, bool tagline);

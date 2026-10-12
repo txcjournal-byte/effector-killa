@@ -15,6 +15,7 @@ void Engine::prepare (double sr, int maxBlock, int osFactorLog2)
 {
     juce::ignoreUnused (maxBlock);
     sampleRate = sr;
+    prepared = true;
     rack.prepare (sr, osFactorLog2);
     modulation.prepare (sr);
     modSources.prepare (sr);
@@ -60,7 +61,7 @@ void Engine::process (juce::AudioBuffer<float>& buffer, const EngineInput& in, c
 {
     const int numCh = buffer.getNumChannels();
     const int total = buffer.getNumSamples();
-    if (numCh == 0 || total == 0) return;
+    if (numCh == 0 || total == 0 || ! prepared) return;   // a host that processes before prepareToPlay: dry
 
     float* L = buffer.getWritePointer (0);
     float* R = numCh > 1 ? buffer.getWritePointer (1) : nullptr;

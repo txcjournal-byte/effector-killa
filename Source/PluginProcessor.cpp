@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "EKBinaryData.h"
 #include <numeric>
+#include <mutex>
 #if ! EK_TESTS
  #include "PluginEditor.h"
 #endif
@@ -22,6 +23,20 @@ juce::String macro (int m)
 
 namespace
 {
+// Process-wide cache of the factory preset loudness trims (an offline render each, ~20 ms). The result
+// only depends on the preset, so every instance in the process shares it. Plain data only (no JUCE
+// objects), so it is safe to destroy at library unload.
+struct FactoryTrimCache
+{
+    std::mutex lock;
+    std::map<int, float> trims;
+};
+FactoryTrimCache& factoryTrimCache()
+{
+    static FactoryTrimCache c;
+    return c;
+}
+
 // Slot parameters keep fixed IDs (automation never jumps to another parameter), but their
 // names and value texts follow the loaded effect: "S1: Cassette Plug: Drive" = "4.2 dB".
 juce::String slotPrefix (const ek::HostInfo* info, int slot)
@@ -159,10 +174,12 @@ EffectorKillaAudioProcessor::EffectorKillaAudioProcessor()
     bank.loadFactory (juce::String::fromUTF8 (EKData::factory_json, EKData::factory_jsonSize));
     bank.loadTapes (juce::String::fromUTF8 (EKData::tapes_json, EKData::tapes_jsonSize));
 
-    // start on CH 10 DRIFT – "Night Drive"
-    if (bank.getFactory (9, 2) != nullptr) loadFactory (9, 2, false);
-    else if (bank.getFactory (0, 0) != nullptr) loadFactory (0, 0, false);
-    sides[0] = captureProgram();
+    // start on CH 10 DRIFT – "Night Drive". Its loudness trim (an offline render) is resolved lazily:
+    // a project load replaces this program right away, so the ctor stays fast (resolvePendingTrim()).
+    if (bank.getFactory (9, 2) != nullptr) loadFactoryDeferred (9, 2);
+    else if (bank.getFactory (0, 0) != nullptr) loadFactoryDeferred (0, 0);
+    sides[0] = captureProgramUnresolved();
+    pendingTrimSide0 = pendingTrimKey >= 0;
 
     startTimerHz (20);
 }
@@ -177,6 +194,7 @@ EffectorKillaAudioProcessor::~EffectorKillaAudioProcessor()
 // ============================================================================
 void EffectorKillaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    resolvePendingTrim();   // the start-up preset's trim before any audio
     currentSampleRate = sampleRate;
     engine.prepare (sampleRate, samplesPerBlock, oversampling);
     pushExtrasToEngine();
@@ -277,6 +295,12 @@ void EffectorKillaAudioProcessor::setParamNorm (const juce::String& id, float v)
 
 ProgramState EffectorKillaAudioProcessor::captureProgram() const
 {
+    resolvePendingTrim();
+    return captureProgramUnresolved();
+}
+
+ProgramState EffectorKillaAudioProcessor::captureProgramUnresolved() const
+{
     ProgramState p = meta;
     for (int s = 0; s < kNumSlots; ++s)
     {
@@ -292,6 +316,8 @@ ProgramState EffectorKillaAudioProcessor::captureProgram() const
 void EffectorKillaAudioProcessor::applyProgram (const ProgramState& p, bool undoable)
 {
     if (undoable) pushUndo();
+    pendingTrimKey = -1;    // the program is replaced: a deferred trim is no longer needed
+    pendingTrimSide0 = false;
     applying = true;
     meta = p;
     for (int s = 0; s < kNumSlots; ++s)
@@ -352,6 +378,7 @@ void EffectorKillaAudioProcessor::pushSplitParams()
 
 void EffectorKillaAudioProcessor::pushExtrasToEngine()
 {
+    resolvePendingTrim();
     ProgramExtras e;
     e.source = meta.source;
     e.trimDb = meta.trimDb;
@@ -375,16 +402,53 @@ void EffectorKillaAudioProcessor::loadFactory (int channel, int index, bool undo
     }
 }
 
+void EffectorKillaAudioProcessor::loadFactoryDeferred (int channel, int index)
+{
+    const auto* p = bank.getFactory (channel, index);
+    if (p == nullptr) return;
+    auto copy = *p;
+    const auto cached = cachedFactoryTrimDb (channel, index);
+    copy.trimDb = cached.value_or (0.0f);
+    applyProgram (copy, false);
+    if (! cached.has_value()) pendingTrimKey = channel * 100 + index;
+}
+
+void EffectorKillaAudioProcessor::resolvePendingTrim() const
+{
+    if (pendingTrimKey < 0) return;
+    // message thread only; `meta` / `sides` are the processor's own (non-const) members
+    auto& self = const_cast<EffectorKillaAudioProcessor&> (*this);
+    const int key = pendingTrimKey;
+    self.pendingTrimKey = -1;
+    const float trim = self.factoryTrimDb (key / 100, key % 100);
+    self.meta.trimDb = trim;
+    if (pendingTrimSide0 && self.sides[0].has_value()) self.sides[0]->trimDb = trim;
+    self.pendingTrimSide0 = false;
+    self.pushExtrasToEngine();
+}
+
+std::optional<float> EffectorKillaAudioProcessor::cachedFactoryTrimDb (int channel, int index) const
+{
+    const auto* p = bank.getFactory (channel, index);
+    if (p == nullptr || p->source == Source::Bus) return 0.0f;
+    auto& cache = factoryTrimCache();
+    const std::lock_guard<std::mutex> sl (cache.lock);
+    if (auto it = cache.trims.find (channel * 100 + index); it != cache.trims.end()) return it->second;
+    return std::nullopt;
+}
+
 float EffectorKillaAudioProcessor::factoryTrimDb (int channel, int index)
 {
     // Factory presets are loudness matched to the input (like KILL) so switching presets compares sound,
     // not level. BUS / master presets keep their designed loudness (making things loud is their job).
+    // The estimate only depends on the (read-only) factory preset: computed once per process.
+    if (auto cached = cachedFactoryTrimDb (channel, index)) return *cached;
     const auto* p = bank.getFactory (channel, index);
-    if (p == nullptr || p->source == Source::Bus) return 0.0f;
-    const int key = channel * 100 + index;
-    if (auto it = factoryTrims.find (key); it != factoryTrims.end()) return it->second;
+    if (p == nullptr) return 0.0f;
     const float trim = juce::jlimit (-12.0f, 6.0f, estimateProgramTrimDb (*p, 44100.0));
-    factoryTrims[key] = trim;
+    auto& cache = factoryTrimCache();
+    const std::lock_guard<std::mutex> sl (cache.lock);
+    cache.trims[channel * 100 + index] = trim;
     return trim;
 }
 
@@ -1097,6 +1161,8 @@ void EffectorKillaAudioProcessor::setStateInformation (const void* data, int siz
     if (params.isValid()) apvts.replaceState (params);
     applying = false;
 
+    pendingTrimKey = -1;    // the project's program replaces the start-up preset (its trim is never rendered)
+    pendingTrimSide0 = false;
     meta = ProgramState::fromJson (root.getProperty ("program").toString());
     sides[0] = ProgramState::fromJson (root.getProperty ("sideA").toString());
     sides[1] = ProgramState::fromJson (root.getProperty ("sideB").toString());

@@ -234,9 +234,23 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
 
 EffectorKillaAudioProcessorEditor::~EffectorKillaAudioProcessorEditor()
 {
+    // The host may close the window and unload the library without running its message loop again
+    // (FL Studio on exit). Stop and detach everything first, then close every window that lives
+    // outside this component tree, so nothing of the plugin is left on the desktop or in the queue.
     stopTimer();
-    removeMouseListener (this);
     processor.removeChangeListener (this);
+    removeMouseListener (this);
+
+    // popup menus are top-level windows (some are not attached to a component); their callbacks
+    // hold SafePointers and become no-ops
+    juce::PopupMenu::dismissAllActiveMenus();
+    prompt.reset();      // a modal prompt: cancelled, its callback sees the editor gone
+    aboutBox.close();
+    tooltips.hideTip();
+
+    // a text field with the keyboard focus would run its focus-lost callbacks during member destruction
+    if (auto* focused = juce::Component::getCurrentlyFocusedComponent(); focused != nullptr && isParentOf (focused))
+        focused->giveAwayKeyboardFocus();
 }
 
 void EffectorKillaAudioProcessorEditor::paint (juce::Graphics& g)
@@ -478,21 +492,41 @@ bool EffectorKillaAudioProcessorEditor::keyPressed (const juce::KeyPress& k)
 
 void EffectorKillaAudioProcessorEditor::showSaveDialog()
 {
-    auto* w = new juce::AlertWindow ("SAVE PRESET", "Preset name:", juce::MessageBoxIconType::NoIcon);
-    w->addTextEditor ("name", processor.getMeta().factory ? processor.getMeta().name + " (mine)" : processor.getMeta().name);
-    w->addButton ("SAVE", 1, juce::KeyPress (juce::KeyPress::returnKey));
-    w->addButton ("CANCEL", 0, juce::KeyPress (juce::KeyPress::escapeKey));
     juce::Component::SafePointer<EffectorKillaAudioProcessorEditor> safe (this);
-    w->enterModalState (true, juce::ModalCallbackFunction::create ([safe, w] (int res)
+    showNamePrompt ("SAVE PRESET", "Preset name:",
+                    processor.getMeta().factory ? processor.getMeta().name + " (mine)" : processor.getMeta().name,
+                    [safe] (const juce::String& name)
+                    {
+                        if (safe == nullptr) return;
+                        const bool ok = safe->processor.saveUserPreset (name);
+                        safe->toolbar.showMessage (ok ? "SAVED" : "SAVE FAILED");
+                    });
+}
+
+void EffectorKillaAudioProcessorEditor::showNamePrompt (const juce::String& title, const juce::String& message,
+                                                        const juce::String& initialName,
+                                                        std::function<void (const juce::String&)> onSave)
+{
+    // one prompt at a time; owned by the editor (not deleteWhenDismissed), so closing the window closes it
+    prompt = std::make_unique<juce::AlertWindow> (title, message, juce::MessageBoxIconType::NoIcon);
+    prompt->addTextEditor ("name", initialName);
+    prompt->addButton ("SAVE", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    prompt->addButton ("CANCEL", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    juce::Component::SafePointer<EffectorKillaAudioProcessorEditor> safe (this);
+    juce::Component::SafePointer<juce::AlertWindow> window (prompt.get());
+    prompt->enterModalState (true, juce::ModalCallbackFunction::create ([safe, window, onSave] (int res)
     {
         // the dialog is gone: nothing in the plugin keeps the keyboard
         juce::Component::unfocusAllComponents();
-        if (res != 1 || safe == nullptr) return;
-        const auto name = w->getTextEditorContents ("name").trim();
-        if (name.isEmpty()) return;
-        const bool ok = safe->processor.saveUserPreset (name);
-        safe->toolbar.showMessage (ok ? "SAVED" : "SAVE FAILED");
-    }), true);
+        if (safe == nullptr || window == nullptr) return;   // editor closed (the prompt died with it)
+        const auto name = window->getTextEditorContents ("name").trim();
+        // delete the window after this callback returns (it is still referenced by the modal manager)
+        juce::MessageManager::callAsync ([safe, window]
+        {
+            if (safe != nullptr && window != nullptr && safe->prompt.get() == window.getComponent()) safe->prompt.reset();
+        });
+        if (res == 1 && name.isNotEmpty() && onSave) onSave (name);
+    }), false);
 }
 
 void EffectorKillaAudioProcessorEditor::showSettingsMenu()
@@ -544,10 +578,14 @@ void EffectorKillaAudioProcessorEditor::showInfoMenu()
     {
         if (safe == nullptr) return;
         if (r == 1)
-            juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::NoIcon, "TrapWin Effector",
-                "Version " + juce::String (JucePlugin_VersionString) + "\nEvery effect. One win.\n\n"
-                "15 effects in one chain, KILL, macros, MOD, A / B and level-matched compare.\n"
-                "(c) TrapWin - trapwin.com", "OK", safe.getComponent());
+            safe->aboutBox = juce::AlertWindow::showScopedAsync (juce::MessageBoxOptions()
+                .withIconType (juce::MessageBoxIconType::NoIcon)
+                .withTitle ("TrapWin Effector")
+                .withMessage ("Version " + juce::String (JucePlugin_VersionString) + "\nEvery effect. One win.\n\n"
+                              "15 effects in one chain, KILL, macros, MOD, A / B and level-matched compare.\n"
+                              "(c) TrapWin - trapwin.com")
+                .withButton ("OK")
+                .withAssociatedComponent (safe.getComponent()), nullptr);
         else if (r == 2)
             juce::URL ("https://trapwin.com").launchInDefaultBrowser();
     });

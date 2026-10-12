@@ -216,6 +216,7 @@ void Rack::prepare (double sampleRate, int osFactorLog2)
     spec.maxBlock = kMaxChunk;
     fixedLatency = computeFixedLatency (sampleRate, spec.osFactorLog2);
     fadeLen = std::max (1, (int) std::lround (crossfadeMs * 0.001 * sampleRate));
+    prepared = true;
 
     slotTap.prepare (sampleRate);
     current = buildChain (lastConfig);
@@ -229,6 +230,7 @@ void Rack::setOversampling (int osFactorLog2)
     if (osFactorLog2 == spec.osFactorLog2) return;
     spec.osFactorLog2 = osFactorLog2;
     fixedLatency = computeFixedLatency (spec.sampleRate, spec.osFactorLog2);
+    if (! prepared) return;   // prepare() builds the chain
     delete pending.exchange (buildChain (lastConfig));
     collectGarbage();
 }
@@ -250,6 +252,10 @@ void Rack::setConfig (const RackConfig& cfg)
 {
     const juce::ScopedLock sl (configLock);
     lastConfig = cfg;
+    // Not prepared yet (plugin construction, a project load before the first prepareToPlay): keep
+    // the config only - prepare() builds the chain from it. Saves building and discarding chains
+    // for an unknown sample rate (and their latency is not known yet).
+    if (! prepared) return;
     Chain* c = buildChain (cfg);
     delete pending.exchange (c); // an older, never-consumed chain can be deleted right here
     collectGarbage();

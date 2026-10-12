@@ -144,6 +144,7 @@ private:
     LoudnessMeter inMeter, rackMeter, origMeter, finalMeter;
     AutoGain autoGain;
     double sampleRate = 44100.0;
+    bool prepared = false;   // process() before the first prepare() passes the audio through untouched
 
     Smoothed inGain, outGain, blend, trim;
     LinearRamp offAirRamp, pocketRamp;

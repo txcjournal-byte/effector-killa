@@ -9,6 +9,8 @@
 #include "ui/rack/PresetBrowser.h"
 
 #include "ui/rack/ModUnit.h"
+#include "ui/UiResources.h"
+#include "ui/Prompt.h"
 using EkModUnit = ek::ui::ModUnit;
 
 // FEATURE WIRING (keep when restyling the editor):
@@ -33,8 +35,13 @@ using EkModUnit = ek::ui::ModUnit;
 // Everything is laid out in base coordinates and scaled (75 / 100 / 125 / 150 % / Auto / drag the corner).
 // KEYBOARD: the editor never takes the computer keyboard (no shortcuts) - only an active text field
 // does, and it gives the focus back on Enter / Esc / click outside, so DAW transport keys pass through.
+// TEARDOWN (the host may unload the library right after the editor is deleted): nothing of the UI
+// may outlive it - no open popup menu, prompt or message box, no timer, listener or pending callback
+// that reaches a dead object, no JUCE object in a static (shared resources live in ui::UiResources,
+// held by `uiResources`, freed with the last editor). See ~EffectorKillaAudioProcessorEditor().
 class EffectorKillaAudioProcessorEditor : public juce::AudioProcessorEditor,
                                           public juce::DragAndDropContainer,
+                                          public ek::ui::PromptOwner,
                                           private juce::Timer,
                                           private juce::ChangeListener
 {
@@ -83,6 +90,10 @@ public:
     // drag from the library drawer into the chain: the drawer gets out of the way
     void dragOperationStarted (const juce::DragAndDropTarget::SourceDetails&) override;
     void dragOperationEnded (const juce::DragAndDropTarget::SourceDetails&) override;
+
+    // PromptOwner: modal name prompt owned by the editor (closed with it)
+    void showNamePrompt (const juce::String& title, const juce::String& message, const juce::String& initialName,
+                         std::function<void (const juce::String&)> onSave) override;
 
 private:
     // window background: #04060A, deep-blue radial glow, sparse sparkles (cached)
@@ -148,6 +159,9 @@ private:
         void mouseDown (const juce::MouseEvent&) override { if (onClick) onClick(); }
     };
 
+    // first member: destroyed last, after every component that paints with the shared fonts / images
+    ek::ui::UiResourceHolder uiResources;
+
     EffectorKillaAudioProcessor& processor;
     juce::Component content;
     Frame frame;
@@ -162,6 +176,8 @@ private:
     ek::ui::PresetBrowser browser;
     CableOverlay cableOverlay;
     juce::TooltipWindow tooltips { this, 650 };
+    std::unique_ptr<juce::AlertWindow> prompt;   // SAVE PRESET / SAVE UNIT PRESET (owned: closed with the editor)
+    juce::ScopedMessageBox aboutBox;             // About (closed with the editor)
     bool settingSize = false;
     bool libraryOpen = false, draggingFromDrawer = false;
     float drawerPos = 0.0f;              // 0 = closed .. 1 = open (animated)
