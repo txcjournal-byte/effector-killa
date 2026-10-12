@@ -1,7 +1,7 @@
 #pragma once
 
-// HEADER of the window (56 px, Docs/TRAPWIN-STYLE.md): no bar, just pills on the dark background.
-//   [logo] (library)  A B  undo redo   ...   < [ preset pill ] >  save revert fav   ...   cog i [ BYPASS ]
+// HEADER of the window (48 px, Docs/TRAPWIN-STYLE.md): no bar, just 28 px pills on the dark background.
+//   [logo] EFFECTOR (library)  A B  undo redo  ...  < [ preset pill ] >  save revert fav  ...  cog i [ BYPASS ]
 // The official TrapWin logo is painted from Brand.h (never as text). The preset pill (IBM Plex Mono,
 // sparkle = favourite) also shows short status messages ("SAVED") and plays a soft scan sweep when the
 // preset changes; click = preset browser. BYPASS = COMPARE (off_air): click toggles, holding listens
@@ -16,6 +16,7 @@ class PresetLcd : public juce::Component, public juce::SettableTooltipClient
 {
 public:
     explicit PresetLcd (EffectorKillaAudioProcessor& p);
+    static constexpr float nameHeight = 14.5f;   // Plex Mono (JUCE height; ~13 px type)
     std::function<void()> onClick;
     void tick();
     void showMessage (const juce::String& m, int ms = 2200);
@@ -39,7 +40,7 @@ class Toolbar : public juce::Component
 public:
     explicit Toolbar (EffectorKillaAudioProcessor& p);
 
-    static constexpr int height = 56;
+    static constexpr int height = 48;
 
     std::function<void()> onBrowse, onSave, onSettings, onInfo, onToggleLibrary;
     std::function<bool()> isBrowserShown, isLibraryShown;

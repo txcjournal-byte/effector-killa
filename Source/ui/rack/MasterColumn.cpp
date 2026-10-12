@@ -53,7 +53,7 @@ public:
         g.setColour (hw::col::ice.withAlpha (0.025f));
         for (float y = r.getY() + 4.0f; y < r.getBottom() - 3.0f; y += 3.0f) g.drawHorizontalLine ((int) y, r.getX() + 8.0f, r.getRight() - 8.0f);
 
-        auto digits = r.reduced (14.0f, 0.0f);
+        auto digits = r.reduced (12.0f, 0.0f);
         auto side = digits.removeFromRight (40.0f);
         const auto text = bpmText (proc.getEffectiveBpm());
         {
@@ -63,11 +63,14 @@ public:
             g.setGradientFill (halo);
             g.fillRect (r.reduced (2.0f));
         }
-        card::glowText (g, text, digits.translated (0.0f, 1.0f), card::monoFont (36.0f, true), hw::col::ice.interpolatedWith (Colours::white, 0.35f),
+        card::glowText (g, text, digits.translated (0.0f, 1.0f), card::monoFont (32.0f, true), hw::col::ice.interpolatedWith (Colours::white, 0.35f),
                         Justification::centredLeft, 0.7f);
-        hw::drawPrint (g, "BPM", side.withTrimmedTop (side.getHeight() * 0.48f).withTrimmedBottom (8.0f), Justification::bottomRight, 9.5f, hw::col::text2);
-        hw::drawPrint (g, isManualTempo (proc) ? "FREE" : "HOST", side.withHeight (side.getHeight() * 0.5f).withTrimmedTop (9.0f),
-                       Justification::topRight, 8.0f, hw::col::printDim);
+        g.setFont (card::monoFont (hw::type::min, true));
+        g.setColour (hw::col::label);
+        g.drawText ("BPM", side.withTrimmedTop (side.getHeight() * 0.5f).withTrimmedBottom (5.0f), Justification::bottomRight, false);
+        g.setColour (hw::col::label.withAlpha (0.75f));
+        g.drawText (isManualTempo (proc) ? "FREE" : "HOST", side.withHeight (side.getHeight() * 0.5f).withTrimmedTop (5.0f),
+                    Justification::topRight, false);
         card::paintScreenGlass (g, r, 14.0f);
     }
 
@@ -95,7 +98,7 @@ public:
         addAndMakeVisible (*editor);
         editor->setBounds (getLocalBounds().reduced (6));
         editor->setJustification (Justification::centred);
-        editor->setFont (card::monoFont ((float) getHeight() * 0.5f, true));
+        editor->setFont (card::monoFont ((float) getHeight() * 0.55f, true));
         editor->setColour (TextEditor::backgroundColourId, hw::col::screen);
         editor->setColour (TextEditor::textColourId, hw::col::ice);
         editor->setColour (TextEditor::outlineColourId, hw::col::ice.withAlpha (0.6f));
@@ -113,6 +116,8 @@ public:
                 const double v = editor->getText().replace (",", ".").getDoubleValue();
                 if (v >= 40.0 && v <= 300.0) setBpm (v);
             }
+            // hand the keyboard back to the host (DAW transport keys) before the field disappears
+            if (editor->hasKeyboardFocus (true)) Component::unfocusAllComponents();
             MessageManager::callAsync ([self] { if (self != nullptr) self->editor.reset(); });
         };
         editor->onReturnKey = [close] { close (true); };
@@ -147,7 +152,7 @@ public:
     }
     void paint (Graphics& g) override
     {
-        card::dotGlow (g, getLocalBounds().toFloat().getCentre(), 3.2f, hw::col::ice, jmax (0.0f, shown));
+        card::dotGlow (g, getLocalBounds().toFloat().getCentre(), 3.5f, hw::col::ice, jmax (0.0f, shown));
     }
 
 private:
@@ -162,7 +167,7 @@ public:
     explicit LevelKnob (String n) : name (std::move (n))
     {
         addAndMakeVisible (knob);
-        knob.radiusFactor = 0.56f;
+        knob.radiusFactor = 0.72f;   // 40 px component -> ~38 px knob incl. the value arc
         knob.onUserChange = [this] (float) { tick(); };
     }
     hw::HwKnob knob;
@@ -177,18 +182,21 @@ public:
     void resized() override
     {
         auto r = getLocalBounds();
-        r.removeFromTop (14);
-        r.removeFromBottom (16);
-        knob.setBounds (r.withSizeKeepingCentre (r.getHeight(), r.getHeight()));
+        r.removeFromTop (15);
+        r.removeFromBottom (15);
+        const int k = jmin (r.getWidth(), r.getHeight());
+        knob.setBounds (r.withSizeKeepingCentre (k, k));
     }
     void paint (Graphics& g) override
     {
         auto r = getLocalBounds().toFloat();
-        hw::drawPrint (g, name, r.removeFromTop (12.0f), Justification::centred, 8.5f, hw::col::text2);
+        g.setFont (card::monoFont (11.5f, true));
+        g.setColour (hw::col::label);
+        g.drawFittedText (name, r.removeFromTop (14.0f).toNearestInt(), Justification::centred, 1, 0.88f);
         if (shownValue.isEmpty() && valueText) shownValue = valueText();
-        g.setFont (card::monoFont (9.0f));
-        g.setColour (hw::col::print.withAlpha (0.9f));
-        g.drawFittedText (shownValue, r.removeFromBottom (13.0f).toNearestInt(), Justification::centred, 1, 0.7f);
+        g.setFont (card::monoFont (hw::type::label));
+        g.setColour (hw::col::value);
+        g.drawFittedText (shownValue, r.removeFromBottom (15.0f).toNearestInt(), Justification::centred, 1, 0.85f);
     }
 
 private:
@@ -208,7 +216,7 @@ public:
     {
         setMouseCursor (MouseCursor::PointingHandCursor);
         setRepaintsOnMouseActivity (true);
-        setTooltip ("KILL: a new, musical, level-matched chain (space bar). Locked units stay.");
+        setTooltip ("KILL: a new, musical, level-matched chain. Locked units stay.");
     }
     bool hitTest (int x, int y) override { return getLocalBounds().reduced (pad).contains (x, y); }
     void paint (Graphics& g) override
@@ -247,8 +255,8 @@ public:
         g.setColour (Colours::white);
         g.fillPath (p);
         // a sparkle on each side
-        card::paintSparkle (g, { r.getX() + rad + 4.0f, r.getCentreY() }, 5.0f, Colours::white.withAlpha (0.85f));
-        card::paintSparkle (g, { r.getRight() - rad - 4.0f, r.getCentreY() }, 5.0f, Colours::white.withAlpha (0.85f));
+        card::paintSparkle (g, { r.getX() + rad * 0.8f, r.getCentreY() }, 4.0f, Colours::white.withAlpha (0.85f));
+        card::paintSparkle (g, { r.getRight() - rad * 0.8f, r.getCentreY() }, 4.0f, Colours::white.withAlpha (0.85f));
     }
     void mouseDown (const MouseEvent& e) override
     {
@@ -282,7 +290,7 @@ public:
         void paint (Graphics& g) override
         {
             const auto b = getLocalBounds().toFloat();
-            const float r = jmin (b.getWidth(), b.getHeight()) * 0.5f * 0.6f;
+            const float r = jmin (b.getWidth(), b.getHeight()) * 0.5f * 0.72f;
             const bool hot = isMouseOver() || isMouseButtonDown();
             // the macro's own colour glows softly under the disc
             ColourGradient halo (ring.withAlpha (hot ? 0.22f : 0.12f), b.getCentreX(), b.getCentreY(), ring.withAlpha (0.0f),
@@ -334,21 +342,21 @@ public:
     {
         const auto col = pd::macroColour (index);
         auto r = getLocalBounds().toFloat();
-        g.setFont (card::monoFont (8.5f, true));
-        g.setColour (col.interpolatedWith (Colours::white, 0.3f));
-        g.drawFittedText (name, r.removeFromTop (12.0f).toNearestInt(), Justification::centred, 1, 0.7f);
-        card::glowText (g, String (shownPct), valueArea().toFloat(), card::monoFont (10.0f, true), col.interpolatedWith (Colours::white, 0.45f),
+        g.setFont (card::monoFont (hw::type::label, true));
+        g.setColour (col.interpolatedWith (Colours::white, 0.55f));
+        g.drawFittedText (name, r.removeFromTop (15.0f).toNearestInt(), Justification::centred, 1, 0.85f);
+        card::glowText (g, String (shownPct), valueArea().toFloat(), card::monoFont (hw::type::value, true), col.interpolatedWith (Colours::white, 0.7f),
                         Justification::centred, 0.5f);
     }
 
     void resized() override
     {
-        const int k = getHeight() - 12 - 14;
-        knob.setBounds ((getWidth() - k) / 2, 12, k, k);
+        const int k = jmin (getWidth(), getHeight() - 15 - 15);
+        knob.setBounds ((getWidth() - k) / 2, 15, k, k);
     }
 
 private:
-    Rectangle<int> valueArea() const { return { 0, getHeight() - 14, getWidth(), 13 }; }
+    Rectangle<int> valueArea() const { return { 0, getHeight() - 15, getWidth(), 15 }; }
 
     EffectorKillaAudioProcessor& proc;
     int index;
@@ -373,7 +381,7 @@ public:
     }
 
     static float dbToPos (float db) { return jlimit (0.0f, 1.0f, (db - minDb) / (maxDb - minDb)); }
-    Rectangle<float> barArea() const { return { (float) getWidth() * 0.5f - 7.0f, 16.0f, 14.0f, (float) getHeight() - 16.0f - 30.0f }; }
+    Rectangle<float> barArea() const { return { (float) getWidth() * 0.5f - 6.0f, 14.0f, 12.0f, (float) getHeight() - 14.0f - 34.0f }; }
 
     void tick (bool reduceMotion)
     {
@@ -398,7 +406,7 @@ public:
         const auto bar = barArea();
 
         // OVER dot
-        card::dotGlow (g, { bar.getCentreX(), 6.0f }, 3.0f, kRed, drawnOver ? 1.0f : 0.0f);
+        card::dotGlow (g, { bar.getCentreX(), 5.0f }, 3.0f, kRed, drawnOver ? 1.0f : 0.0f);
 
         // track
         g.setColour (hw::col::screen);
@@ -406,7 +414,7 @@ public:
         g.setColour (hw::col::line);
         g.drawRoundedRectangle (bar.expanded (3.0f).reduced (0.5f), 5.5f, 1.0f);
 
-        const float segH = 3.0f, gap = 1.6f;
+        const float segH = 2.4f, gap = 1.4f;
         const int n = (int) ((bar.getHeight() + gap) / (segH + gap));
         const float lit = dbToPos (level), held = dbToPos (hold);
         const int heldSeg = jlimit (0, n - 1, (int) (held * (float) n));
@@ -432,12 +440,15 @@ public:
             }
         }
 
-        auto txt = getLocalBounds().toFloat().removeFromBottom (26.0f);
-        hw::drawPrint (g, name, txt.removeFromTop (12.0f), Justification::centred, 8.5f, hw::col::text2);
-        const String v = hold <= minDb + 0.5f ? String ("-inf") : String (hold, 1);
-        g.setFont (card::monoFont (9.0f, true));
-        g.setColour (drawnOver ? kRed.brighter (0.3f) : hw::col::ice.withAlpha (0.85f));
-        g.drawText (v, txt, Justification::centred, false);
+        auto txt = getLocalBounds().toFloat().removeFromBottom (30.0f);
+        g.setFont (card::monoFont (hw::type::label, true));
+        g.setColour (hw::col::label);
+        g.drawText (name, txt.removeFromTop (15.0f), Justification::centred, false);
+        // whole dB below -10 so the two readouts never touch in the slim column
+        const String v = hold <= minDb + 0.5f ? String ("-inf") : hold <= -9.95f ? String (roundToInt (hold)) : String (hold, 1);
+        g.setFont (card::monoFont (hw::type::label));
+        g.setColour (drawnOver ? kRed.brighter (0.3f) : hw::col::value);
+        g.drawFittedText (v, txt.toNearestInt(), Justification::centred, 1, 0.8f);
     }
 
     static Colour segmentColour (float db)
@@ -471,11 +482,11 @@ MasterColumn::MasterColumn (EffectorKillaAudioProcessor& p)
       bootlegBtn (hw::HwButton::Kind::Text, "BOOTLEG", hw::col::ice),
       phoneBtn (hw::HwButton::Kind::Led, "PHONE CHECK", hw::col::amber),
       autoGainBtn (hw::HwButton::Kind::Led, "AUTO GAIN", hw::col::green),
-      smallBtn (hw::HwButton::Kind::Text, "SMALL", hw::col::ice),
-      fullBtn (hw::HwButton::Kind::Text, "FULL", hw::col::ice),
-      autoBtn (hw::HwButton::Kind::Text, "AUTO", hw::col::ice)
+      sizeBtn (hw::HwButton::Kind::Text, "SIZE", hw::col::ice)
 {
     setOpaque (false);
+    setWantsKeyboardFocus (false);
+    setMouseClickGrabsKeyboardFocus (false);
     lastKillEvents = proc.killEvents.load();
 
     // ---- tempo ------------------------------------------------------------------------------
@@ -491,7 +502,7 @@ MasterColumn::MasterColumn (EffectorKillaAudioProcessor& p)
     };
     addAndMakeVisible (*beat);
     tapBtn.onPress = [this] (bool down) { if (down) { proc.tapTempo(); tapBtn.flash(); } };
-    tapBtn.setTooltip ("TAP: tap the tempo (2 or more taps, T key) - switches to FREE tempo");
+    tapBtn.setTooltip ("TAP: tap the tempo (2 or more taps) - switches to FREE tempo");
     hostBtn.isLit = [this] { return ! isManualTempo (proc); };
     freeBtn.isLit = [this] { return isManualTempo (proc); };
     hostBtn.onClick = [this] { setManualTempo (proc, false); };
@@ -505,8 +516,8 @@ MasterColumn::MasterColumn (EffectorKillaAudioProcessor& p)
     freeBtn.setTooltip ("FREE: own tempo - drag / type the BPM or TAP");
 
     // ---- levels -----------------------------------------------------------------------------
-    auto dbFmt = [] (float v) { return (v > 0.04f ? "+" : "") + String (std::abs (v) < 0.05f ? 0.0f : v, 1) + " dB"; };
-    auto pctFmt = [] (float v) { return String (roundToInt (v * 100.0f)) + " %"; };
+    auto dbFmt = [] (float v) { return (v > 0.04f ? "+" : "") + String (std::abs (v) < 0.05f ? 0.0f : v, 1) + "dB"; };
+    auto pctFmt = [] (float v) { return String (roundToInt (v * 100.0f)) + "%"; };
     struct L { const char* name; String id; bool db; const char* tip; };
     const L ls[] = { { "IN", ParamIDs::inGain, true, "IN: level into the first unit" },
                      { "OUT", ParamIDs::outGain, true, "OUT: level out of the chain" },
@@ -575,28 +586,16 @@ MasterColumn::MasterColumn (EffectorKillaAudioProcessor& p)
     toggle (autoGainBtn, ParamIDs::autoTracking, "AUTO GAIN: keeps the output as loud as the input");
     toggle (phoneBtn, ParamIDs::pocketTv, "PHONE CHECK: hear it like a phone speaker (monitoring only - switch it off before export!)");
     phoneBtn.blinkWhenLit = true;
-    auto sizeIs = [this] (float s) { return [this, s]
-    {
-        const float u = proc.uiScale;
-        return s <= 0.0f ? u <= 0.0f : (u > 0.0f && std::abs (u - s) < 0.01f);
-    }; };
-    smallBtn.isLit = sizeIs (0.8f);
-    fullBtn.isLit = sizeIs (1.0f);
-    autoBtn.isLit = sizeIs (0.0f);
-    smallBtn.onClick = [this] { if (onSetScale) onSetScale (0.8f); };
-    fullBtn.onClick = [this] { if (onSetScale) onSetScale (1.0f); };
-    autoBtn.onClick = [this] { if (onSetScale) onSetScale (0.0f); };
-    smallBtn.setTooltip ("SMALL: window at 80 %");
-    fullBtn.setTooltip ("FULL: window at 100 %");
-    autoBtn.setTooltip ("AUTO: window size fits the screen (or drag the corner)");
+    sizeBtn.onClick = [this] { showSizeMenu(); };
+    sizeBtn.setTooltip ("SIZE: window size 75 / 100 / 125 / 150 % or AUTO (fits the screen). You can also drag the corner.");
 
-    for (auto* b : { &tapBtn, &hostBtn, &freeBtn, &pgBtn, &rBtn, &unratedBtn, &bootlegBtn, &phoneBtn, &autoGainBtn,
-                     &smallBtn, &fullBtn, &autoBtn })
+    for (auto* b : { &tapBtn, &hostBtn, &freeBtn, &pgBtn, &rBtn, &unratedBtn, &bootlegBtn, &phoneBtn, &autoGainBtn, &sizeBtn })
     {
-        b->fontSize = 9.5f;
+        b->fontSize = hw::type::label;
         addAndMakeVisible (b);
     }
-    bootlegBtn.fontSize = 10.0f;
+    phoneBtn.fontSize = autoGainBtn.fontSize = sizeBtn.fontSize = 11.5f;
+    bootlegBtn.fontSize = 11.5f;
 
     setSize (kWidth, kHeight);
     startTimerHz (30);
@@ -630,7 +629,7 @@ void MasterColumn::fireKillFlash()
 
 void MasterColumn::tick()
 {
-    // KILL from anywhere (space bar, other UI) -> flash
+    // KILL from anywhere (other UI, undo of a KILL ...) -> flash
     const int ke = proc.killEvents.load();
     if (ke != lastKillEvents)
     {
@@ -646,9 +645,13 @@ void MasterColumn::tick()
 
     bpm->tick();
     beat->tick();
-    for (auto* b : { &tapBtn, &hostBtn, &freeBtn, &pgBtn, &rBtn, &unratedBtn, &bootlegBtn, &phoneBtn, &autoGainBtn,
-                     &smallBtn, &fullBtn, &autoBtn })
+    for (auto* b : { &tapBtn, &hostBtn, &freeBtn, &pgBtn, &rBtn, &unratedBtn, &bootlegBtn, &phoneBtn, &autoGainBtn })
         b->tick();
+    {
+        const float u = proc.uiScale;
+        const String lbl = u <= 0.0f ? String ("SIZE AUTO") : "SIZE " + String (roundToInt (u * 100.0f)) + "%";
+        sizeBtn.setLabel (lbl);
+    }
     for (auto* l : levels) l->tick();
     // RECYCLE warning arc glows more the higher it is
     auto& rk = levels[2]->knob;
@@ -660,62 +663,79 @@ void MasterColumn::tick()
     meterOut->tick (reduceMotion);
 }
 
+void MasterColumn::showSizeMenu()
+{
+    PopupMenu m;
+    m.addSectionHeader ("WINDOW SIZE");
+    const float u = proc.uiScale;
+    m.addItem (1, "Auto (fits the screen)", true, u <= 0.0f);
+    for (int pct : { 75, 100, 125, 150 })
+        m.addItem (pct, String (pct) + " %", true, u > 0.0f && std::abs (u * 100.0f - (float) pct) < 0.5f);
+    SafePointer<MasterColumn> safe (this);
+    m.showMenuAsync (PopupMenu::Options().withTargetComponent (&sizeBtn), [safe] (int r)
+    {
+        if (safe == nullptr || r <= 0 || ! safe->onSetScale) return;
+        safe->onSetScale (r == 1 ? 0.0f : (float) r / 100.0f);
+    });
+}
+
 void MasterColumn::resized()
 {
-    // TEMPO
+    // TEMPO: BPM screen + TAP / beat / HOST / FREE
     {
         const auto a = tempoArea();
-        bpm->setBounds (a.getX(), a.getY() + 16, a.getWidth(), 58);
-        const int y = a.getY() + 82;
-        tapBtn.setBounds (a.getX(), y, 58, 24);
-        beat->setBounds (a.getX() + 60, y, 16, 24);
-        hostBtn.setBounds (a.getX() + 82, y, 55, 24);
-        freeBtn.setBounds (a.getRight() - 55, y, 55, 24);
+        bpm->setBounds (a.getX(), a.getY() + 17, a.getWidth(), 42);
+        const int y = a.getY() + 65;
+        tapBtn.setBounds (a.getX(), y, 46, 24);
+        beat->setBounds (a.getX() + 50, y, 14, 24);
+        hostBtn.setBounds (a.getX() + 68, y, 52, 24);
+        freeBtn.setBounds (a.getRight() - 52, y, 52, 24);
     }
-    // LEVELS
+    // LEVELS: 4 knobs
     {
         const auto a = levelsArea();
         const int w = a.getWidth() / 4;
-        for (int i = 0; i < levels.size(); ++i) levels[i]->setBounds (a.getX() + i * w, a.getY() + 16, w, 76);
+        for (int i = 0; i < levels.size(); ++i) levels[i]->setBounds (a.getX() + i * w, a.getY() + 16, w, 70);
     }
-    // KILL
+    // KILL: big KILL + BOOTLEG, rating below
     {
         const auto a = killArea();
         const int pad = KillKey::pad;
-        killKey->setBounds (a.getX() - pad, a.getY() + 16 - pad, a.getWidth() + 2 * pad, 44 + 2 * pad);
-        int y = a.getY() + 68;
-        pgBtn.setBounds (a.getX(), y, 46, 22);
-        rBtn.setBounds (a.getX() + 50, y, 46, 22);
-        unratedBtn.setBounds (a.getX() + 100, y, a.getWidth() - 100, 22);
-        y += 26;
-        bootlegBtn.setBounds (a.getX(), y, a.getWidth(), 22);
+        const int bootW = 62;
+        killKey->setBounds (a.getX() - pad, a.getY() + 17 - pad, a.getWidth() - bootW - 4 + 2 * pad, 40 + 2 * pad);
+        bootlegBtn.setBounds (a.getRight() - bootW, a.getY() + 23, bootW, 28);
+        const int y = a.getY() + 64;
+        pgBtn.setBounds (a.getX(), y, 46, 24);
+        rBtn.setBounds (a.getX() + 50, y, 46, 24);
+        unratedBtn.setBounds (a.getX() + 100, y, a.getWidth() - 100, 24);
     }
-    // MACROS: 3 + 2
+    // MACROS: 2 (the long names) + 3
     {
         const auto a = macrosArea();
-        const int w = a.getWidth() / 3, h = 72;
+        const int h = 70;
+        const int w2 = a.getWidth() / 2, w3 = a.getWidth() / 3;
         for (int m = 0; m < macros.size(); ++m)
         {
-            if (m < 3) macros[m]->setBounds (a.getX() + m * w, a.getY() + 16, w, h);
-            else macros[m]->setBounds (a.getX() + w / 2 + (m - 3) * w, a.getY() + 16 + h + 4, w, h);
+            if (m < 2) macros[m]->setBounds (a.getX() + m * w2, a.getY() + 16, w2, h);
+            else macros[m]->setBounds (a.getX() + (m - 2) * w3, a.getY() + 16 + h + 4, w3, h);
         }
     }
-    // METERS
+    // METERS: two slim bars
     {
         const auto a = metersArea();
-        meterIn->setBounds (a.getX() + 30, a.getY() + 14, 52, a.getHeight() - 14);
-        meterOut->setBounds (a.getRight() - 82, a.getY() + 14, 52, a.getHeight() - 14);
+        const int w = a.getWidth() / 2;
+        meterIn->setBounds (a.getX(), a.getY() + 16, w, a.getHeight() - 16);
+        meterOut->setBounds (a.getX() + w, a.getY() + 16, w, a.getHeight() - 16);
     }
-    // TOOLBOX
+    // TOOLBOX: PHONE CHECK / AUTO GAIN / SIZE
     {
         const auto a = toolboxArea();
         int y = a.getY() + 18;
-        phoneBtn.setBounds (a.getX(), y, 108, 24);
-        autoGainBtn.setBounds (a.getX() + 112, y, a.getWidth() - 112, 24);
-        y += 32;
-        smallBtn.setBounds (a.getX() + 40, y, 54, 22);
-        fullBtn.setBounds (a.getX() + 98, y, 46, 22);
-        autoBtn.setBounds (a.getX() + 148, y, a.getWidth() - 148, 22);
+        for (auto* b : { &phoneBtn, &autoGainBtn, &sizeBtn })
+        {
+            b->setBounds (a.getX(), y, a.getWidth(), 24);
+            y += 30;
+        }
     }
 }
 
@@ -729,13 +749,12 @@ void MasterColumn::paintStatic (Graphics& g)
     const auto r = getLocalBounds().toFloat();
     hw::drawCard (g, r.reduced (0.5f), card::radius);
     // title
-    card::paintChromeTitle (g, "MASTER", { 18.0f, 10.0f, 150.0f, 30.0f }, 21.0f, 0.9f);
-    card::paintSparkle (g, { r.getRight() - 24.0f, 25.0f }, 6.0f, hw::col::ice, 1.0f);
-    card::paintSparkle (g, { r.getRight() - 38.0f, 18.0f }, 2.5f, hw::col::ice.withAlpha (0.7f), 0.6f);
+    card::paintChromeTitle (g, "MASTER", { 14.0f, 7.0f, 130.0f, 24.0f }, hw::type::title, 0.9f);
+    card::paintSparkle (g, { r.getRight() - 22.0f, 19.0f }, 5.0f, hw::col::ice, 1.0f);
 
     auto header = [&] (Rectangle<int> a, const String& label)
     {
-        hw::drawSectionHeader (g, a.toFloat().withHeight (12.0f), label);
+        hw::drawSectionHeader (g, a.toFloat().withHeight (14.0f), label);
     };
     header (tempoArea(), "TEMPO");
     header (levelsArea(), "LEVELS");
@@ -744,26 +763,18 @@ void MasterColumn::paintStatic (Graphics& g)
     header (metersArea(), "METERS");
     header (toolboxArea(), "TOOLBOX");
 
-    // meter scale between the two bars
+    // dB tick marks between the two bars (no numbers - the readouts below the bars carry the value)
     {
         const auto a = metersArea();
-        const float barTop = (float) a.getY() + 14.0f + 16.0f;
-        const float barH = (float) a.getHeight() - 14.0f - 16.0f - 30.0f;
-        const float x0 = (float) a.getX() + 30.0f + 26.0f + 12.0f, x1 = (float) a.getRight() - 82.0f + 26.0f - 12.0f;
+        const float barTop = (float) a.getY() + 16.0f + 14.0f;
+        const float barH = (float) a.getHeight() - 16.0f - 14.0f - 34.0f;
+        const float cx = (float) a.getCentreX();
         for (float db : { 0.0f, -12.0f, -24.0f, -36.0f, -48.0f })
         {
             const float y = barTop + barH * (1.0f - LedMeter::dbToPos (db));
-            g.setColour (hw::col::ice.withAlpha (0.18f));
-            g.drawHorizontalLine ((int) y, x0, x0 + 6.0f);
-            g.drawHorizontalLine ((int) y, x1 - 6.0f, x1);
-            hw::drawPrint (g, db == 0.0f ? String ("0") : String ((int) db), { x0 + 6.0f, y - 5.0f, x1 - x0 - 12.0f, 10.0f },
-                           Justification::centred, 8.0f, db == 0.0f ? hw::col::text2 : hw::col::printDim);
+            g.setColour (hw::col::ice.withAlpha (db == 0.0f ? 0.45f : 0.22f));
+            g.drawHorizontalLine ((int) y, cx - 3.0f, cx + 3.0f);
         }
-    }
-    // SIZE label
-    {
-        const auto a = toolboxArea();
-        hw::drawPrint (g, "SIZE", { (float) a.getX(), (float) a.getY() + 50.0f, 38.0f, 22.0f }, Justification::centredLeft, 9.0f, hw::col::printDim);
     }
 }
 

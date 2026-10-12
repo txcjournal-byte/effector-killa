@@ -14,6 +14,48 @@ namespace
 // tick() is optional on the standalone units
 template <typename T> auto tickIfPossible (T& t, int) -> decltype (t.tick(), void()) { t.tick(); }
 template <typename T> void tickIfPossible (T&, long) {}
+
+// ModUnit collapse API (isExpanded / onExpandedChanged). Older ModUnits without it are always expanded.
+template <typename T> auto modIsExpanded (const T& t, int) -> decltype (t.isExpanded(), bool()) { return t.isExpanded(); }
+template <typename T> bool modIsExpanded (const T&, long) { return true; }
+template <typename T> auto hookModExpanded (T& t, std::function<void()> f, int) -> decltype (t.onExpandedChanged = f, void())
+{
+    t.onExpandedChanged = std::move (f);
+}
+template <typename T> void hookModExpanded (T&, std::function<void()>, long) {}
+
+// GearList::onDragStarted (agent C). Without it dragOperationStarted() below still catches the drag.
+template <typename T> auto hookDragStarted (T& t, std::function<void()> f, int) -> decltype (t.onDragStarted = f, void())
+{
+    t.onDragStarted = std::move (f);
+}
+template <typename T> void hookDragStarted (T&, std::function<void()>, long) {}
+
+constexpr double kDrawerSeconds = 0.16;
+
+int countComponents (const juce::Component& c)
+{
+    int n = 1;
+    for (auto* ch : c.getChildren()) n += countComponents (*ch);
+    return n;
+}
+
+void releaseKeyboardRecursive (juce::Component& c)
+{
+    // text fields keep their normal focus behaviour (they give it back on Enter / Esc / click outside)
+    if (auto* te = dynamic_cast<juce::TextEditor*> (&c))
+    {
+        // fields without their own handlers: Enter / Esc end typing and hand the keyboard back
+        juce::Component::SafePointer<juce::TextEditor> safe (te);
+        auto release = [safe] { if (safe != nullptr) safe->giveAwayKeyboardFocus(); };
+        if (! te->onReturnKey) te->onReturnKey = release;
+        if (! te->onEscapeKey) te->onEscapeKey = release;
+        return;
+    }
+    c.setWantsKeyboardFocus (false);
+    c.setMouseClickGrabsKeyboardFocus (false);
+    for (auto* ch : c.getChildren()) releaseKeyboardRecursive (*ch);
+}
 } // namespace
 
 // ============================================================================================
@@ -94,6 +136,20 @@ void EffectorKillaAudioProcessorEditor::KillFlash::paint (juce::Graphics& g)
 }
 
 // ============================================================================================
+void EffectorKillaAudioProcessorEditor::DrawerBackdrop::paint (juce::Graphics& g)
+{
+    if (amount <= 0.0f) return;
+    // dim MOD + chain, then a soft shadow to the right of the drawer
+    g.setColour (juce::Colour (0xff020308).withAlpha (0.62f * amount));
+    g.fillRoundedRectangle (dimArea.toFloat(), 18.0f);
+    const auto d = drawer.toFloat();
+    juce::ColourGradient sh (juce::Colours::black.withAlpha (0.55f * amount), d.getRight(), 0.0f,
+                             juce::Colours::black.withAlpha (0.0f), d.getRight() + 26.0f, 0.0f, false);
+    g.setGradientFill (sh);
+    g.fillRect (juce::Rectangle<float> (d.getRight() - 4.0f, d.getY() + 10.0f, 30.0f, d.getHeight() - 20.0f));
+}
+
+// ============================================================================================
 EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKillaAudioProcessor& p)
     : AudioProcessorEditor (&p), processor (p), toolbar (p), master (p), modUnit (p),
       rackView (p), gearList (p), browser (p)
@@ -111,7 +167,8 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     rackViewport.setScrollOnDragMode (juce::Viewport::ScrollOnDragMode::never);
     content.addAndMakeVisible (rackViewport);
     content.addChildComponent (killFlash);
-    content.addAndMakeVisible (gearList);
+    content.addChildComponent (backdrop);
+    content.addChildComponent (gearList);
     content.addChildComponent (browser);
     content.addAndMakeVisible (cableOverlay);   // topmost
 
@@ -120,12 +177,14 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     toolbar.onSave = [this] { showSaveDialog(); };
     toolbar.onSettings = [this] { showSettingsMenu(); };
     toolbar.onInfo = [this] { showInfoMenu(); };
-    toolbar.onToggleLibrary = [this] { setGearShown (! processor.showGear); };
-    toolbar.isLibraryShown = [this] { return processor.showGear; };
+    toolbar.onToggleLibrary = [this] { setLibraryShown (! libraryOpen); };
+    toolbar.isLibraryShown = [this] { return libraryOpen; };
+    backdrop.onClick = [this] { setLibraryShown (false); };
     master.onKillFlash = [this] { killFlash.trigger(); };
     master.setReduceMotion (hw::reduceMotion());
     master.onSetScale = [this] (float s) { setUiScale (s); };
     browser.onClose = [this] { showBrowser (false); };
+    hookModExpanded (modUnit, [this] { layoutBody(); }, 0);
     auto say = [this] (const juce::String& m) { toolbar.showMessage (m); };
     rackView.onMessage = say;
     // MOD patching + knob right-click (modulation list, MACRO LEARN) + modulation rings
@@ -137,6 +196,14 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
         paintKnobOverlay (g, face, slot, param);
     };
     gearList.onMessage = say;
+    hookDragStarted (gearList, [this]
+    {
+        if (! libraryOpen || draggingFromDrawer) return;
+        draggingFromDrawer = true;
+        gearList.setInterceptsMouseClicks (false, false);
+        backdrop.setInterceptsMouseClicks (false, false);
+        tickDrawer();
+    }, 0);
 
     getLookAndFeel().setColour (juce::TooltipWindow::backgroundColourId, juce::Colour (0xf20a0f18));
     getLookAndFeel().setColour (juce::TooltipWindow::textColourId, hw::col::print);
@@ -148,20 +215,27 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     getLookAndFeel().setColour (juce::PopupMenu::highlightedBackgroundColourId, hw::col::ice.withAlpha (0.22f));
     getLookAndFeel().setColour (juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
 
-    setWantsKeyboardFocus (true);
-    addMouseListener (this, true);
+    // the plugin never takes the computer keyboard: no shortcuts, clicks do not grab the focus
+    setWantsKeyboardFocus (false);
+    setMouseClickGrabsKeyboardFocus (false);
+    releaseKeyboard();
+    addMouseListener (this, true);   // click outside an active text field = give the keyboard back
     processor.addChangeListener (this);
 
     setResizable (true, true);
     updateConstrainer();
     layoutBody();
-    setUiScale (processor.uiScale);
+    // a size saved with the project wins; otherwise the size the user picked last (any project)
+    float startScale = processor.uiScale;
+    if (startScale <= 0.0f && hw::userUiScale() >= 0.0f) startScale = hw::userUiScale();
+    applyScale (startScale);
     startTimerHz (30);
 }
 
 EffectorKillaAudioProcessorEditor::~EffectorKillaAudioProcessorEditor()
 {
     stopTimer();
+    removeMouseListener (this);
     processor.removeChangeListener (this);
 }
 
@@ -170,32 +244,45 @@ void EffectorKillaAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll (hw::col::bg);
 }
 
+void EffectorKillaAudioProcessorEditor::releaseKeyboard()
+{
+    releaseKeyboardRecursive (content);
+    lastChildCount = countComponents (content);
+}
+
 float EffectorKillaAudioProcessorEditor::autoScale() const
 {
-    auto area = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay() != nullptr
-                    ? juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea
-                    : juce::Rectangle<int> (1920, 1080);
-    // always fit the wide (library) layout so showing the library never pushes the window off the screen
-    const float s = juce::jmin ((float) area.getWidth() * 0.86f / kWidth, (float) area.getHeight() * 0.86f / kHeight);
-    return juce::jlimit (0.6f, 1.5f, std::floor (s * 20.0f) / 20.0f);
+    const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
+    const auto area = d != nullptr ? d->userArea : juce::Rectangle<int> (1920, 1040);
+    // largest size option whose height fits ~75 % of the screen (and whose width fits the screen)
+    float best = sizeOptions[0];
+    for (float s : sizeOptions)
+        if ((float) kHeight * s <= (float) area.getHeight() * 0.75f && (float) kWidth * s <= (float) area.getWidth() * 0.95f)
+            best = s;
+    return best;
 }
 
 void EffectorKillaAudioProcessorEditor::updateConstrainer()
 {
     if (auto* c = getConstrainer())
     {
-        const int w = getBaseWidth();
-        c->setFixedAspectRatio ((double) w / (double) kHeight);
-        c->setSizeLimits (juce::roundToInt (w * 0.6), juce::roundToInt (kHeight * 0.6), w * 2, kHeight * 2);
+        c->setFixedAspectRatio ((double) kWidth / (double) kHeight);
+        c->setSizeLimits (juce::roundToInt (kWidth * 0.6), juce::roundToInt (kHeight * 0.6), kWidth * 2, kHeight * 2);
     }
 }
 
 void EffectorKillaAudioProcessorEditor::setUiScale (float s)
 {
+    applyScale (s);
+    hw::setUserUiScale (processor.uiScale);   // remembered for new instances too
+}
+
+void EffectorKillaAudioProcessorEditor::applyScale (float s)
+{
     processor.uiScale = s;
     const float scale = s <= 0.0f ? autoScale() : juce::jlimit (0.6f, 2.0f, s);
     settingSize = true;
-    setSize (juce::roundToInt ((float) getBaseWidth() * scale), juce::roundToInt ((float) kHeight * scale));
+    setSize (juce::roundToInt ((float) kWidth * scale), juce::roundToInt ((float) kHeight * scale));
     settingSize = false;
 }
 
@@ -203,54 +290,132 @@ void EffectorKillaAudioProcessorEditor::resized()
 {
     const float scale = currentScale();
     if (scale <= 0.0f) return;
-    content.setBounds (0, 0, getBaseWidth(), kHeight);
+    content.setBounds (0, 0, kWidth, kHeight);
     content.setTransform (juce::AffineTransform::scale (scale));
     if (! settingSize && isShowing()) processor.uiScale = scale; // dragged the corner: remember that size
 }
 
+bool EffectorKillaAudioProcessorEditor::modExpanded() const
+{
+    return modIsExpanded (modUnit, 0);
+}
+
 void EffectorKillaAudioProcessorEditor::layoutBody()
 {
-    const int w = getBaseWidth();
-    const bool lib = libraryShown();
-    content.setBounds (0, 0, w, kHeight);
-    frame.setBounds (0, 0, w, kHeight);
+    const bool expanded = modExpanded();
+    lastModHeight = expanded ? kModExpanded : kModCollapsed;
+    content.setBounds (0, 0, kWidth, kHeight);
+    frame.setBounds (0, 0, kWidth, kHeight);
     frame.invalidate();
-    toolbar.setBounds (toolbarArea (w));
-    toolbar.setCentreX (rackArea (lib).getCentreX());
-    master.setBounds (masterArea (lib));
-    modUnit.setBounds (modUnitArea (lib));
+    toolbar.setBounds (toolbarArea());
+    toolbar.setCentreX (centreArea().getCentreX());
+    master.setBounds (masterArea());
+    modUnit.setBounds (modUnitArea (expanded));
 
-    const auto rack = rackArea (lib);
+    const auto rack = rackArea (expanded);
     rackViewport.setBounds (rack);
     killFlash.setBounds (rack);
     rackView.setSize (rack.getWidth() - rackViewport.getScrollBarThickness(), juce::jmax (rack.getHeight(), rackView.getIdealHeight()));
-    gearList.setVisible (lib);
-    gearList.setBounds (gearArea());
-    // the browser covers the centre column (MOD card + chain); library and MASTER stay visible
-    browser.setBounds (browserArea (lib));
-    cableOverlay.setBounds (0, 0, w, kHeight);
+
+    // FX library drawer (over MOD + chain) and its backdrop
+    backdrop.setBounds (0, 0, kWidth, kHeight);
+    backdrop.dimArea = centreArea();
+    tickDrawer();
+    // the browser covers the centre column (MOD card + chain); MASTER stays visible
+    browser.setBounds (browserArea());
+    cableOverlay.setBounds (0, 0, kWidth, kHeight);
     cableOverlay.toFront (false);
 }
 
-void EffectorKillaAudioProcessorEditor::setGearShown (bool shown)
+// ---- FX library drawer --------------------------------------------------------------------------
+void EffectorKillaAudioProcessorEditor::setLibraryShown (bool shown, bool animate)
 {
-    if (processor.showGear == shown) return;
-    const float scale = getHeight() > 0 ? currentScale() : 1.0f;
-    processor.showGear = shown;
-    updateConstrainer();
-    layoutBody();
-    settingSize = true;
-    setSize (juce::roundToInt ((float) getBaseWidth() * scale), juce::roundToInt ((float) kHeight * scale));
-    settingSize = false;
-    resized();
+    if (shown && browser.isVisible()) showBrowser (false);
+    if (shown == libraryOpen && ! (shown && ! gearList.isVisible())) return;
+    libraryOpen = shown;
+    draggingFromDrawer = false;
+    if (! animate || hw::reduceMotion()) drawerPos = shown ? 1.0f : 0.0f;
+    drawerAnimStart = juce::Time::getMillisecondCounterHiRes() * 0.001 - (shown ? drawerPos : 1.0f - drawerPos) * kDrawerSeconds;
+    if (shown)
+    {
+        backdrop.setVisible (true);
+        gearList.setVisible (true);
+        backdrop.toFront (false);
+        gearList.toFront (false);
+        cableOverlay.toFront (false);
+    }
+    tickDrawer();
+    toolbar.tick();
+}
+
+void EffectorKillaAudioProcessorEditor::tickDrawer()
+{
+    const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    const float target = libraryOpen ? 1.0f : 0.0f;
+    if (drawerPos != target)
+    {
+        const float t = (float) juce::jlimit (0.0, 1.0, (now - drawerAnimStart) / kDrawerSeconds);
+        drawerPos = libraryOpen ? t : 1.0f - t;
+        if (hw::reduceMotion()) drawerPos = target;
+    }
+    // ease out; a short slide (28 px) plus a fade - subtle
+    const float e = 1.0f - (1.0f - drawerPos) * (1.0f - drawerPos);
+    const auto area = drawerArea();
+    gearList.setBounds (area.translated (juce::roundToInt (-28.0f * (1.0f - e)), 0));
+    gearList.setAlpha (draggingFromDrawer ? 0.0f : juce::jlimit (0.0f, 1.0f, e * 1.15f));
+    const float dim = draggingFromDrawer ? 0.0f : e;
+    if (std::abs (backdrop.amount - dim) > 0.001f || backdrop.drawer != gearList.getBounds())
+    {
+        backdrop.amount = dim;
+        backdrop.drawer = gearList.getBounds();
+        backdrop.repaint();
+    }
+    if (drawerPos <= 0.0f && ! libraryOpen)
+    {
+        gearList.setVisible (false);
+        backdrop.setVisible (false);
+    }
+}
+
+void EffectorKillaAudioProcessorEditor::dragOperationStarted (const juce::DragAndDropTarget::SourceDetails& d)
+{
+    // dragging an effect out of the drawer: fade it out and let the chain under it take the drop
+    if (libraryOpen && d.sourceComponent != nullptr && gearList.isParentOf (d.sourceComponent.get()))
+    {
+        draggingFromDrawer = true;
+        gearList.setInterceptsMouseClicks (false, false);
+        backdrop.setInterceptsMouseClicks (false, false);
+        tickDrawer();
+    }
+}
+
+void EffectorKillaAudioProcessorEditor::dragOperationEnded (const juce::DragAndDropTarget::SourceDetails&)
+{
+    if (! draggingFromDrawer) return;
+    draggingFromDrawer = false;
+    gearList.setInterceptsMouseClicks (true, true);
+    backdrop.setInterceptsMouseClicks (true, true);
+    libraryOpen = false;
+    drawerPos = 0.0f;
+    tickDrawer();
+    toolbar.tick();
 }
 
 void EffectorKillaAudioProcessorEditor::showBrowser (bool shown)
 {
     if (shown == browser.isVisible()) return;
+    if (shown && libraryOpen) setLibraryShown (false, false);
     browser.setVisible (shown);
-    if (shown) { browser.toFront (true); browser.open(); }
-    else grabKeyboardFocus();
+    if (shown)
+    {
+        browser.toFront (false);
+        cableOverlay.toFront (false);
+        browser.open();
+        // opening the browser must not take the keyboard (FL space = play): the search field only
+        // gets the focus when the user clicks into it
+        if (auto* f = juce::Component::getCurrentlyFocusedComponent(); f != nullptr && browser.isParentOf (f))
+            f->giveAwayKeyboardFocus();
+    }
 }
 
 void EffectorKillaAudioProcessorEditor::tickAll()
@@ -258,13 +423,17 @@ void EffectorKillaAudioProcessorEditor::tickAll()
     // structure changes normally arrive through the change message; checking here too keeps the
     // rack right even when the host delays messages (cheap: compares the slot types only)
     rackView.refresh (false);
-    const int h = rackArea().getHeight();
+    if ((modExpanded() ? kModExpanded : kModCollapsed) != lastModHeight) layoutBody();
+    const int h = rackViewport.getHeight();
     const int want = juce::jmax (h, rackView.getIdealHeight());
     if (rackView.getHeight() != want) rackView.setSize (rackView.getWidth(), want);
     toolbar.tick();
     tickIfPossible (modUnit, 0);   // (MasterColumn runs its own timer)
     rackView.tick();
     killFlash.tick();
+    if (gearList.isVisible()) tickDrawer();
+    // units / chips are created on the fly: keep them away from the keyboard too
+    if (countComponents (content) != lastChildCount) releaseKeyboard();
 }
 
 void EffectorKillaAudioProcessorEditor::setReduceMotion (bool on)
@@ -275,50 +444,34 @@ void EffectorKillaAudioProcessorEditor::setReduceMotion (bool on)
 
 void EffectorKillaAudioProcessorEditor::timerCallback()
 {
-    if (! focusGrabbed && isShowing()) { focusGrabbed = true; grabKeyboardFocus(); }
     tickAll();
 }
 
 void EffectorKillaAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster*)
 {
     rackView.refresh();
-    rackView.setSize (rackView.getWidth(), juce::jmax (rackArea().getHeight(), rackView.getIdealHeight()));
+    rackView.setSize (rackView.getWidth(), juce::jmax (rackViewport.getHeight(), rackView.getIdealHeight()));
     toolbar.refresh();
 }
 
 void EffectorKillaAudioProcessorEditor::mouseDown (const juce::MouseEvent& e)
 {
-    if (e.eventComponent != nullptr && dynamic_cast<juce::TextEditor*> (e.eventComponent) != nullptr) return;
-    if (! hasKeyboardFocus (true)) grabKeyboardFocus();
+    // a click anywhere outside the focused text field ends typing and gives the keyboard back to the host
+    auto* focused = juce::Component::getCurrentlyFocusedComponent();
+    if (focused == nullptr || dynamic_cast<juce::TextEditor*> (focused) == nullptr) return;
+    if (! isParentOf (focused)) return;
+    if (e.eventComponent == focused || focused->isParentOf (e.eventComponent)) return;
+    focused->giveAwayKeyboardFocus();
 }
 
 bool EffectorKillaAudioProcessorEditor::keyPressed (const juce::KeyPress& k)
 {
-    const auto code = k.getKeyCode();
-    const auto mods = k.getModifiers();
-    if (code == juce::KeyPress::escapeKey && browser.isVisible()) { showBrowser (false); return true; }
-    if (code == juce::KeyPress::spaceKey) { processor.kill(); return true; }
-    if (code == juce::KeyPress::leftKey) { processor.stepPreset (-1); return true; }
-    if (code == juce::KeyPress::rightKey) { processor.stepPreset (1); return true; }
-    if (code == juce::KeyPress::upKey) { processor.stepChannel (1); return true; }
-    if (code == juce::KeyPress::downKey) { processor.stepChannel (-1); return true; }
-    if (mods.isCommandDown() && (code == 'Z' || code == 'z'))
+    // No plugin keyboard shortcuts: keys go to the host (FL Studio space = play / stop etc.).
+    // Esc that a text field did not use only closes an overlay.
+    if (k.getKeyCode() == juce::KeyPress::escapeKey)
     {
-        if (mods.isShiftDown()) processor.redo(); else processor.undo();
-        return true;
-    }
-    if (mods.isCommandDown() && (code == 'Y' || code == 'y')) { processor.redo(); return true; }
-    if (mods.isCommandDown() && (code == 'S' || code == 's')) { showSaveDialog(); return true; }
-    if (! mods.isAnyModifierKeyDown() && (code == 'B' || code == 'b')) { showBrowser (! browser.isVisible()); return true; }
-    if (! mods.isAnyModifierKeyDown() && (code == 'G' || code == 'g')) { setGearShown (! processor.showGear); return true; }
-    if (! mods.isAnyModifierKeyDown() && (code == 'T' || code == 't')) { processor.tapTempo(); return true; }
-    if (! mods.isAnyModifierKeyDown() && code >= '1' && code <= '8')
-    {
-        // number keys: power a unit on / off
-        const int slot = code - '1';
-        if (processor.getSlotType (slot) != EffectType::None)
-            processor.setSlotParam (slot, 9, processor.getSlotParam (slot, 9) > 0.5f ? 0.0f : 1.0f);
-        return true;
+        if (browser.isVisible()) { showBrowser (false); return true; }
+        if (libraryOpen) { setLibraryShown (false); return true; }
     }
     return false;
 }
@@ -332,6 +485,8 @@ void EffectorKillaAudioProcessorEditor::showSaveDialog()
     juce::Component::SafePointer<EffectorKillaAudioProcessorEditor> safe (this);
     w->enterModalState (true, juce::ModalCallbackFunction::create ([safe, w] (int res)
     {
+        // the dialog is gone: nothing in the plugin keeps the keyboard
+        juce::Component::unfocusAllComponents();
         if (res != 1 || safe == nullptr) return;
         const auto name = w->getTextEditorContents ("name").trim();
         if (name.isEmpty()) return;
@@ -346,27 +501,27 @@ void EffectorKillaAudioProcessorEditor::showSettingsMenu()
     m.addSectionHeader ("TRAPWIN EFFECTOR 1.0 - Every effect. One win.");
     juce::PopupMenu size;
     size.addItem (100, "Auto (fits the screen)", true, processor.uiScale <= 0.0f);
-    for (int pct : { 80, 90, 100, 110, 125, 150 })
-        size.addItem (100 + pct, juce::String (pct) + " %" + (pct == 80 ? "  (SMALL)" : pct == 100 ? "  (FULL)" : ""), true,
+    for (float opt : sizeOptions)
+    {
+        const int pct = juce::roundToInt (opt * 100.0f);
+        size.addItem (100 + pct, juce::String (pct) + " %", true,
                       processor.uiScale > 0.0f && std::abs (processor.uiScale * 100.0f - (float) pct) < 0.5f);
+    }
     m.addSubMenu ("Window size  (or drag the corner)", size);
-    m.addItem (2, "Show FX library  (G)", true, processor.showGear);
+    m.addItem (2, "FX library", true, libraryOpen);
     m.addItem (5, "Reduce motion", true, hw::reduceMotion());
     juce::PopupMenu os;
     for (int i = 0; i < 3; ++i) os.addItem (300 + i, juce::String (1 << i) + "x", true, processor.getOversampling() == i);
     m.addSubMenu ("Oversampling (saturation / distortion / crush / clipper)", os);
     m.addSeparator();
     m.addItem (4, "Open user preset folder");
-    m.addSeparator();
-    m.addSectionHeader ("Keys: Space KILL - B browser - G library - T tap - 1-8 unit on/off");
-    m.addSectionHeader ("Left/Right preset - Up/Down channel - Ctrl+Z / Ctrl+Y undo / redo - Ctrl+S save");
     juce::Component::SafePointer<EffectorKillaAudioProcessorEditor> safe (this);
     m.showMenuAsync (juce::PopupMenu::Options(), [safe] (int r)
     {
         if (safe == nullptr || r <= 0) return;
         if (r == 100) safe->setUiScale (0.0f);
         else if (r > 100 && r <= 250) safe->setUiScale ((float) (r - 100) / 100.0f);
-        else if (r == 2) safe->setGearShown (! safe->processor.showGear);
+        else if (r == 2) safe->setLibraryShown (! safe->libraryOpen);
         else if (r == 5) safe->setReduceMotion (! hw::reduceMotion());
         else if (r >= 300 && r < 303) safe->processor.setOversampling (r - 300);
         else if (r == 4)

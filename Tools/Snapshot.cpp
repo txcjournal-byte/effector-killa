@@ -76,9 +76,11 @@ static int renderPerformerSnapshots (const juce::File& outDir)
     return 0;
 }
 
-// --shell (old name --frame): full-window shots of the TrapWin shell (header, FX library, MOD + chain,
-// MASTER column): shell_default.png (1360 x 900), shell_nolib.png (1124 x 900), shell_small.png (80 %),
-// shell_browser.png (preset browser open), shell_header_2x.png (header + top of the MASTER column at 2x).
+// --shell (old name --frame): full-window shots of the TrapWin shell (header, MOD + chain, MASTER column,
+// FX library drawer, preset browser) at the 1000 x 680 base size:
+//   ux_default.png (1x), ux_default_2x.png, ux_library.png (drawer open, 1x), ux_library_2x.png,
+//   ux_browser.png (preset browser open), ux_states.png (PHONE CHECK / BYPASS / FREE tempo / RECYCLE on),
+//   ux_75.png (window at 75 %), ux_master_2x.png (MASTER column at 2x), ux_header_2x.png (header at 2x).
 static int renderFrameSnapshots (const juce::File& outDir)
 {
     EffectorKillaAudioProcessor proc;
@@ -116,39 +118,33 @@ static int renderFrameSnapshots (const juce::File& outDir)
         if (setup) setup (*ed);
         for (int i = 0; i < 34; ++i) { render (2); ed->tickAll(); ed->getPerformer().tick(); }
         write (ed->createComponentSnapshot (area ? area (*ed) : ed->getLocalBounds(), true, imageScale), name);
+        ed->setLibraryShown (false, false);
     };
 
     proc.loadFactory (9, 2);   // CH10 Night Drive
     const float macroPos[] = { 0.62f, 0.35f, 0.78f, 0.5f, 0.24f };
     for (int m = 0; m < ek::kNumMacros; ++m)
         proc.setParamNorm (ek::ParamIDs::macro (m), macroPos[m]);
-    shot ("shell_default", [&] (EffectorKillaAudioProcessorEditor& e) { e.setGearShown (true); });
-    shot ("shell_nolib", [&] (EffectorKillaAudioProcessorEditor& e)
+    using Ed = EffectorKillaAudioProcessorEditor;
+    shot ("ux_default", {});
+    shot ("ux_default_2x", {}, {}, 2.0f);
+    shot ("ux_library", [&] (Ed& e) { e.setLibraryShown (true, false); });
+    shot ("ux_library_2x", [&] (Ed& e) { e.setLibraryShown (true, false); }, {}, 2.0f);
+    shot ("ux_browser", [&] (Ed& e) { e.showBrowser (true); });
+    shot ("ux_master_2x", {}, [] (Ed&) { return Ed::masterArea().expanded (4); }, 2.0f);
+    shot ("ux_header_2x", {}, [] (Ed&) { return Ed::toolbarArea(); }, 2.0f);
+    shot ("ux_states", [&] (Ed&)
     {
-        e.setGearShown (false);
         proc.setParamNorm (ek::ParamIDs::recycle, 0.6f);
         proc.setParamNorm (ek::ParamIDs::tempoMode, 1.0f);
         proc.setParamNorm (ek::ParamIDs::pocketTv, 1.0f);
         proc.setParamNorm (ek::ParamIDs::offAir, 1.0f);
     });
-    shot ("shell_header_2x", [&] (EffectorKillaAudioProcessorEditor& e)
-    {
-        e.setGearShown (true);
-        proc.setParamNorm (ek::ParamIDs::pocketTv, 0.0f);
-        proc.setParamNorm (ek::ParamIDs::offAir, 0.0f);
-    }, [] (EffectorKillaAudioProcessorEditor&) { return juce::Rectangle<int> (0, 0, 1360, 300); }, 2.0f);
-    shot ("shell_small", [&] (EffectorKillaAudioProcessorEditor& e)
-    {
-        e.setGearShown (true);
-        proc.setParamNorm (ek::ParamIDs::recycle, 0.0f);
-        proc.setParamNorm (ek::ParamIDs::tempoMode, 0.0f);
-        e.setUiScale (0.8f);
-    });
-    shot ("shell_browser", [&] (EffectorKillaAudioProcessorEditor& e)
-    {
-        e.setGearShown (true);
-        e.showBrowser (true);
-    });
+    proc.setParamNorm (ek::ParamIDs::recycle, 0.0f);
+    proc.setParamNorm (ek::ParamIDs::tempoMode, 0.0f);
+    proc.setParamNorm (ek::ParamIDs::pocketTv, 0.0f);
+    proc.setParamNorm (ek::ParamIDs::offAir, 0.0f);
+    shot ("ux_75", [&] (Ed& e) { e.setUiScale (0.75f); });
     return 0;
 }
 int runUnitsSnapshot (const juce::File& outDir);

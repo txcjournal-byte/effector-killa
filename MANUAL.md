@@ -20,11 +20,11 @@ Then rescan plugins in your DAW. In FL Studio: *Options → Manage plugins → F
 ## Quick start
 
 1. Put TrapWin Effector on a mixer insert.
-2. Click the **preset display** (or press **B**) to open the browser: pick a channel, a favourite or
+2. Click the **preset display** to open the browser: pick a channel, a favourite or
    one of your presets, or type in the search box. Clicking a preset loads it right away.
 3. Shape the sound with the 5 **macros**, or with any knob of any unit in the rack.
 4. Drag effects from the **GEAR** list into the rack to build your own chain.
-5. Press **KILL** (or the space bar) for a new chain.
+5. Press **KILL** for a new chain.
 
 Factory presets and KILL results are **level-matched to your input**, so louder never fools you.
 The CH 12 FINAL BOSS bus / master presets are the exception: they keep their designed loudness.
@@ -35,7 +35,7 @@ The CH 12 FINAL BOSS bus / master presets are the exception: they keep their des
 
 **Top:** control panel (presets, tempo, levels, KILL). **Under it:** the macro strip and global switches.
 **Left:** the rack - the signal flows from the top unit down. **Right:** the GEAR list.
-The window can be resized: *SIZE / SETUP → Window size* (Auto, 80 - 150 %) or drag the bottom-right corner.
+The window can be resized: *Settings → Window size* or *MASTER → SIZE* (75 / 100 / 125 / 150 % or Auto) or drag the bottom-right corner.
 
 ### Presets
 
@@ -43,10 +43,10 @@ The window can be resized: *SIZE / SETUP → Window size* (Auto, 80 - 150 %) or 
 |---|---|
 | **Display / BROWSE** | Opens the preset browser: all presets, ★ favourites, your presets, the 12 channels, and search. Click or use the arrow keys to load and listen, double-click / Enter loads and closes, Esc closes. |
 | **◀ ▶** | Previous / next preset. |
-| **SAVE** | Saves the whole rack as your preset (`Documents/TrapWin/TrapWin Effector/Presets`). Ctrl+S. |
+| **SAVE** | Saves the whole rack as your preset (`Documents/TrapWin/TrapWin Effector/Presets`). |
 | **★** | Adds the preset to your favourites. |
 | **A / B** | Two complete rack states to compare. |
-| **UNDO / REDO** | 64 steps (Ctrl+Z / Ctrl+Y). |
+| **UNDO / REDO** | 64 steps. |
 
 ### Tempo
 
@@ -55,7 +55,7 @@ The window can be resized: *SIZE / SETUP → Window size* (Auto, 80 - 150 %) or 
 | **HOST** | Follows your DAW tempo (default). |
 | **MANUAL** | Uses its own tempo, also when your DAW is stopped. |
 | **BPM display** | Drag up / down (Shift = fine), use the mouse wheel, or double-click and type. Changing it switches to MANUAL. |
-| **TAP** | Tap twice or more to set the tempo (or press **T**). |
+| **TAP** | Tap twice or more to set the tempo. |
 
 The tempo drives the synced delays, LFOs, gate patterns and pumping.
 
@@ -87,7 +87,7 @@ The tempo drives the synced delays, LFOs, gate patterns and pumping.
 | **AUTO GAIN** | Slow automatic gain (±12 dB). It keeps the output as loud as the input. |
 | **PHONE CHECK** | Monitor as if on a phone speaker: mono, 300 Hz – 8 kHz. It **blinks** while on – switch it off before export! |
 | **COMPARE** | Your original signal at the same loudness. Click to toggle, hold to listen only while held. |
-| **GEAR** | Shows / hides the gear list (or press **G**). |
+| **GEAR** | Opens / closes the FX library drawer (click outside or Esc closes it). |
 
 Every macro sits at the **middle (50) = the preset as designed**. Turn it left for less, right for more.
 Macros respect the source. On an 808, for example, AURA never pushes the reverb above 15 %.
@@ -237,20 +237,13 @@ latency does not change: the shorter branch is delayed to line up with the longe
 
 ---
 
-## Keyboard shortcuts
+## Keyboard
 
-| Key | Action |
-|---|---|
-| Space | KILL |
-| ← → | previous / next preset |
-| ↑ ↓ | next / previous channel |
-| B | preset browser |
-| G | show / hide the gear list |
-| T | tap tempo |
-| 1–8 | unit 1–8 on / off |
-| Ctrl+Z / Ctrl+Y | undo / redo |
-| Ctrl+S | save preset |
-| Esc | close the browser |
+TrapWin Effector has **no keyboard shortcuts** and never takes the computer keyboard: the space bar, arrows and
+all other keys go to your DAW (FL Studio play / stop, piano roll, etc.) even while the plugin window is in front.
+Only a text field you click into (preset search, tempo, preset name) takes keys while you type; **Enter**, **Esc**
+or a click anywhere else hands the keyboard back. Esc also closes the preset browser and the FX library drawer.
+Everything is done with the mouse: KILL, presets, undo / redo, A / B and the rest are buttons in the window.
 
 ## Third-party
 
@@ -259,8 +252,8 @@ licence texts are installed in the *Licenses* folder. Built with JUCE. VST is a 
 
 ## Size / setup menu
 
-- **Window size:** Auto (fits your screen), 80 – 150 %, or drag the bottom-right corner.
-- **Show gear list.**
+- **Window size:** Auto (the largest size that fits about 75 % of your screen height), 75 / 100 / 125 / 150 %, or drag the bottom-right corner.
+- **FX library:** opens the effect library drawer (also the library button in the header).
 - **Oversampling:** 1× / 2× / 4× for the saturation, distortion, crusher and clipper. 2× is the default.
 - **Open user preset folder.**
 

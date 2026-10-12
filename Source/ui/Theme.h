@@ -23,6 +23,10 @@ inline const juce::Colour line { 0x2e9fc3ff };         // rgba(159,195,255,.18)
 inline const juce::Colour vfd { 0xff9fdcff };          // video display
 inline const juce::Colour osdWhite { 0xffeef3fb };
 inline const juce::Colour ledGreen { 0xff3dff6e };
+// readability (FL Studio test): readable label / value colours and the minimum text height at 100 %
+inline const juce::Colour labelText { 0xffc8d3e6 };
+inline const juce::Colour valueText { 0xffe6ecf7 };
+constexpr float minTextHeight = 11.0f;
 
 // fonts (built-in placeholders until the licensed OSD / VFD / handwritten fonts arrive)
 juce::Font osdFont (float height);          // blocky VCR on-screen display

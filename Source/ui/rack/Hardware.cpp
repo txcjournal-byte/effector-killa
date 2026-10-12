@@ -47,6 +47,22 @@ void setReduceMotion (bool on)
     xml.writeTo (file);
 }
 
+float userUiScale()
+{
+    if (auto xml = parseXML (settingsFile())) return (float) xml->getDoubleAttribute ("uiScale", -1.0);
+    return -1.0f;
+}
+
+void setUserUiScale (float scale)
+{
+    XmlElement xml ("TRAPWIN_UI");
+    if (auto old = parseXML (settingsFile())) xml = *old;
+    xml.setAttribute ("uiScale", (double) scale);
+    auto file = settingsFile();
+    file.getParentDirectory().createDirectory();
+    xml.writeTo (file);
+}
+
 double animSeconds() { return Time::getMillisecondCounterHiRes() * 0.001; }
 
 
@@ -105,9 +121,9 @@ Rectangle<float> drawRackPanel (Graphics& g, Rectangle<float> r, Colour, float, 
 
 void drawSectionHeader (Graphics& g, Rectangle<float> r, const String& label)
 {
-    const auto f = mono (jmin (10.0f, r.getHeight() * 0.8f), true);
+    const auto f = mono (jmax (type::min, jmin (type::label, r.getHeight() * 0.92f)), true);
     g.setFont (f);
-    g.setColour (col::printDim);
+    g.setColour (col::label.withAlpha (0.86f));
     g.drawText (label, r, Justification::centredLeft, false);
     const float x = r.getX() + GlyphArrangement::getStringWidth (f, label) + 8.0f;
     if (x < r.getRight() - 4.0f)
@@ -120,7 +136,7 @@ void drawSectionHeader (Graphics& g, Rectangle<float> r, const String& label)
 
 void drawPrint (Graphics& g, const String& text, Rectangle<float> r, Justification j, float size, Colour c)
 {
-    g.setFont (mono (size));
+    g.setFont (mono (jmax (type::min, size)));
     g.setColour (c);
     g.drawText (text, r, j, false);
 }
@@ -144,7 +160,7 @@ void drawPill (Graphics& g, Rectangle<float> r, const String& text, Colour accen
         g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
         if (text.isNotEmpty())
         {
-            g.setFont (mono (fontSize > 0.0f ? fontSize : jmin (11.0f, r.getHeight() * 0.42f), true));
+            g.setFont (mono (fontSize > 0.0f ? jmax (type::min, fontSize) : jlimit (type::min, type::value, r.getHeight() * 0.46f), true));
             g.setColour (Colour (0xff05070b));
             g.drawFittedText (text, r.reduced (rad * 0.6f, 0.0f).toNearestInt(), Justification::centred, 1, 0.75f);
         }
@@ -180,8 +196,8 @@ void drawPill (Graphics& g, Rectangle<float> r, const String& text, Colour accen
     }
     if (text.isNotEmpty())
     {
-        const auto f = mono (fontSize > 0.0f ? fontSize : jmin (10.5f, r.getHeight() * 0.42f), true);
-        const Colour ink = lit ? accent.interpolatedWith (Colours::white, 0.55f) : (hover ? col::print : col::text2);
+        const auto f = mono (fontSize > 0.0f ? jmax (type::min, fontSize) : jlimit (type::min, type::value, r.getHeight() * 0.46f), true);
+        const Colour ink = lit ? accent.interpolatedWith (Colours::white, 0.55f) : (hover ? col::print : col::label);
         if (lit) card::glowText (g, text, tr, f, ink, dot ? Justification::centredLeft : Justification::centred, 0.6f);
         else
         {
@@ -451,6 +467,8 @@ HwButton::HwButton (Kind k, String l, Colour c) : kind (k), label (std::move (l)
 {
     setMouseCursor (MouseCursor::PointingHandCursor);
     setPaintingIsUnclipped (true);
+    setWantsKeyboardFocus (false);
+    setMouseClickGrabsKeyboardFocus (false);
 }
 
 void HwButton::repaintGlow()
@@ -505,7 +523,7 @@ void HwButton::paint (Graphics& g)
         case Kind::Icon:
         {
             drawPill (g, r, {}, led, lastLit, down, hover);
-            const Colour ink = lastLit ? led.interpolatedWith (Colours::white, 0.45f) : (hover ? col::print : col::text2);
+            const Colour ink = lastLit ? led.interpolatedWith (Colours::white, 0.45f) : (hover ? col::print : col::label);
             if (drawIcon) drawIcon (g, r.reduced (r.getHeight() * 0.2f), ink);
             break;
         }

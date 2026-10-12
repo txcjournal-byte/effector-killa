@@ -28,7 +28,20 @@ namespace col
     inline const juce::Colour line { 0x2e9fc3ff };       // rgba(159,195,255,.18)
     inline const juce::Colour print { 0xffe6ecf7 };      // text
     inline const juce::Colour text2 { 0xffa9b6cc };
-    inline const juce::Colour printDim { 0xff8794ab };   // muted
+    inline const juce::Colour printDim { 0xff8794ab };   // muted (tick marks / disabled only - not for text you must read)
+    inline const juce::Colour label { 0xffc8d3e6 };      // readable labels (section headers, knob names)
+    inline const juce::Colour value { 0xffe6ecf7 };      // readable values
+}
+
+// ---- type scale (JUCE font heights at 100 %) ----------------------------------------------------
+// Readability floor after the FL Studio test: nothing a user has to read is drawn below type::min.
+// (A JUCE height of 11 is a Plex Mono cap height of ~6 px - so labels use 12 - 13.)
+namespace type
+{
+    constexpr float min = 11.0f;      // absolute floor (tiny status / units)
+    constexpr float label = 12.5f;    // labels, section headers, pills
+    constexpr float value = 13.5f;    // value readouts
+    constexpr float title = 18.0f;    // chrome card titles
 }
 
 // ---- motion ----------------------------------------------------------------------------------
@@ -36,6 +49,9 @@ namespace col
 // Animated elements (scan effects, pulsing, glows ...) should check it.
 bool reduceMotion();
 void setReduceMotion (bool on);
+// last window size the user picked (per user, all projects): -1 = never chosen, 0 = Auto, else the scale
+float userUiScale();
+void setUserUiScale (float scale);
 double animSeconds();   // monotonically increasing animation clock (seconds)
 
 // ---- fonts -------------------------------------------------------------------------------------
@@ -50,7 +66,7 @@ juce::Rectangle<float> drawRackPanel (juce::Graphics&, juce::Rectangle<float> r,
 void drawCard (juce::Graphics&, juce::Rectangle<float> r, float corner = 20.0f, float glow = 0.0f);
 // Section label: Plex Mono muted caps + a hairline that fades out to the right.
 void drawSectionHeader (juce::Graphics&, juce::Rectangle<float> r, const juce::String& label);
-// Small printed label (Plex Mono).
+// Small printed label (Plex Mono, never below type::min).
 void drawPrint (juce::Graphics&, const juce::String& text, juce::Rectangle<float> r, juce::Justification j,
                 float size = 9.0f, juce::Colour c = col::printDim);
 // Soft glow (stacked translucent rounded rects, cheap) around r.
@@ -113,7 +129,7 @@ class HwButton : public juce::Component, public juce::SettableTooltipClient
 {
 public:
     enum class Kind { Led, Icon, Text, Round, Chrome };
-    HwButton (Kind k, juce::String label = {}, juce::Colour led = col::ice);
+    HwButton (Kind k, juce::String label = {}, juce::Colour led = col::ice);   // never takes keyboard focus
 
     std::function<void()> onClick;
     std::function<void (bool down)> onPress;
@@ -151,7 +167,12 @@ private:
 class HwKnob : public Knob
 {
 public:
-    HwKnob() : Knob (Knob::Style::Macro) {}
+    HwKnob() : Knob (Knob::Style::Macro)
+    {
+        // the plugin never takes the computer keyboard (DAW transport keys must pass through)
+        setWantsKeyboardFocus (false);
+        setMouseClickGrabsKeyboardFocus (false);
+    }
     juce::Colour ring { col::ice };   // value arc colour
     float ringGlow = 0.0f;            // 0..1 extra glow of the arc (RECYCLE warning)
     float radiusFactor = 0.62f;       // disc radius relative to half the component size

@@ -17,7 +17,9 @@ const String kDot = String::fromUTF8 (" \xc2\xb7 ");
 PresetLcd::PresetLcd (EffectorKillaAudioProcessor& p) : proc (p)
 {
     setMouseCursor (MouseCursor::PointingHandCursor);
-    setTooltip ("Preset - click to open the preset browser (B)");
+    setWantsKeyboardFocus (false);
+    setMouseClickGrabsKeyboardFocus (false);
+    setTooltip ("Preset - click to open the preset browser");
 }
 
 void PresetLcd::showMessage (const String& m, int ms)
@@ -64,7 +66,7 @@ void PresetLcd::paint (Graphics& g)
     auto inner2 = r.reduced (rad * 0.75f, 0.0f);
     if (message.isNotEmpty())
     {
-        card::glowText (g, message.toUpperCase(), inner2, hw::mono (12.5f, true), hw::col::ice, Justification::centred, 1.0f);
+        card::glowText (g, message.toUpperCase(), inner2, hw::mono (13.0f, true), hw::col::ice, Justification::centred, 1.0f);
         return;
     }
 
@@ -73,19 +75,22 @@ void PresetLcd::paint (Graphics& g)
     if (m.factory && m.channel >= 0) sub = "CH" + String (m.channel + 1).paddedLeft ('0', 2);
     else if (m.seed != 0) sub = "KILL";
     else sub = "USER";
-    hw::icon::chevronDown (g, inner2.removeFromRight (14.0f), hover ? hw::col::print : hw::col::text2);
+    hw::icon::chevronDown (g, inner2.removeFromRight (12.0f), hover ? hw::col::print : hw::col::label);
     inner2.removeFromRight (4.0f);
-    auto subArea = inner2.removeFromRight (40.0f);
-    hw::drawPrint (g, sub, subArea, Justification::centredRight, 9.5f, hw::col::printDim);
+    const auto subFont = hw::mono (hw::type::min, true);
+    auto subArea = inner2.removeFromRight (GlyphArrangement::getStringWidth (subFont, sub) + 2.0f);
+    g.setFont (subFont);
+    g.setColour (hw::col::label.withAlpha (0.8f));
+    g.drawText (sub, subArea, Justification::centredRight, false);
     inner2.removeFromRight (6.0f);
 
     // favourite sparkle
     auto nameArea = inner2;
     const bool fav = proc.isCurrentFavourite();
-    auto sp = nameArea.removeFromLeft (16.0f);
-    if (fav) card::paintSparkle (g, sp.getCentre(), 6.0f, hw::col::ice, 1.0f);
+    auto sp = nameArea.removeFromLeft (12.0f);
+    if (fav) card::paintSparkle (g, sp.getCentre(), 5.5f, hw::col::ice, 1.0f);
     else card::paintSparkle (g, sp.getCentre(), 3.0f, hw::col::ice.withAlpha (0.35f));
-    nameArea.removeFromLeft (6.0f);
+    nameArea.removeFromLeft (5.0f);
 
     const double t = (hw::animSeconds() - scanStart) / kScanSeconds;
     const bool scanning = t >= 0.0 && t < 1.0;
@@ -94,9 +99,12 @@ void PresetLcd::paint (Graphics& g)
         Graphics::ScopedSaveState s (g);
         g.reduceClipRegion (Rectangle<float> (r.getX(), r.getY(), revealX - r.getX(), r.getHeight()).toNearestInt());
         auto text = m.name.toUpperCase();
-        float fh = 13.5f;
-        while (fh > 9.0f && GlyphArrangement::getStringWidth (hw::mono (fh, true), text) > nameArea.getWidth()) fh -= 0.5f;
-        card::glowText (g, text, nameArea, hw::mono (fh, true), hw::col::print, Justification::centredLeft, 0.5f);
+        float fh = nameHeight;
+        while (fh > hw::type::min && GlyphArrangement::getStringWidth (hw::mono (fh, true), text) > nameArea.getWidth()) fh -= 0.5f;
+        auto f = hw::mono (fh, true);
+        const float tw = GlyphArrangement::getStringWidth (f, text);
+        if (tw > nameArea.getWidth()) f = f.withHorizontalScale (jmax (0.8f, nameArea.getWidth() / tw));   // very long names
+        card::glowText (g, text, nameArea, f, hw::col::print, Justification::centredLeft, 0.5f);
     }
     if (scanning)
     {
@@ -123,13 +131,15 @@ Toolbar::Toolbar (EffectorKillaAudioProcessor& p)
       settingsBtn (hw::HwButton::Kind::Icon), infoBtn (hw::HwButton::Kind::Icon),
       bypassBtn (hw::HwButton::Kind::Text, "BYPASS", hw::col::red)
 {
+    setWantsKeyboardFocus (false);
+    setMouseClickGrabsKeyboardFocus (false);
     addAndMakeVisible (lcd);
     lcd.onClick = [this] { if (onBrowse) onBrowse(); };
 
     libBtn.drawIcon = hw::icon::library;
     libBtn.isLit = [this] { return isLibraryShown && isLibraryShown(); };
     libBtn.onClick = [this] { if (onToggleLibrary) onToggleLibrary(); };
-    libBtn.setTooltip ("FX LIBRARY: show / hide the effect library on the left (G) - the window gets narrower without it");
+    libBtn.setTooltip ("FX LIBRARY: open the effect library drawer - drag an effect into the chain (click outside to close)");
     prevBtn.drawIcon = hw::icon::prev;
     nextBtn.drawIcon = hw::icon::next;
     saveBtn.drawIcon = hw::icon::save;
@@ -174,21 +184,21 @@ Toolbar::Toolbar (EffectorKillaAudioProcessor& p)
         }
     };
 
-    prevBtn.setTooltip ("Previous preset (Left arrow)");
-    nextBtn.setTooltip ("Next preset (Right arrow)");
-    saveBtn.setTooltip ("Save the whole rack as a preset (Ctrl/Cmd + S)");
+    prevBtn.setTooltip ("Previous preset");
+    nextBtn.setTooltip ("Next preset");
+    saveBtn.setTooltip ("Save the whole chain as a preset");
     revertBtn.setTooltip ("Revert: reload the current preset and drop your changes");
     favBtn.setTooltip ("Favourite (the sparkle in the preset pill)");
     aBtn.setTooltip ("A / B: two complete rack states to compare - this is A");
     bBtn.setTooltip ("A / B: two complete rack states to compare - this is B");
-    undoBtn.setTooltip ("Undo (Ctrl/Cmd + Z)");
-    redoBtn.setTooltip ("Redo (Ctrl/Cmd + Y)");
-    settingsBtn.setTooltip ("Settings: window size, oversampling, reduce motion, preset folder, keys");
+    undoBtn.setTooltip ("Undo");
+    redoBtn.setTooltip ("Redo");
+    settingsBtn.setTooltip ("Settings: window size, oversampling, reduce motion, preset folder");
     infoBtn.setTooltip ("About TrapWin Effector / open the manual");
     bypassBtn.setTooltip ("BYPASS = COMPARE: the original signal, level-matched. Click = toggle, hold = listen while held.");
 
-    bypassBtn.fontSize = 11.0f;
-    aBtn.fontSize = bBtn.fontSize = 11.0f;
+    bypassBtn.fontSize = hw::type::label;
+    aBtn.fontSize = bBtn.fontSize = hw::type::value;
     for (auto* b : { &libBtn, &prevBtn, &nextBtn, &saveBtn, &revertBtn, &favBtn, &aBtn, &bBtn, &undoBtn, &redoBtn,
                      &settingsBtn, &infoBtn, &bypassBtn })
         addAndMakeVisible (b);
@@ -230,40 +240,39 @@ void Toolbar::tick()
 
 void Toolbar::resized()
 {
-    const int y = 13, h = 30, w = 30;
-    // logo (painted)
+    const int h = 28, w = 28, y = (height - h) / 2;
+    // logo (official artwork, painted) + chrome product name
     {
         const auto& logo = brand::logo();
-        const float lh = 46.0f;
-        const float lw = logo.isValid() ? lh * (float) logo.getWidth() / (float) logo.getHeight() : 99.0f;
-        logoArea = { 16.0f, ((float) height - lh) * 0.5f + 1.0f, lw, lh };
+        const float lh = 32.0f;
+        const float lw = logo.isValid() ? lh * (float) logo.getWidth() / (float) logo.getHeight() : 88.0f;
+        logoArea = { 16.0f, ((float) height - lh) * 0.5f, lw, lh };
     }
-    // product name in chrome italic next to the (image) logo - the logo itself is never redrawn as text
-    productArea = { logoArea.getRight() + 8.0f, 14.0f, 124.0f, 30.0f };
-    int x = (int) productArea.getRight() + 16;
+    productArea = { logoArea.getRight() + 6.0f, ((float) height - 24.0f) * 0.5f + 1.0f, 100.0f, 24.0f };
+    int x = (int) productArea.getRight() + 12;
     auto place = [&] (Component& c, int width, int gapAfter = 6) { c.setBounds (x, y, width, h); x += width + gapAfter; };
-    place (libBtn, w, 16);
-    place (aBtn, 38, 4); place (bBtn, 38, 14);
-    place (undoBtn, w); place (redoBtn, w, 0);
+    place (libBtn, w, 14);
+    place (aBtn, 32, 4); place (bBtn, 32, 14);
+    place (undoBtn, w, 4); place (redoBtn, w, 0);
     const int leftEnd = x;
 
-    int rx = getWidth() - 18;
+    int rx = getWidth() - 16;
     auto right = [&] (Component& c, int width, int gapBefore = 6) { rx -= width; c.setBounds (rx, y, width, h); rx -= gapBefore; };
-    right (bypassBtn, 104, 12);
-    right (infoBtn, w);
+    right (bypassBtn, 84, 14);
+    right (infoBtn, w, 4);
     right (settingsBtn, w);
     const int rightStart = rx;
 
     // centre group: < [preset] >  save revert fav, centred over the chain when there is room
-    const int extra = 12 + 3 * w + 2 * 6;
-    const int lcdW = jlimit (170, 300, rightStart - 36 - leftEnd - (w + 6 + 6 + w) - extra);
-    const int core = w + 6 + lcdW + 6 + w;
+    const int extra = 10 + 3 * w + 2 * 4;
+    const int lcdW = jlimit (150, 300, rightStart - 28 - leftEnd - (w + 4 + 4 + w) - extra);
+    const int core = w + 4 + lcdW + 4 + w;
     const int cx = centreX > 0 ? centreX : getWidth() / 2;
-    x = jlimit (leftEnd + 18, jmax (leftEnd + 18, rightStart - 18 - core - extra), cx - core / 2);
-    place (prevBtn, w);
-    place (lcd, lcdW);
-    place (nextBtn, w, 12);
-    place (saveBtn, w); place (revertBtn, w); place (favBtn, w);
+    x = jlimit (leftEnd + 14, jmax (leftEnd + 14, rightStart - 14 - core - extra), cx - core / 2);
+    place (prevBtn, w, 4);
+    place (lcd, lcdW, 4);
+    place (nextBtn, w, 10);
+    place (saveBtn, w, 4); place (revertBtn, w, 4); place (favBtn, w);
 }
 
 void Toolbar::paint (Graphics& g)
@@ -284,13 +293,13 @@ void Toolbar::paint (Graphics& g)
         g.setImageResamplingQuality (Graphics::highResamplingQuality);
         g.drawImage (logo, logoArea, RectanglePlacement::centred);
     }
-    ek::card::paintChromeTitle (g, "EFFECTOR", productArea, 21.0f, 0.8f);
+    ek::card::paintChromeTitle (g, "EFFECTOR", productArea, 18.0f, 0.8f);
     // thin separators between the groups
     auto sep = [&] (const Component& left, const Component& right)
     {
         const float x = (float) (left.getRight() + right.getX()) * 0.5f;
         g.setColour (hw::col::line);
-        g.fillRect (Rectangle<float> (x - 0.5f, 18.0f, 1.0f, r.getHeight() - 36.0f));
+        g.fillRect (Rectangle<float> (x - 0.5f, 15.0f, 1.0f, r.getHeight() - 30.0f));
     };
     sep (libBtn, aBtn);
     sep (bBtn, undoBtn);
