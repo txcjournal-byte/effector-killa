@@ -56,5 +56,21 @@ Spec: `CLAUDE.md` (původní zadání „Effector Killa“), produkt je přejmen
 - Známé drobnosti: rack interně zpožďuje o 1 vzorek méně, než hlásí (starší chyba, oprava by změnila zvuk presetů);
   „Reduce motion“ a CPU UI ověřit ve FL Studiu; Archivo italic je zatím zkosená Archivo Black.
 
+
+## Stav 12. 10. 2026 – kompaktní čitelné UI, oprava zasekávání, obchod
+- **UI 1000 × 680** (velikosti 75/100/125/150 % + Auto): FX LIBRARY jako vysouvací panel (tlačítko vlevo v hlavičce),
+  MOD sbalený pruh (EDIT rozbalí), karty 724 × 120, písmo min. 11 px, popisky #C8D3E6, hodnoty #E6ECF7.
+- **Klávesnice:** plugin nemá zkratky a nebere fokus – mezerník a ostatní klávesy jdou do DAW (FL play/stop).
+- **Zasekávání při zavírání FL:** JUCE objekty ve statických proměnných (logo, písma, cache obrázků) se uvolňovaly
+  při unloadu DLL → nově `Source/ui/UiResources.*` (SharedResourcePointer, uvolní se s posledním editorem).
+  Editor při zavření zavře menu/dialogy/tooltipy; processor ctor ~4 ms (dřív ~32 ms). Testy `Tests/LifecycleTests.cpp`,
+  `EffectorKillaSnapshot --lifecycle`. **Ověřit ve FL Studiu** (zavřít FL s otevřeným oknem pluginu, odebrat plugin, projekt s více instancemi).
+- CI: chyby unit testů se vypisují jako anotace (logy přes proxy nejdou stáhnout); časové limity testů jsou na CI ×10.
+- **Shopify:** produkt TRAPWIN EFFECTOR je ACTIVE, varianty Windows (TW-PL-01-WIN) a macOS (TW-PL-01-MAC) po 59 USD,
+  kategorie Plugins → Creative FX. Podkategorie Plugins: Mixing & Mastering / Creative FX / (Instrument Plugins – skrytá, štítek `Instrument`).
+  Soubory ke stažení: zipy z artefaktu trapwin.com (`Windows/…-Windows.zip`, `macOS/…-macOS.zip`), cover `Shop/TrapWinEffector-cover.png`
+  (generuje `Tools/make_cover.py <00_cover_ui.png> <out>` ve stylu TIMER).
+- Gross Beat Vault přepnut na koncept (neověřený); je ale ještě uveden v balíčcích FL Studio Complete a Sound & Visual – bundly předělat později.
+
 ## Rozhodnutí, která lze změnit
 Cena 59 USD; macOS zdarma pro dřívější kupce (věta v popisu); factory presety srovnané na hlasitost (kromě CH 12).
