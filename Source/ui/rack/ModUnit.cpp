@@ -71,6 +71,13 @@ void paintPatchCable (Graphics& g, Point<float> from, Point<float> to, Colour co
     card::dotGlow (g, to, 3.0f, colour, 1.0f);
 }
 
+namespace
+{
+const Colour labelCol { 0xffc8d3e6 };   // readable label colour (Docs/TRAPWIN-STYLE.md)
+// 11 px Plex Mono with almost no extra tracking: the knob columns are narrow
+Font smallFont (bool bold = false) { return card::monoFont (11.0f, bold).withExtraKerningFactor (0.02f); }
+}
+
 static String hzText (float hz)
 {
     if (hz < 1.0f) return String (hz, 2) + "Hz";
@@ -101,7 +108,11 @@ public:
     {
         setMouseCursor (MouseCursor::UpDownResizeCursor);
         setRepaintsOnMouseActivity (true);
+        setWantsKeyboardFocus (false);
+        setMouseClickGrabsKeyboardFocus (false);
     }
+
+    static constexpr int height = 62;   // label 11 px, 30 px knob, value 11 px
 
     void tick()
     {
@@ -114,12 +125,12 @@ public:
     {
         const auto b = getLocalBounds().toFloat();
         const bool hot = isMouseOverOrDragging();
-        g.setFont (card::monoFont (7.0f));
-        g.setColour (hot ? card::text : card::muted);
-        g.drawFittedText (label, getLocalBounds().withHeight (10), Justification::centred, 1, 0.6f);
+        g.setFont (smallFont());
+        g.setColour (hot ? card::text : labelCol);
+        g.drawFittedText (label, getLocalBounds().withHeight (13), Justification::centred, 1, 0.85f);
 
-        const auto c = Point<float> (b.getCentreX(), 25.0f);
-        const float r = 8.5f;
+        const auto c = Point<float> (b.getCentreX(), 29.0f);
+        const float r = 15.0f;
         if (hot)
         {
             ColourGradient halo (colour.withAlpha (0.22f), c.x, c.y, colour.withAlpha (0.0f), c.x + r * 2.2f, c.y, true);
@@ -128,9 +139,9 @@ public:
         }
         card::paintKnob (g, c, r, get(), colour);
 
-        g.setFont (card::monoFont (7.5f));
-        g.setColour (hot ? card::text : card::text2);
-        g.drawFittedText (text(), Rectangle<int> (0, 39, getWidth(), 10), Justification::centred, 1, 0.6f);
+        g.setFont (smallFont());
+        g.setColour (card::text);
+        g.drawFittedText (text(), Rectangle<int> (0, 47, getWidth(), 14), Justification::centred, 1, 0.85f);
     }
 
     void mouseDown (const MouseEvent& e) override
@@ -182,10 +193,14 @@ private:
 namespace
 {
 constexpr int kKnobsPerSection[kNumModSources] = { 3, 3, 3, 2 };
-constexpr float kSectionWeight[kNumModSources] = { 1.0f, 1.0f, 0.96f, 1.08f };
-constexpr int kTop = 29, kBottom = 88;     // content band (under the section headers)
-constexpr int kHeadY = 16;                 // centre line of the section headers (title, jack)
+constexpr float kSectionWeight[kNumModSources] = { 1.04f, 1.04f, 1.0f, 0.92f };
+constexpr int kMargin = 10;                // inner margin of the card
+constexpr int kTitleW = 66;                // MOD title column
+constexpr int kChipY = 6, kChipH = 24;     // source chips (both modes)
+constexpr int kContentY = 36;              // expanded: screens + knobs below the chips
+constexpr int kKnobW = 34;
 constexpr float kCorner = 16.0f;           // card radius (small card)
+constexpr float kJackR = 8.0f;
 }
 
 ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
@@ -263,51 +278,79 @@ ModUnit::ModUnit (EffectorKillaAudioProcessor& p) : proc (p)
     }
 
     setTooltip ("MOD SOURCES - drag a jack onto any knob in the chain to modulate it");
-    setSize (kWidth, kHeight);
+    setWantsKeyboardFocus (false);
+    setMouseClickGrabsKeyboardFocus (false);
+    for (auto& k : knobs) k->setVisible (expanded);
+    setSize (kWidth, collapsedHeight);
 }
 
 ModUnit::~ModUnit() = default;
 
+void ModUnit::setExpanded (bool shouldBeExpanded)
+{
+    if (expanded == shouldBeExpanded) return;
+    expanded = shouldBeExpanded;
+    for (auto& k : knobs) k->setVisible (expanded);
+    resized();
+    repaint();
+    if (onExpandedChanged) onExpandedChanged();
+}
+
 void ModUnit::resized()
 {
     const int w = jmax (kMinWidth, getWidth());
-    const int titleW = jlimit (62, 84, roundToInt ((float) w * 0.095f));
-    titleArea = { 0, 0, titleW, kHeight };
+    const int h = getCurrentHeight();
+    titleArea = { kMargin, 0, kTitleW, h };
 
-    // sections share the rest by weight
-    const float avail = (float) (w - titleW - 8);
-    float wsum = 0.0f;
-    for (auto wt : kSectionWeight) wsum += wt;
-    float x = (float) titleW;
-    for (int s = 0; s < kNumModSources; ++s)
+    if (! expanded)
     {
-        const float sw = avail * kSectionWeight[s] / wsum;
-        sections[(size_t) s].area = Rectangle<float> (x, 6.0f, sw, (float) kHeight - 12.0f).toNearestInt();
-        x += sw;
+        // [MOD] [chip] [chip] [chip] [chip] [EDIT]
+        editPill = { w - kMargin - 4 - 78, kChipY, 78, kChipH };
+        const int x0 = titleArea.getRight() + 6, x1 = editPill.getX() - 12;
+        const float cw = (float) (x1 - x0 + 8) / (float) kNumModSources;
+        for (int s = 0; s < kNumModSources; ++s)
+        {
+            auto& sec = sections[(size_t) s];
+            sec.chip = Rectangle<float> ((float) x0 + cw * (float) s, (float) kChipY, cw - 8.0f, (float) kChipH).toNearestInt();
+            sec.area = sec.chip;
+            sec.display = {};
+            sec.jack = Rectangle<int> (22, 22).withCentre ({ sec.chip.getRight() - 13, sec.chip.getCentreY() });
+        }
+        for (int i = 0; i < 2; ++i) syncButtons[i] = {};
+        return;
     }
 
-    const int knobW = w >= 820 ? 34 : 30;
+    // expanded: title column (MOD / SOURCES / ACTIVE / CLOSE pill) + four weighted sections
+    editPill = { titleArea.getX() + 2, h - 8 - 22, kTitleW - 4, 22 };
+    const float avail = (float) (w - titleArea.getRight() - 8 - kMargin);
+    float wsum = 0.0f;
+    for (auto wt : kSectionWeight) wsum += wt;
+    float x = (float) (titleArea.getRight() + 8);
     int k = 0;
     for (int s = 0; s < kNumModSources; ++s)
     {
         auto& sec = sections[(size_t) s];
+        const float sw = avail * kSectionWeight[s] / wsum;
+        sec.area = Rectangle<float> (x, 2.0f, sw, (float) h - 4.0f).toNearestInt();
+        x += sw;
         const auto a = sec.area;
+        sec.chip = { a.getX() + 5, kChipY, a.getWidth() - 10, kChipH };
+        sec.jack = Rectangle<int> (22, 22).withCentre ({ sec.chip.getRight() - 13, sec.chip.getCentreY() });
+
         const int nk = kKnobsPerSection[s];
-        const int knobsRight = a.getRight() - 6;
-        const int knobsLeft = knobsRight - nk * knobW;
-        const int screenX = a.getX() + 12;
-        const int screenW = jmax (24, knobsLeft - 8 - screenX);
+        const int knobsRight = a.getRight() - 4;
+        const int knobsLeft = knobsRight - nk * kKnobW;
+        const int screenX = a.getX() + 7;
+        const int screenW = jmax (24, knobsLeft - 5 - screenX);
         if (s <= 1)
         {
-            sec.display = { screenX, kTop, screenW, 38 };
-            syncButtons[s] = { screenX, kTop + 43, screenW, 15 };
+            sec.display = { screenX, kContentY + 2, screenW, 36 };
+            syncButtons[s] = { screenX, kContentY + 42, screenW, 20 };
         }
         else
-            sec.display = { screenX, kTop, screenW, kBottom - kTop };
-        // the jack sits at the right end of the section header
-        sec.jack = Rectangle<int> (24, 24).withCentre ({ a.getRight() - 18, kHeadY });
+            sec.display = { screenX, kContentY + 2, screenW, h - 8 - (kContentY + 2) };
         for (int i = 0; i < nk; ++i, ++k)
-            knobs[(size_t) k]->setBounds (knobsLeft + i * knobW, kTop + 4, knobW, 52);
+            knobs[(size_t) k]->setBounds (knobsLeft + i * kKnobW, kContentY, kKnobW, MiniKnob::height);
     }
 }
 
@@ -340,45 +383,92 @@ void ModUnit::tick()
     envHistory[(size_t) envPos] = proc.getModSourceValue ((int) ModSourceId::Env);
     envPos = (envPos + 1) % (int) envHistory.size();
 
-    for (auto& k : knobs) k->tick();
+    if (expanded)
+        for (auto& k : knobs) k->tick();
     for (int s = 0; s < kNumModSources; ++s)
     {
         const float v = proc.getModSourceValue (s);
         if (std::abs (v - shownValue[(size_t) s]) > 1.0e-3f || s == (int) ModSourceId::Env)
         {
             shownValue[(size_t) s] = v;
-            repaint (sections[(size_t) s].display.expanded (4));
-            repaint (sections[(size_t) s].area.withHeight (22));
-            repaint (sections[(size_t) s].jack.expanded (14));
+            if (expanded) repaint (sections[(size_t) s].display.expanded (4));
+            repaint (sections[(size_t) s].chip.expanded (14));
         }
     }
     const int st = proc.getSeqStep();
-    if (st != shownStep) { shownStep = st; repaint (sections[3].display.expanded (4)); }
-    repaint (titleArea); // ACTIVE dot
+    if (st != shownStep) { shownStep = st; if (expanded) repaint (sections[3].display.expanded (4)); }
+    if (expanded) repaint (titleArea); // ACTIVE dot
 }
 
 // ============================================================================
 // Painting
 // ============================================================================
+static void paintChevron (Graphics& g, Point<float> c, bool up, Colour col)
+{
+    Path p;
+    const float s = 3.6f;
+    if (up) { p.startNewSubPath (c.x - s, c.y + s * 0.5f); p.lineTo (c.x, c.y - s * 0.5f); p.lineTo (c.x + s, c.y + s * 0.5f); }
+    else    { p.startNewSubPath (c.x - s, c.y - s * 0.5f); p.lineTo (c.x, c.y + s * 0.5f); p.lineTo (c.x + s, c.y - s * 0.5f); }
+    g.setColour (col);
+    g.strokePath (p, PathStrokeType (1.5f, PathStrokeType::curved, PathStrokeType::rounded));
+}
+
+void ModUnit::paintEditPill (Graphics& g)
+{
+    const auto r = editPill.toFloat();
+    const float rad = r.getHeight() * 0.5f;
+    if (editHover)
+        for (int k = 3; k >= 1; --k)
+        {
+            g.setColour (card::iceDeep.withAlpha (0.12f * (float) (4 - k)));
+            g.fillRoundedRectangle (r.expanded ((float) k * 1.3f), rad + (float) k * 1.3f);
+        }
+    if (expanded)
+    {
+        ColourGradient fill (card::ice.withAlpha (0.26f), 0.0f, r.getY(), card::iceDeep.withAlpha (0.26f), 0.0f, r.getBottom(), false);
+        g.setGradientFill (fill);
+    }
+    else
+        g.setColour (card::bg);
+    g.fillRoundedRectangle (r, rad);
+    g.setColour (editHover || expanded ? card::ice.withAlpha (0.85f) : card::text.withAlpha (0.5f));
+    g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
+    const auto f = smallFont (true);
+    const String t = expanded ? "CLOSE" : "EDIT";
+    const float tw = GlyphArrangement::getStringWidth (f, t);
+    const float x0 = r.getCentreX() - (tw + 12.0f) * 0.5f;
+    g.setFont (f);
+    g.setColour (card::text);
+    g.drawText (t, Rectangle<float> (x0, r.getY(), tw + 2.0f, r.getHeight()), Justification::centredLeft, false);
+    paintChevron (g, { x0 + tw + 8.0f, r.getCentreY() }, expanded, card::text);
+}
+
 void ModUnit::paintTitle (Graphics& g)
 {
     const auto t = titleArea.toFloat();
-    card::paintChromeTitle (g, "MOD", { t.getX() + 14.0f, 18.0f, t.getWidth() - 18.0f, 28.0f }, 24.0f, 1.0f);
-    g.setFont (card::monoFont (7.5f));
-    g.setColour (card::muted);
-    g.drawText ("SOURCES", Rectangle<float> (t.getX() + 15.0f, 46.0f, t.getWidth() - 16.0f, 11.0f), Justification::centredLeft, false);
+    if (! expanded)
+    {
+        card::paintChromeTitle (g, "MOD", { t.getX() + 6.0f, 7.0f, t.getWidth() - 8.0f, 22.0f }, 19.0f, 1.0f);
+    }
+    else
+    {
+        card::paintChromeTitle (g, "MOD", { t.getX() + 6.0f, 9.0f, t.getWidth() - 8.0f, 24.0f }, 20.0f, 1.0f);
+        g.setFont (smallFont());
+        g.setColour (labelCol);
+        g.drawText ("SOURCES", Rectangle<float> (t.getX() + 7.0f, 36.0f, t.getWidth() - 6.0f, 14.0f), Justification::centredLeft, false);
 
-    const bool active = proc.engine.modMeters.active.load (std::memory_order_relaxed);
-    card::dotGlow (g, { t.getX() + 18.0f, 74.0f }, 2.4f, card::ice, active ? 1.0f : 0.0f);
-    g.setFont (card::monoFont (7.0f));
-    g.setColour (active ? card::text2 : card::muted.withAlpha (0.7f));
-    g.drawText ("ACTIVE", Rectangle<float> (t.getX() + 26.0f, 68.0f, t.getWidth() - 27.0f, 12.0f), Justification::centredLeft, false);
+        const bool active = proc.engine.modMeters.active.load (std::memory_order_relaxed);
+        card::dotGlow (g, { t.getX() + 10.0f, 60.0f }, 2.8f, card::ice, active ? 1.0f : 0.0f);
+        g.setColour (active ? card::text : labelCol.withAlpha (0.75f));
+        g.drawText ("ACTIVE", Rectangle<float> (t.getX() + 18.0f, 53.0f, t.getWidth() - 16.0f, 14.0f), Justification::centredLeft, false);
+    }
 
     // divider between the title and the sources
-    ColourGradient div (card::ice.withAlpha (0.0f), 0.0f, 14.0f, card::ice.withAlpha (0.0f), 0.0f, (float) kHeight - 14.0f, false);
-    div.addColour (0.5, card::ice.withAlpha (0.16f));
+    const float h = (float) getCurrentHeight();
+    ColourGradient div (card::ice.withAlpha (0.0f), 0.0f, 6.0f, card::ice.withAlpha (0.0f), 0.0f, h - 6.0f, false);
+    div.addColour (0.5, card::ice.withAlpha (0.18f));
     g.setGradientFill (div);
-    g.fillRect (t.getRight() - 6.0f, 14.0f, 1.0f, (float) kHeight - 28.0f);
+    g.fillRect (t.getRight() + 2.0f, 6.0f, 1.0f, h - 12.0f);
 }
 
 Rectangle<float> ModUnit::seqPlot() const
@@ -503,30 +593,62 @@ void ModUnit::paintJack (Graphics& g, const Section& sec)
     for (auto& a : proc.getModAssignments()) if (a.source == sec.source) ++count;
     const float v = proc.getModSourceValue (sec.source);
     const float level = jlimit (0.0f, 1.0f, modSourceIsBipolar (sec.source) ? 0.5f + 0.5f * v : v);
-    const float lit = hot ? 1.0f : (count > 0 ? 0.65f + 0.35f * level : 0.35f);
-    const float R = 8.5f;
+    const float lit = hot ? 1.0f : (count > 0 ? 0.65f + 0.35f * level : 0.4f);
+    const float R = kJackR;
 
     // halo
-    ColourGradient halo (col.withAlpha (0.40f * lit), c.x, c.y, col.withAlpha (0.0f), c.x + R * 2.3f, c.y, true);
+    ColourGradient halo (col.withAlpha (0.40f * lit), c.x, c.y, col.withAlpha (0.0f), c.x + R * 2.2f, c.y, true);
     g.setGradientFill (halo);
-    g.fillEllipse (Rectangle<float> (R * 4.6f, R * 4.6f).withCentre (c));
+    g.fillEllipse (Rectangle<float> (R * 4.4f, R * 4.4f).withCentre (c));
     // dark disc + glowing ring
     ColourGradient disc (Colour (0xff121a28), c.x, c.y - R, Colour (0xff060a11), c.x, c.y + R, false);
     g.setGradientFill (disc);
     g.fillEllipse (Rectangle<float> (R * 2.0f, R * 2.0f).withCentre (c));
     Path ring;
     ring.addEllipse (Rectangle<float> (R * 2.0f - 2.0f, R * 2.0f - 2.0f).withCentre (c));
-    card::strokeGlow (g, ring, col.withAlpha (0.45f + 0.55f * lit), 1.5f, lit);
+    card::strokeGlow (g, ring, col.withAlpha (0.5f + 0.5f * lit), 1.5f, lit);
     // socket: the core lights up while the source is patched / hovered (empty while the cable is out)
     g.setColour (Colour (0xff020306));
-    g.fillEllipse (Rectangle<float> (7.0f, 7.0f).withCentre (c));
+    g.fillEllipse (Rectangle<float> (6.5f, 6.5f).withCentre (c));
     if (dragSource != sec.source)
-        card::dotGlow (g, c, 2.2f, col, count > 0 || hot ? 0.6f + 0.4f * level : 0.25f);
+        card::dotGlow (g, c, 2.0f, col, count > 0 || hot ? 0.6f + 0.4f * level : 0.3f);
+}
 
-    g.setFont (card::monoFont (7.0f));
-    g.setColour (count > 0 ? col : card::muted);
-    g.drawText (count > 0 ? countText (sec.source) : String ("OUT"), Rectangle<float> (c.x - R - 30.0f, c.y - 5.0f, 24.0f, 10.0f),
-                Justification::centredRight, false);
+// Source chip: pill in the source colour - live dot, name, patch count and the jack at the right end.
+void ModUnit::paintChip (Graphics& g, const Section& sec)
+{
+    const auto r = sec.chip.toFloat();
+    const auto col = modSourceColour (sec.source);
+    const float rad = r.getHeight() * 0.5f;
+    g.setColour (card::bg.withAlpha (0.85f));
+    g.fillRoundedRectangle (r, rad);
+    ColourGradient tint (col.withAlpha (0.12f), r.getX(), 0.0f, col.withAlpha (0.0f), r.getX() + r.getWidth() * 0.6f, 0.0f, false);
+    g.setGradientFill (tint);
+    g.fillRoundedRectangle (r, rad);
+    g.setColour (col.withAlpha (hoverJack == sec.source ? 0.7f : 0.38f));
+    g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
+
+    // live dot: brightness follows the source value
+    const float v = proc.getModSourceValue (sec.source);
+    const float level = jlimit (0.0f, 1.0f, modSourceIsBipolar (sec.source) ? 0.5f + 0.5f * v : v);
+    card::dotGlow (g, { r.getX() + 12.0f, r.getCentreY() }, 3.0f, col, jlimit (0.12f, 1.0f, level));
+
+    const auto f = smallFont (true);
+    g.setFont (f);
+    g.setColour (card::text);
+    const float nameX = r.getX() + 21.0f;
+    g.drawText (sec.title, Rectangle<float> (nameX, r.getY(), 60.0f, r.getHeight()), Justification::centredLeft, false);
+
+    const String cnt = countText (sec.source);
+    const auto right = Rectangle<float> (nameX + GlyphArrangement::getStringWidth (f, sec.title) + 6.0f, r.getY(),
+                                         0.0f, r.getHeight()).withRight ((float) sec.jack.getX() - 2.0f);
+    if (right.getWidth() > 14.0f)
+    {
+        g.setFont (smallFont());
+        g.setColour (cnt.isNotEmpty() ? col : labelCol.withAlpha (0.8f));
+        g.drawText (cnt.isNotEmpty() ? cnt : String ("OUT"), right, Justification::centredRight, false);
+    }
+    paintJack (g, sec);
 }
 
 void ModUnit::paintSection (Graphics& g, const Section& sec)
@@ -538,99 +660,77 @@ void ModUnit::paintSection (Graphics& g, const Section& sec)
     if (sec.source > 0)
     {
         ColourGradient div (card::ice.withAlpha (0.0f), 0.0f, a.getY() + 8.0f, card::ice.withAlpha (0.0f), 0.0f, a.getBottom() - 8.0f, false);
-        div.addColour (0.5, card::ice.withAlpha (0.10f));
+        div.addColour (0.5, card::ice.withAlpha (0.12f));
         g.setGradientFill (div);
         g.fillRect (a.getX(), a.getY() + 8.0f, 1.0f, a.getHeight() - 16.0f);
     }
 
-    // header: glowing source dot + name + a hairline in the source colour
-    const float v = proc.getModSourceValue (sec.source);
-    const float level = modSourceIsBipolar (sec.source) ? 0.5f + 0.5f * v : v;
-    const float hy = (float) kHeadY;
-    card::dotGlow (g, { a.getX() + 15.0f, hy }, 2.3f, col, jlimit (0.15f, 1.0f, level));
-    const auto f = card::monoFont (8.5f, true);
-    g.setFont (f);
-    g.setColour (card::text);
-    g.drawText (sec.title, Rectangle<float> (a.getX() + 23.0f, hy - 7.0f, 80.0f, 14.0f), Justification::centredLeft, false);
-    // hairline from the title to the jack, fading towards the jack
-    const float lx = a.getX() + 23.0f + GlyphArrangement::getStringWidth (f, sec.title) + 8.0f;
-    const float rx = (float) sec.jack.getX() - 26.0f;
-    if (rx > lx)
-    {
-        ColourGradient hl (col.withAlpha (0.30f), lx, 0.0f, col.withAlpha (0.05f), rx, 0.0f, false);
-        g.setGradientFill (hl);
-        g.fillRect (lx, hy, rx - lx, 1.0f);
-    }
-
+    paintChip (g, sec);
     paintDisplay (g, sec);
-    paintJack (g, sec);
 
     if (sec.source <= 1)
     {
-        // FREE | SYNC segmented pill
+        // FREE / SYNC toggle pill (click toggles)
         const bool sync = proc.getModSources().lfo[(size_t) sec.source].sync;
         const auto r = syncButtons[sec.source].toFloat();
         const float rad = r.getHeight() * 0.5f;
-        g.setColour (card::bg);
-        g.fillRoundedRectangle (r, rad);
-        g.setColour (card::line);
-        g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
-        for (int k = 0; k < 2; ++k)
+        if (sync)
         {
-            const bool on = (k == 1) == sync;
-            auto seg = k == 0 ? r.withWidth (r.getWidth() * 0.5f) : r.withLeft (r.getCentreX());
-            if (on)
-            {
-                const auto sr = seg.reduced (1.5f);
-                g.setColour (col.withAlpha (0.16f));
-                g.fillRoundedRectangle (sr.expanded (1.0f), rad);
-                g.setColour (col.withAlpha (0.30f));
-                g.fillRoundedRectangle (sr, sr.getHeight() * 0.5f);
-                g.setColour (col.withAlpha (0.8f));
-                g.drawRoundedRectangle (sr, sr.getHeight() * 0.5f, 0.8f);
-            }
-            g.setFont (card::monoFont (6.5f, on));
-            g.setColour (on ? card::text : card::muted);
-            g.drawText (k == 0 ? "FREE" : "SYNC", seg, Justification::centred, false);
+            g.setColour (col.withAlpha (0.16f));
+            g.fillRoundedRectangle (r.expanded (1.0f), rad + 1.0f);
+            g.setColour (col.withAlpha (0.30f));
+            g.fillRoundedRectangle (r, rad);
+            g.setColour (col.withAlpha (0.85f));
         }
+        else
+        {
+            g.setColour (card::bg);
+            g.fillRoundedRectangle (r, rad);
+            g.setColour (card::line.withMultipliedAlpha (1.6f));
+        }
+        g.drawRoundedRectangle (r.reduced (0.5f), rad - 0.5f, 1.0f);
+        g.setFont (smallFont (sync));
+        g.setColour (sync ? card::text : labelCol);
+        g.drawFittedText (sync ? "SYNC" : "FREE", r.toNearestInt(), Justification::centred, 1, 0.85f);
     }
 }
 
 void ModUnit::paint (Graphics& g)
 {
     const auto b = getLocalBounds().toFloat();
-    // TrapWin card (the left accent edge in LFO-1 ice blue)
+    const float corner = expanded ? kCorner : jmin (kCorner, b.getHeight() * 0.5f);
+    // TrapWin card (the left accent edge in the source colours)
     {
         Path shape;
-        shape.addRoundedRectangle (b, kCorner);
+        shape.addRoundedRectangle (b, corner);
         ColourGradient body (card::card2, 0.0f, b.getY(), Colour (0xff080c14), 0.0f, b.getBottom(), false);
         body.addColour (0.45, card::card);
         g.setGradientFill (body);
         g.fillPath (shape);
         g.saveState();
         g.reduceClipRegion (shape);
-        // the four source colours breathe in very faintly from below each section
-        for (auto& s : sections)
-        {
-            const auto a = s.area.toFloat();
-            ColourGradient glow (modSourceColour (s.source).withAlpha (0.05f), a.getCentreX(), b.getBottom(),
-                                 modSourceColour (s.source).withAlpha (0.0f), a.getCentreX(), b.getY(), true);
-            g.setGradientFill (glow);
-            g.fillRect (a.withY (b.getY()).withHeight (b.getHeight()));
-        }
+        if (expanded)
+            for (auto& s : sections)   // the four source colours breathe in very faintly from below each section
+            {
+                const auto a = s.area.toFloat();
+                ColourGradient glow (modSourceColour (s.source).withAlpha (0.05f), a.getCentreX(), b.getBottom(),
+                                     modSourceColour (s.source).withAlpha (0.0f), a.getCentreX(), b.getY(), true);
+                g.setGradientFill (glow);
+                g.fillRect (a.withY (b.getY()).withHeight (b.getHeight()));
+            }
         ColourGradient sheen (Colours::white.withAlpha (0.035f), 0.0f, b.getY(), Colours::white.withAlpha (0.0f), 0.0f, b.getY() + 30.0f, false);
         g.setGradientFill (sheen);
         g.fillRect (b);
         g.restoreState();
         g.setColour (card::line);
-        g.drawRoundedRectangle (b.reduced (0.5f), kCorner - 0.5f, 1.0f);
-        ColourGradient top (card::ice.withAlpha (0.0f), b.getX() + kCorner, 0.0f, card::ice.withAlpha (0.0f), b.getRight() - kCorner, 0.0f, false);
+        g.drawRoundedRectangle (b.reduced (0.5f), corner - 0.5f, 1.0f);
+        ColourGradient top (card::ice.withAlpha (0.0f), b.getX() + corner, 0.0f, card::ice.withAlpha (0.0f), b.getRight() - corner, 0.0f, false);
         top.addColour (0.3, card::ice.withAlpha (0.16f));
         top.addColour (0.7, card::ice.withAlpha (0.10f));
         g.setGradientFill (top);
-        g.fillRect (b.getX() + kCorner, b.getY() + 0.5f, b.getWidth() - 2.0f * kCorner, 0.8f);
+        g.fillRect (b.getX() + corner, b.getY() + 0.5f, b.getWidth() - 2.0f * corner, 0.8f);
         // 2 px accent edge on the left
-        const float y0 = b.getY() + kCorner * 0.6f, y1 = b.getBottom() - kCorner * 0.6f;
+        const float y0 = b.getY() + corner * 0.6f, y1 = b.getBottom() - corner * 0.6f;
         ColourGradient edge (card::ice.withAlpha (0.0f), 0.0f, y0, card::ice.withAlpha (0.0f), 0.0f, y1, false);
         edge.addColour (0.2, card::ice.withAlpha (0.9f));
         edge.addColour (0.5, Colour (0xffb07cff).withAlpha (0.9f));
@@ -639,7 +739,9 @@ void ModUnit::paint (Graphics& g)
         g.fillRoundedRectangle (Rectangle<float> (b.getX() + 1.0f, y0, 2.0f, y1 - y0), 1.0f);
     }
     paintTitle (g);
-    for (auto& s : sections) paintSection (g, s);
+    if (expanded) for (auto& s : sections) paintSection (g, s);
+    else          for (auto& s : sections) paintChip (g, s);
+    paintEditPill (g);
 }
 
 // ============================================================================
@@ -655,7 +757,7 @@ int ModUnit::jackAt (Point<int> p) const
 int ModUnit::seqStepAt (Point<int> p) const
 {
     const auto d = seqPlot();
-    if (! sections[3].display.contains (p)) return -1;
+    if (! expanded || ! sections[3].display.contains (p)) return -1;
     return jlimit (0, kSeqSteps - 1, (int) ((float) (p.x - d.getX()) / d.getWidth() * (float) kSeqSteps));
 }
 
@@ -684,12 +786,19 @@ void ModUnit::mouseDown (const MouseEvent& e)
         repaint();
         return;
     }
+    if (editPill.contains (p)) { setExpanded (! expanded); return; }
+    if (! expanded)
+    {
+        for (auto& s : sections)
+            if (s.chip.contains (p)) { setExpanded (true); return; }
+        return;
+    }
     for (int i = 0; i < 2; ++i)
         if (syncButtons[i].contains (p))
         {
             proc.pushUndo();
             auto l = proc.getModSources().lfo[(size_t) i];
-            l.sync = p.x >= syncButtons[i].getCentreX();
+            l.sync = ! l.sync;
             proc.setLfo (i, l);
             refresh();
             return;
@@ -729,20 +838,24 @@ void ModUnit::mouseUp (const MouseEvent& e)
 
 void ModUnit::mouseMove (const MouseEvent& e)
 {
+    const bool eh = editPill.contains (e.getPosition());
+    if (eh != editHover) { editHover = eh; repaint (editPill.expanded (6)); }
     const int j = jackAt (e.getPosition());
+    bool overChip = false;
+    if (! expanded) for (auto& s : sections) overChip = overChip || s.chip.contains (e.getPosition());
+    setMouseCursor (j >= 0 || eh || overChip ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
     if (j != hoverJack)
     {
         hoverJack = j;
-        setMouseCursor (j >= 0 ? MouseCursor::PointingHandCursor : MouseCursor::NormalCursor);
         setTooltip (j >= 0 ? String (modSourceName (j)) + ": drag onto any knob to modulate it. Right-click: list / remove."
                            : String ("MOD SOURCES - drag a jack onto any knob in the chain to modulate it"));
-        for (auto& s : sections) repaint (s.jack.expanded (16));
+        for (auto& s : sections) repaint (s.chip.expanded (16));
     }
 }
 
 void ModUnit::mouseExit (const MouseEvent&)
 {
-    if (hoverJack >= 0) { hoverJack = -1; repaint(); }
+    if (hoverJack >= 0 || editHover) { hoverJack = -1; editHover = false; repaint(); }
 }
 
 void ModUnit::showAssignmentMenu (int source)

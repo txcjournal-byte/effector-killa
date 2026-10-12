@@ -1,8 +1,13 @@
 #pragma once
 
-// Preset browser overlay (TrapWin glass card #0A0F18 / 96 %, radius 20): category pills on the left (all, favourites,
-// user, the 12 channels; active = ice-blue glow), a search pill and the preset rows (Plex Mono names, channel colour dot,
-// sparkle for favourites) on the right. Click = load and listen, double-click / Enter = load and close.
+// Preset browser overlay (TrapWin glass card #0A0F18 / 96 %, radius 20), designed for 752 x 608:
+// category tabs on the left (170 px column: all, favourites, user, the 12 channels; active = ice-blue glow),
+// a search pill and the preset rows (30 px: name 13 px, description 12 px, channel tag 11 px) on the right.
+// Click = load and listen, double-click / Enter (in the search field) = load and close.
+//
+// Keyboard: the browser never takes keyboard focus itself. Only the search field does, and only after the user
+// clicks into it; it gives the focus away again on Enter, Esc, close, hide and any click outside the field, so the
+// space bar / arrows always reach the DAW otherwise. While typing, Up / Down move the selection.
 
 #include "Widgets.h"
 #include "../../PluginProcessor.h"
@@ -13,16 +18,22 @@ class PresetBrowser : public juce::Component, private juce::ListBoxModel
 {
 public:
     explicit PresetBrowser (EffectorKillaAudioProcessor& p);
+    ~PresetBrowser() override;
 
     void open();
     std::function<void()> onClose;
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    static constexpr int preferredWidth = 752, preferredHeight = 608;
+
+    void mouseDown (const juce::MouseEvent&) override;
     void mouseUp (const juce::MouseEvent&) override;
     void mouseMove (const juce::MouseEvent&) override;
     void mouseExit (const juce::MouseEvent&) override;
-    bool keyPressed (const juce::KeyPress&) override;
+    void visibilityChanged() override;
+
+    class SearchField;
 
 private:
     struct Entry
@@ -33,6 +44,10 @@ private:
         bool favourite = false;
     };
     void rebuild();
+    void close();
+    void releaseFocus();
+    void moveSelection (int delta);
+    void unfocusRows();
     void load (int row);
     juce::Rectangle<int> categoryArea() const;
     int categoryAt (juce::Point<int> p) const;
@@ -48,7 +63,8 @@ private:
     void selectedRowsChanged (int row) override;
 
     EffectorKillaAudioProcessor& proc;
-    juce::TextEditor search;
+    std::unique_ptr<SearchField> search;
+    std::unique_ptr<juce::MouseListener> clickOutside;   // releases the search focus on clicks elsewhere
     juce::ListBox list;
     juce::Rectangle<int> closeArea() const;
     bool closeHover = false;
