@@ -1,9 +1,13 @@
 #pragma once
 
-// SPLIT / MERGE strip (any width, 64 px high) at the fork of the chain - a slim TrapWin card.
+// SPLIT / MERGE strip at the fork of the chain - a slim TrapWin card (all text >= 11 px, knobs 30 px).
 //
 // Shows and edits the chain's single split (EffectorKillaAudioProcessor split API):
-//   [ chrome SPLIT + A/B routing ] [ mode segmented pill ] [ XOVER ] [ A/B ] [ LVL A ] [ LVL B ] [ chrome MERGE ] [ X ]
+//   wide   (>= wideMinWidth, 64 px high):  [ chrome SPLIT + A/B routing ] [ mode pill ] [ XOVER ] [ A/B ] [ LVL A ] [ LVL B ] [ X ]
+//   narrow (< wideMinWidth, 124 px high):  [ SPLIT + routing ........ X ]
+//                                          [ mode pill (full width)      ]
+//                                          [ XOVER  A/B  LVL A  LVL B    ]
+// Use heightForWidth() for the bounds; `height` is the wide height.
 // The component is standalone: the RackView places it where the split sits and lays out the branch units
 // in two half-width columns underneath (A left, B right). It reads everything from the processor, so
 // call refresh() after any program change and tick() from the UI timer.
@@ -19,7 +23,9 @@ public:
     explicit SplitUnit (EffectorKillaAudioProcessor& p);
     ~SplitUnit() override;
 
-    static constexpr int width = 852, height = 64;   // width = default only; the strip adapts to any width
+    static constexpr int width = 752, height = 64;   // width = default only; the strip adapts to any width
+    static constexpr int narrowHeight = 124, wideMinWidth = 600;
+    static int heightForWidth (int w) noexcept { return w >= wideMinWidth ? height : narrowHeight; }
 
     void refresh(); // re-read mode / knob values from the processor (after preset load, undo ...)
     void tick();    // UI timer: LEDs, value texts
@@ -47,7 +53,7 @@ private:
     class ClosePill;
     void setMode (ek::SplitMode m);
     juce::Rectangle<float> platePane() const;
-    juce::Rectangle<float> mergePane() const;
+    bool isWide() const noexcept { return getWidth() >= wideMinWidth; }
     std::array<FlatKnob*, 4> allKnobs() const;
 
     EffectorKillaAudioProcessor& proc;

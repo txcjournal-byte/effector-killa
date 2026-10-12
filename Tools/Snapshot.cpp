@@ -3,6 +3,7 @@
 //   EffectorKillaSnapshot --analyzer <outDir>   SPECTRAL VIEW only (analyzer.png)
 //   EffectorKillaSnapshot --wiring <outDir>     editor with SPLIT / MOD / LEARN / SPECTRAL / audition active (wiring.png)
 //   EffectorKillaSnapshot --library <outDir>   FX LIBRARY sidebar (library.png)
+//   EffectorKillaSnapshot --ux <outDir>        1x readability shots (ux_browser / ux_library / ux_mod_* / ux_split)
 //   EffectorKillaSnapshot --units <outDir>   (rack units + gear list only, Tools/SnapshotUnits.cpp)
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
@@ -447,6 +448,7 @@ static int snapshotModUnit (const juce::File& outDir)
     juce::AudioBuffer<float> buf (2, 512);
     juce::MidiBuffer midi;
     ek::ui::ModUnit unit (proc);
+    unit.setExpanded (true);   // the full card (the editor default is the collapsed strip)
     unit.setBounds (0, 0, ek::ui::ModUnit::kWidth, ek::ui::ModUnit::kHeight);
     for (int b = 0; b < 120; ++b)
     {
@@ -463,7 +465,7 @@ static int snapshotModUnit (const juce::File& outDir)
     unit.refresh();
     writePng (onBackdrop (unit, 2.0f, 12), outDir.getChildFile ("mod_unit.png"));
     unit.setBounds (0, 0, ek::ui::ModUnit::kMinWidth, ek::ui::ModUnit::kHeight);   // narrowest supported width
-    writePng (onBackdrop (unit, 2.0f, 12), outDir.getChildFile ("mod_unit_700.png"));
+    writePng (onBackdrop (unit, 2.0f, 12), outDir.getChildFile ("mod_unit_min.png"));
 
     // knob rings (what RackView draws with paintModRing) + a patch cable
     juce::Image demo (juce::Image::ARGB, 840, 220, true);
@@ -542,14 +544,14 @@ static int snapshotSplitUnit (const juce::File& outDir)
 
 
 #include "ui/rack/GearList.h"
-// --library: the FX LIBRARY sidebar (220 x 812) - normal (one chip hovered) and the drop-to-remove state, side by side.
+// --library: the FX LIBRARY drawer (232 x 608, 2x) - normal (one chip hovered), filtered and the drop-to-remove state.
 static int snapshotLibrary (const juce::File& outDir)
 {
     EffectorKillaAudioProcessor proc;
     proc.prepareToPlay (48000.0, 512);
     ek::ui::GearList lib (proc);
-    lib.setSize (ek::ui::GearList::preferredWidth, 812);
-    const int pad = 16, w = ek::ui::GearList::preferredWidth, h = 812;
+    const int pad = 16, w = ek::ui::GearList::preferredWidth, h = ek::ui::GearList::preferredHeight;
+    lib.setSize (w, h);
     juce::Image out (juce::Image::ARGB, (3 * w + 4 * pad) * 2, (h + 2 * pad) * 2, true);
     {
         juce::Graphics g (out);
@@ -564,6 +566,113 @@ static int snapshotLibrary (const juce::File& outDir)
         g.drawImageAt (lib.createComponentSnapshot (lib.getLocalBounds(), true, 2.0f), (2 * w + 3 * pad) * 2, pad * 2);
     }
     writePng (out, outDir.getChildFile ("library.png"));
+    return 0;
+}
+
+// --ux: the readability pass at 1x (what the user sees at 100 %), written to Docs/snapshots:
+//   ux_browser.png        preset browser 752 x 608
+//   ux_library.png        FX LIBRARY drawer 232 x 608: top, scrolled to the end, filtered, DROP TO REMOVE
+//   ux_mod_collapsed.png  MOD strip 752 x 36
+//   ux_mod_expanded.png   MOD card 752 x 104
+//   ux_split.png          SPLIT strip at 752 (wide) and 370 (narrow)
+static int snapshotUx (const juce::File& outDir)
+{
+    EffectorKillaAudioProcessor proc;
+    proc.prepareToPlay (48000.0, 512);
+    juce::AudioBuffer<float> buf (2, 512);
+    juce::MidiBuffer midi;
+    int blockIndex = 0;
+    auto render = [&] (int blocks)
+    {
+        for (int b = 0; b < blocks; ++b, ++blockIndex)
+        {
+            for (int i = 0; i < 512; ++i)
+            {
+                const float t = (float) (blockIndex * 512 + i);
+                const float env = std::exp (-std::fmod (t, 12000.0f) / 3000.0f);
+                buf.setSample (0, i, 0.4f * env * std::sin (t * 0.05f));
+                buf.setSample (1, i, 0.4f * env * std::sin (t * 0.051f));
+            }
+            proc.processBlock (buf, midi);
+        }
+    };
+    proc.loadFactory (9, 2);   // CH10 Night Drive
+    render (40);
+
+    // ---- preset browser
+    {
+        ek::ui::PresetBrowser browser (proc);
+        browser.setSize (ek::ui::PresetBrowser::preferredWidth, ek::ui::PresetBrowser::preferredHeight);
+        browser.open();
+        writePng (onBackdrop (browser, 1.0f, 16), outDir.getChildFile ("ux_browser.png"));
+    }
+
+    // ---- FX LIBRARY drawer: four states side by side
+    {
+        ek::ui::GearList lib (proc);
+        const int w = ek::ui::GearList::preferredWidth, h = ek::ui::GearList::preferredHeight, pad = 16;
+        lib.setSize (w, h);
+        juce::Image out (juce::Image::ARGB, 4 * w + 5 * pad, h + 2 * pad, true);
+        {
+            juce::Graphics g (out);
+            g.fillAll (juce::Colour (0xff04060a));
+            auto shot = [&] (int i) { g.drawImageAt (lib.createComponentSnapshot (lib.getLocalBounds(), true, 1.0f), pad + i * (w + pad), pad); };
+            lib.setSnapshotState (false, ek::EffectType::ThroughTheWall);
+            shot (0);
+            lib.setSnapshotState (false, ek::EffectType::None);
+            lib.scrollForSnapshot (1.0f);
+            shot (1);
+            lib.scrollForSnapshot (0.0f);
+            lib.setFilter ("dyn");
+            shot (2);
+            lib.setFilter ({});
+            lib.setSnapshotState (true, ek::EffectType::None);
+            shot (3);
+        }
+        writePng (out, outDir.getChildFile ("ux_library.png"));
+    }
+
+    // ---- MOD: collapsed + expanded, with some patches so the counts / live dots show
+    {
+        proc.addModAssignment (0, 1, 1, 0.35f);
+        proc.addModAssignment (0, 3, 8, -0.2f);
+        proc.addModAssignment (2, 0, 1, 0.5f);
+        proc.addModAssignment (3, 2, 8, 0.4f);
+        auto env = proc.getModSources().env;
+        env.sensitivity = 0.15f;
+        proc.setEnvFollower (env);
+        ek::ui::ModUnit unit (proc);
+        unit.setBounds (0, 0, ek::ui::ModUnit::kWidth, unit.getCurrentHeight());
+        for (int b = 0; b < 60; ++b) { render (2); unit.tick(); }
+        unit.refresh();
+        writePng (onBackdrop (unit, 1.0f, 12), outDir.getChildFile ("ux_mod_collapsed.png"));
+        unit.onExpandedChanged = [&unit] { unit.setSize (unit.getWidth(), unit.getCurrentHeight()); };
+        unit.setExpanded (true);
+        for (int b = 0; b < 60; ++b) { render (2); unit.tick(); }
+        unit.refresh();
+        writePng (onBackdrop (unit, 1.0f, 12), outDir.getChildFile ("ux_mod_expanded.png"));
+    }
+
+    // ---- SPLIT at 752 and 370
+    {
+        proc.insertSplit (1);
+        proc.setSplitMode (ek::SplitMode::LowHigh);
+        proc.setSplitFreq (180.0f);
+        render (10);
+        ek::ui::SplitUnit wide (proc), narrow (proc);
+        wide.setBounds (0, 0, 752, ek::ui::SplitUnit::heightForWidth (752));
+        narrow.setBounds (0, 0, 370, ek::ui::SplitUnit::heightForWidth (370));
+        wide.tick(); narrow.tick();
+        const int pad = 12;
+        juce::Image out (juce::Image::ARGB, 752 + 2 * pad, wide.getHeight() + narrow.getHeight() + 3 * pad, true);
+        {
+            juce::Graphics g (out);
+            g.fillAll (juce::Colour (0xff04060a));
+            g.drawImageAt (wide.createComponentSnapshot (wide.getLocalBounds(), true, 1.0f), pad, pad);
+            g.drawImageAt (narrow.createComponentSnapshot (narrow.getLocalBounds(), true, 1.0f), pad, 2 * pad + wide.getHeight());
+        }
+        writePng (out, outDir.getChildFile ("ux_split.png"));
+    }
     return 0;
 }
 
@@ -692,6 +801,7 @@ int main (int argc, char** argv)
         { "--mod", snapshotModUnit },
         { "--split", snapshotSplitUnit },
         { "--library", snapshotLibrary },
+        { "--ux", snapshotUx },
         { "--analyzer", renderAnalyzer },
         { "--wiring", renderWiring },
     };

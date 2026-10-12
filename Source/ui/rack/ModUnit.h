@@ -1,8 +1,13 @@
 #pragma once
 
-// MOD card (TrapWin style, Docs/TRAPWIN-STYLE.md): any width >= kMinWidth (designed for 852), height 96.
-// The four modulation sources of the engine (LFO 1, LFO 2, ENV follower, 16-step SEQ), each with a small
-// glowing glass screen, flat knobs and a glowing round "jack" handle in the source colour.
+// MOD card (TrapWin style, Docs/TRAPWIN-STYLE.md): any width >= kMinWidth (designed for 752). Two modes:
+//   collapsed (default, collapsedHeight = 36): a slim strip - chrome "MOD", four source chips
+//       (LFO 1 / LFO 2 / ENV / SEQ, each with a live dot and its draggable glowing jack) and an "EDIT" pill.
+//   expanded (expandedHeight = 104): title column (MOD, ACTIVE, CLOSE pill) + the four source sections, each
+//       with its chip + jack on top, a glowing glass screen and flat 30 px knobs (all text >= 11 px).
+// The editor owns the height: it listens to onExpandedChanged and gives the unit collapsedHeight or
+// expandedHeight (the layout follows isExpanded(), not the bounds). Clicking the EDIT / CLOSE pill or a chip
+// (outside its jack) toggles the mode.
 //
 // Patching: grab a jack and drag it onto any knob in the rack. ModUnit does not know the rack, it only
 // reports the gesture; the editor / RackView hit-tests the knob and calls
@@ -39,7 +44,14 @@ public:
     explicit ModUnit (EffectorKillaAudioProcessor& p);
     ~ModUnit() override;
 
-    static constexpr int kWidth = 852, kMinWidth = 700, kHeight = 96;
+    static constexpr int collapsedHeight = 36, expandedHeight = 104;
+    static constexpr int kWidth = 752, kMinWidth = 640;
+    static constexpr int kHeight = expandedHeight;   // legacy name
+
+    bool isExpanded() const noexcept { return expanded; }
+    void setExpanded (bool shouldBeExpanded);         // calls onExpandedChanged when it changes
+    std::function<void()> onExpandedChanged;
+    int getCurrentHeight() const noexcept { return expanded ? expandedHeight : collapsedHeight; }
 
     std::function<void (int source, juce::Point<int> screenPos)> onHandleDrag;
     std::function<void (int source, juce::Point<int> screenPos)> onHandleDrop;
@@ -62,9 +74,11 @@ public:
     class MiniKnob;
 
 private:
-    struct Section { int source; juce::Rectangle<int> area, display, jack; juce::String title; };
+    struct Section { int source; juce::Rectangle<int> area, chip, display, jack; juce::String title; };
 
     void paintTitle (juce::Graphics&);
+    void paintChip (juce::Graphics&, const Section&);
+    void paintEditPill (juce::Graphics&);
     void paintSection (juce::Graphics&, const Section&);
     void paintDisplay (juce::Graphics&, const Section&);
     void paintJack (juce::Graphics&, const Section&);
@@ -78,7 +92,8 @@ private:
     EffectorKillaAudioProcessor& proc;
     std::array<Section, kNumModSources> sections;
     juce::Rectangle<int> syncButtons[2];
-    juce::Rectangle<int> titleArea;
+    juce::Rectangle<int> titleArea, editPill;
+    bool expanded = false, editHover = false;
     std::vector<std::unique_ptr<MiniKnob>> knobs;
     std::array<float, 64> envHistory {};
     int envPos = 0;
