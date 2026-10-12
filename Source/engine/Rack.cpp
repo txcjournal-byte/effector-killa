@@ -174,6 +174,9 @@ Rack::Rack()
     for (auto* v : { &aL, &aR, &bL, &bR })
         v->assign ((size_t) kMaxChunk, 0.0f);
     spec.maxBlock = kMaxChunk;
+    // chains built before prepare() (a processor constructed and given a program) must already fit
+    // into the reported latency budget
+    fixedLatency = computeFixedLatency (spec.sampleRate, spec.osFactorLog2);
 }
 
 Rack::~Rack()
