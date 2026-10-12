@@ -2,9 +2,12 @@
 // checks the TrapWin cards, signal line, drop states, live data and the library chips without a DAW.
 //   EffectorKillaSnapshot --units <outDir>
 // Writes:
-//   chain.png        852 wide: 6 cards, one powered off, one locked, mod rings + a learned macro, hover spectrum
-//   chain_wide.png   1088 wide (no FX library): the same chain
-//   chain_split.png  852 wide: SPLIT fork / compact branch cards / MERGE
+//   chain.png        752 wide (the chain viewport of the 1000 x 680 editor): 6 cards, one powered off, one
+//                    locked, mod rings + a learned macro, hover spectrum
+//   chain_wide.png   980 wide (no FX library): the same chain
+//   ux_chain.png     752 wide at 1x: the busiest cards (Cassette Plug, Overcooked, Through The Wall, Tone Up ...)
+//                    - the readability check at 100 %; ux_chain_2x.png the same at 2x
+//   chain_split.png  752 wide: SPLIT fork / compact branch cards / MERGE
 //   chain_states.png drop states: insert line, REPLACE, lifted card + gap, remove hint, full chain
 //   units_solo.png   SOLO (the other cards dim)
 //   units_gear.png   the FX library list, units_empty.png the empty chain
@@ -61,8 +64,8 @@ juce::Image stack (const std::vector<std::pair<juce::String, juce::Image>>& part
     int y = 0;
     for (auto& p : parts)
     {
-        g.setColour (ek::card::muted);
-        g.setFont (ek::card::monoFont (10.0f));
+        g.setColour (ek::card::label);
+        g.setFont (ek::card::labelFont (12.0f));
         g.drawText (p.first, 12, y + 8, width - 24, 16, juce::Justification::centredLeft);
         y += 30;
         g.drawImageAt (p.second, 0, y);
@@ -120,21 +123,21 @@ int runUnitsSnapshot (const juce::File& outDir)
         ek::ui::RackView rack (proc);
         installOverlay (rack, proc);
         rack.setHoveredSlot (2);   // SPECTRAL VIEW behind the knobs of the hovered card
-        settle (rack, 852);
+        settle (rack, 752);
         writePng (snap (rack), outDir.getChildFile ("chain.png"));
         writePng (snap (rack), outDir.getChildFile ("units_rack.png"));
-        settle (rack, 1088);
+        settle (rack, 980);
         writePng (snap (rack), outDir.getChildFile ("chain_wide.png"));
         rack.setHoveredSlot (-1);
 
         // drop states
-        rack.setSize (852, rack.getIdealHeight());
+        rack.setSize (752, rack.getIdealHeight());
         std::vector<std::pair<juce::String, juce::Image>> parts;
-        auto crop = [&] (int y0, int h) { return snap (rack).getClippedImage ({ 0, y0, 852, h }); };
+        auto crop = [&] (int y0, int h) { return snap (rack).getClippedImage ({ 0, y0, 752, h }); };
         rack.previewDropState (1, 2);
-        parts.push_back ({ "INSERT (FX chip between two cards)", crop (130, 200) });
+        parts.push_back ({ "INSERT (FX chip between two cards)", crop (104, 190) });
         rack.previewDropState (2, 2);
-        parts.push_back ({ "REPLACE (FX chip on a card)", crop (300, 170) });
+        parts.push_back ({ "REPLACE (FX chip on a card)", crop (256, 150) });
         rack.previewDropState (3, 1, 3);
         {
             auto img = snap (rack);
@@ -148,12 +151,12 @@ int runUnitsSnapshot (const juce::File& outDir)
                     u->setLifted (true);
                     g.drawImageAt (lift, u->getX() + 40 - 22, 230 - 22);
                 }
-            parts.push_back ({ "DRAG: lifted card + gap where it lands", img.getClippedImage ({ 0, 0, 852, 640 }) });
+            parts.push_back ({ "DRAG: lifted card + gap where it lands", img.getClippedImage ({ 0, 0, 752, 640 }) });
         }
         rack.previewDropState (4, 1);
         parts.push_back ({ "DRAGGED OUT OF THE CHAIN", crop (0, 330) });
         rack.previewDropState (0, -1);
-        writePng (stack (parts, 852), outDir.getChildFile ("chain_states.png"));
+        writePng (stack (parts, 752), outDir.getChildFile ("chain_states.png"));
     }
 
     // ---- SOLO: the third card is soloed, the others dim -------------------------------------------
@@ -161,7 +164,7 @@ int runUnitsSnapshot (const juce::File& outDir)
         proc.setSolo (2);
         ek::ui::RackView rack (proc);
         installOverlay (rack, proc);
-        settle (rack, 852);
+        settle (rack, 752);
         writePng (snap (rack), outDir.getChildFile ("units_solo.png"));
         proc.setSolo (-1);
     }
@@ -171,9 +174,26 @@ int runUnitsSnapshot (const juce::File& outDir)
         for (auto t : { ek::EffectType::Swirl, ek::EffectType::RedLine })
             proc.insertEffect (ek::kNumSlots, t);
         ek::ui::RackView rack (proc);
-        settle (rack, 852);
+        settle (rack, 752);
         auto img = snap (rack);
-        writePng (img.getClippedImage ({ 0, img.getHeight() - 380, 852, 380 }), outDir.getChildFile ("chain_full.png"));
+        writePng (img.getClippedImage ({ 0, img.getHeight() - 380, 752, 380 }), outDir.getChildFile ("chain_full.png"));
+    }
+
+    // ---- UX readability check: the busiest cards at 1x and 2x -------------------------------------
+    {
+        for (int s = ek::kNumSlots - 1; s >= 0; --s) { proc.setWriteProtect (s, false); proc.removeEffect (s); }
+        proc.clearModAssignments();
+        for (auto t : { ek::EffectType::CassettePlug, ek::EffectType::Overcooked, ek::EffectType::ThroughTheWall,
+                        ek::EffectType::ToneUp, ek::EffectType::Chopped, ek::EffectType::AuraRoom,
+                        ek::EffectType::WideBody, ek::EffectType::RedLine })
+            proc.insertEffect (ek::kNumSlots, t);
+        proc.addModAssignment (0, 0, 1, 0.4f);   // a mod ring on Cassette Plug DRIVE
+        render (40);
+        ek::ui::RackView rack (proc);
+        installOverlay (rack, proc);
+        settle (rack, 752);
+        writePng (snap (rack), outDir.getChildFile ("ux_chain.png"));
+        writePng (rack.createComponentSnapshot (rack.getLocalBounds(), true, 2.0f), outDir.getChildFile ("ux_chain_2x.png"));
     }
 
     // ---- FX library ---------------------------------------------------------------------------------
@@ -197,7 +217,7 @@ int runUnitsSnapshot (const juce::File& outDir)
         render (40);
         ek::ui::RackView rack (proc);
         installOverlay (rack, proc);
-        settle (rack, 852);
+        settle (rack, 752);
         writePng (snap (rack), outDir.getChildFile ("chain_split.png"));
     }
 
@@ -206,7 +226,7 @@ int runUnitsSnapshot (const juce::File& outDir)
         proc.removeSplit();
         for (int s = ek::kNumSlots - 1; s >= 0; --s) { proc.setWriteProtect (s, false); proc.removeEffect (s); }
         ek::ui::RackView rack (proc);
-        rack.setSize (852, 300);
+        rack.setSize (752, 300);
         rack.tick();
         writePng (rack.createComponentSnapshot (rack.getLocalBounds(), true, 1.0f), outDir.getChildFile ("units_empty.png"));
     }

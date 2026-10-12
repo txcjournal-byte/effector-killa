@@ -41,8 +41,11 @@ float macroAngle (float norm) { return theme::knobStart + jlimit (0.0f, 1.0f, no
 
 float easeOut (float t) { t = jlimit (0.0f, 1.0f, t); return 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t); }
 
-// geometry shared with Faceplates.cpp (presetLcdArea): icon pills and the ST/MID/SIDE pill
-constexpr int iconPill = 22, iconGap = 5, msWidth = 84;
+void noFocus (Component& c)
+{
+    c.setWantsKeyboardFocus (false);
+    c.setMouseClickGrabsKeyboardFocus (false);
+}
 
 Path roundedCard (Rectangle<float> r, float rad)
 {
@@ -78,7 +81,7 @@ void tagPill (Graphics& g, Rectangle<float> r, const String& text, Colour border
         cs::dotGlow (g, { r.getX() + rad + 1.0f, r.getCentreY() }, 2.0f, dot, 1.0f);
         tr = tr.withTrimmedLeft (rad + 6.0f);
     }
-    g.setFont (cs::monoFont (fontH, true));
+    g.setFont (cs::labelFont (fontH, true));
     g.setColour (textColour);
     g.drawFittedText (text, tr.reduced (6.0f, 0.0f).toNearestInt(), dot.isTransparent() ? Justification::centred : Justification::centredLeft, 1, 0.7f);
 }
@@ -106,15 +109,7 @@ void chromeCentred (Graphics& g, const String& s, Rectangle<float> r, float h, f
 int UnitComponent::idealHeight (EffectType t, int w)
 {
     if (w >= compactBelow) return height;
-    const auto& info = effectInfo (t);
-    float total = 0.0f;
-    for (int i = 0; i < kNumParams; ++i)
-        if (info.params[(size_t) i].used)
-            total += (float) RackControl::preferredWidth (RackControl::kindFor (&info.params[(size_t) i]), &info.params[(size_t) i]);
-    total += (float) RackControl::preferredWidth (RackControl::Kind::Rotary, nullptr);
-    const float avail = (float) w - 24.0f - 14.0f;
-    const int rows = total * 0.86f > avail ? 2 : 1;
-    return 98 + rows * 82 + 8;
+    return faceplate::compactHeight (t, (float) w);
 }
 
 UnitComponent::UnitComponent (EffectorKillaAudioProcessor& p, RackView& o, int s)
@@ -126,6 +121,7 @@ UnitComponent::UnitComponent (EffectorKillaAudioProcessor& p, RackView& o, int s
       removeBtn (SideButton::Icon::Remove, removeRed)
 {
     setOpaque (false);   // rounded card corners: the chain background (signal line) shows through
+    noFocus (*this);
     const auto& info = effectInfo (type);
     auto addControl = [this, &info] (int param)
     {
@@ -301,7 +297,7 @@ UnitComponent::UnitComponent (EffectorKillaAudioProcessor& p, RackView& o, int s
     msBtn.setTooltip ("Process the whole stereo signal (ST), only the MID or only the SIDE");
     addAndMakeVisible (msBtn);
 
-    setSize (852 - RackView::gutter, height);
+    setSize (752 - RackView::gutter - 2, height);
     tick (owner.clock());
 }
 
@@ -440,7 +436,7 @@ void UnitComponent::layoutControls()
         w.push_back ((float) RackControl::preferredWidth (c->kind, sp));
     }
 
-    const int rows = isCompact() && idealHeight (type, getWidth()) > 200 ? 2 : 1;
+    const int rows = isCompact() ? faceplate::knobRows (type, (float) getWidth()) : 1;
     if (rows == 2)
     {
         // two rows on one grid: equal cells, DRY/WET in the last cell of the second row
@@ -459,12 +455,12 @@ void UnitComponent::layoutControls()
         return;
     }
 
-    constexpr float mixGap = 14.0f;
+    const float mixGap = faceplate::mixGap;
     float total = 0.0f;
     for (auto v : w) total += v;
     const float avail = area.getWidth() - mixGap;
     const float scale = total > avail ? avail / total : 1.0f;
-    const float spacing = total < avail ? jmin (isCompact() ? 6.0f : 24.0f, (avail - total) / (float) jmax (1, n - 1)) : 0.0f;
+    const float spacing = total < avail ? jmin (isCompact() ? 8.0f : 18.0f, (avail - total) / (float) jmax (1, n - 1)) : 0.0f;
     float x = area.getX();
     for (int i = 0; i < n - 1; ++i)
     {
@@ -480,24 +476,11 @@ void UnitComponent::layoutControls()
 void UnitComponent::resized()
 {
     const auto plate = plateBounds();
-    const auto lcdArea = faceplate::presetLcdArea (plate).toNearestInt();
-    lcd.setBounds (lcdArea);
-    int x;
-    if (isCompact())
-    {
-        msBtn.setBounds (lcdArea.getRight() + 8, lcdArea.getY(), msWidth, lcdArea.getHeight());
-        x = msBtn.getRight() + 8;
-    }
-    else
-    {
-        msBtn.setBounds (lcdArea.getX() - 8 - msWidth, lcdArea.getY(), msWidth, lcdArea.getHeight());
-        x = lcdArea.getRight() + 10;
-    }
+    lcd.setBounds (faceplate::presetLcdArea (plate).toNearestInt());
+    msBtn.setBounds (faceplate::msArea (plate).toNearestInt());
+    int i = 0;
     for (auto* b : { &menuBtn, &powerBtn, &soloBtn, &lockBtn, &removeBtn })
-    {
-        b->setBounds (x, lcdArea.getY(), iconPill, iconPill);
-        x += iconPill + iconGap;
-    }
+        b->setBounds (faceplate::iconArea (plate, i++).toNearestInt());
     layoutControls();
 }
 
@@ -522,16 +505,7 @@ void UnitComponent::repaintControls()
 
 Rectangle<float> UnitComponent::statusPillArea() const
 {
-    const auto plate = plateBounds();
-    if (isCompact())
-    {
-        const auto live = faceplate::liveArea (type, plate);
-        return live.withSizeKeepingCentre (jmin (live.getWidth() - 8.0f, 236.0f), 22.0f);
-    }
-    const auto knobs = faceplate::knobArea (type, plate);
-    const float x0 = knobs.getX();
-    const float x1 = jmax (x0 + 140.0f, (float) msBtn.getX() - 10.0f);
-    return { x0, (float) msBtn.getY(), jmin (300.0f, x1 - x0), (float) msBtn.getHeight() };
+    return faceplate::statusArea (type, plateBounds());
 }
 
 void UnitComponent::paint (Graphics& g)
@@ -548,7 +522,7 @@ void UnitComponent::paint (Graphics& g)
     }
 
     // hairline in front of DRY/WET
-    if (controls.size() > 1 && ! (isCompact() && idealHeight (type, getWidth()) > 200))
+    if (controls.size() > 1 && ! (isCompact() && faceplate::knobRows (type, (float) getWidth()) > 1))
     {
         const auto mb = controls.getLast()->getBounds().toFloat();
         const float x = mb.getX() - 7.0f;
@@ -574,14 +548,14 @@ void UnitComponent::paintOverChildren (Graphics& g)
     // SPLIT branch tag (compact cards, left of the preset pill)
     if (const int br = proc.getSlotBranch (slot); br >= 0 && isCompact())
     {
-        auto tag = Rectangle<float> (18.0f, (float) lcd.getY(), 22.0f, 22.0f);
+        auto tag = Rectangle<float> (22.0f, 22.0f).withCentre ({ 25.0f, faceplate::nameArea (plate).getCentreY() });
         g.setColour (cs::bg);
         g.fillEllipse (tag);
         g.setColour (cs::iceDeep.withAlpha (0.45f));
         g.fillEllipse (tag.reduced (2.0f));
         g.setColour (cs::ice.withAlpha (0.8f));
         g.drawEllipse (tag.reduced (0.5f), 1.0f);
-        g.setFont (cs::monoFont (10.0f, true));
+        g.setFont (cs::labelFont (12.0f, true, 0.0f));
         g.setColour (Colours::white);
         g.drawText (br == 0 ? "A" : "B", tag, Justification::centred, false);
     }
@@ -591,8 +565,8 @@ void UnitComponent::paintOverChildren (Graphics& g)
     if ((! state.powered || state.soloDimmed) && ! audition)
     {
         const bool off = ! state.powered;
-        tagPill (g, statusPillArea(), off ? String::fromUTF8 ("POWER OFF  \xc2\xb7  TAILS KEEP RUNNING") : String ("MUTED BY SOLO"),
-                 off ? cs::muted : soloGold, off ? cs::text2 : soloGold.interpolatedWith (Colours::white, 0.3f), 8.0f,
+        tagPill (g, statusPillArea(), off ? String ("POWER OFF") : String ("MUTED BY SOLO"),
+                 off ? cs::label : soloGold, off ? cs::value : soloGold.interpolatedWith (Colours::white, 0.3f), cs::pillTextSize,
                  off ? removeRed : soloGold);
     }
     // LEVEL-MATCHED POWER readout while the POWER button is held
@@ -600,7 +574,7 @@ void UnitComponent::paintOverChildren (Graphics& g)
     {
         const auto r = statusPillArea();
         glowAround (g, r, r.getHeight() * 0.5f, cs::ice, 1.0f);
-        tagPill (g, r, "LEVEL-MATCHED BYPASS  " + String (proc.getAuditionGainDb(), 1) + " dB", cs::ice, Colours::white, 8.2f, cs::ice);
+        tagPill (g, r, "MATCHED " + String (proc.getAuditionGainDb(), 1) + " dB", cs::ice, Colours::white, cs::pillTextSize, cs::ice);
     }
 
     // KILL: an ice-blue glow sweeps across the card
@@ -749,6 +723,7 @@ void UnitComponent::showUnitMenu (Component* target)
 RackView::RackView (EffectorKillaAudioProcessor& p) : proc (p)
 {
     setOpaque (true);
+    noFocus (*this);
     lastKillEvents = proc.killEvents.load();
     splitUnit = std::make_unique<SplitUnit> (proc);
     splitUnit->onRemoved = [this] { refresh(); };
@@ -822,7 +797,7 @@ void RackView::setReduceMotion (bool r)
 }
 
 int RackView::unitX() const { return gutter; }
-int RackView::unitWidth() const { return jmax (600, (getWidth() > 0 ? getWidth() : 852) - gutter - 2); }
+int RackView::unitWidth() const { return jmax (600, (getWidth() > 0 ? getWidth() : 752) - gutter - 2); }
 
 float RackView::lineX (int branch) const
 {
@@ -1262,7 +1237,7 @@ void RackView::paintSignalLine (Graphics& g, const Layout& L)
         const auto b = u->getBoundsInParent().toFloat();
         const int br = proc.getSlotBranch (u->getSlot());
         const float x = br == 1 ? xb : lx;
-        const float y = b.getY() + (u->isCompact() ? 26.0f : 30.0f);
+        const float y = b.getY() + faceplate::nameArea (u->plateBounds()).getCentreY();
         node ({ x, y }, 5.0f, u->getAccent(), u->isPowered() ? 0.45f + 0.55f * jlimit (0.0f, 1.0f, u->getLevel() * 3.0f) : 0.0f, b.getX());
     }
     if (L.splitY >= 0)
@@ -1271,19 +1246,19 @@ void RackView::paintSignalLine (Graphics& g, const Layout& L)
         // fork + merge nodes
         node ({ lx, forkY }, 4.0f, {}, 0.6f, 0.0f);
         node ({ lx, (float) L.mergeY }, 6.5f, cs::ice, 0.7f, 0.0f);
-        tagPill (g, Rectangle<float> (72.0f, 18.0f).withCentre ({ (lx + xb) * 0.5f, (float) L.mergeY }), "MERGE  A + B",
-                 cs::ice, cs::text, 7.6f);
+        tagPill (g, Rectangle<float> (118.0f, 22.0f).withCentre ({ (lx + xb) * 0.5f, (float) L.mergeY }), "MERGE A + B",
+                 cs::ice, cs::value, cs::pillTextSize);
         // branch labels where the line enters each column
         for (int br = 0; br < 2; ++br)
         {
             const float x = br == 0 ? lx : xb;
-            auto tag = Rectangle<float> (14.0f, 14.0f).withCentre ({ x, (float) L.colTop + 4.0f });
+            auto tag = Rectangle<float> (18.0f, 18.0f).withCentre ({ x, (float) L.colTop + 4.0f });
             g.setColour (cs::bg);
             g.fillEllipse (tag);
             g.setColour (cs::ice.withAlpha (0.7f));
             g.drawEllipse (tag.reduced (0.5f), 1.0f);
-            g.setFont (cs::monoFont (7.5f, true));
-            g.setColour (cs::text);
+            g.setFont (cs::labelFont (11.0f, true, 0.0f));
+            g.setColour (cs::value);
             g.drawText (br == 0 ? "A" : "B", tag, Justification::centred, false);
         }
     }
@@ -1305,8 +1280,8 @@ void RackView::paintAddZone (Graphics& g)
 
     if (full)
     {
-        g.setFont (cs::monoFont (9.5f, true));
-        g.setColour (cs::muted);
+        g.setFont (cs::labelFont (12.0f, true));
+        g.setColour (cs::label);
         g.drawText (String::fromUTF8 ("CHAIN FULL  \xe2\x80\x93  DROP ON A CARD TO REPLACE"), inner, Justification::centred, false);
         return;
     }
@@ -1317,13 +1292,13 @@ void RackView::paintAddZone (Graphics& g)
         if (! hot) g.setOpacity (0.72f);
         chromeCentred (g, "DROP EFFECTS HERE", title, 21.0f, hot ? 1.0f : 0.4f);
     }
-    const Font f = cs::monoFont (8.8f);
+    const Font f = cs::labelFont (12.0f);
     const String sub ("OR CLICK TO ADD");
     const float sw = GlyphArrangement::getStringWidth (f, sub);
-    auto subR = t.withSizeKeepingCentre (sw + 22.0f, 16.0f).translated (0.0f, 2.0f);
+    auto subR = t.withSizeKeepingCentre (sw + 22.0f, 18.0f).translated (0.0f, 2.0f);
     cs::paintSparkle (g, { subR.getX() + 5.0f, subR.getCentreY() }, 4.5f, hot ? cs::ice : cs::ice.withAlpha (0.6f), hot ? 1.0f : 0.4f);
     g.setFont (f);
-    g.setColour (hot ? cs::text : cs::muted);
+    g.setColour (hot ? Colours::white : cs::label);
     g.drawText (sub, subR.withTrimmedLeft (16.0f), Justification::centredLeft, false);
 }
 
@@ -1348,9 +1323,9 @@ void RackView::paint (Graphics& g)
                 g.setColour (cs::card.withAlpha (0.3f));
                 g.fillRoundedRectangle (r, cs::radius);
                 dashedRound (g, r.reduced (0.5f), cs::radius, cs::ice.withAlpha (0.22f), 1.0f);
-                g.setFont (cs::monoFont (8.5f, true));
-                g.setColour (cs::muted);
-                g.drawText (String (br == 0 ? "BRANCH A" : "BRANCH B") + String::fromUTF8 ("  \xc2\xb7  DROP EFFECTS HERE"), r, Justification::centred, false);
+                g.setFont (cs::labelFont (12.0f, true));
+                g.setColour (cs::label);
+                g.drawText (String (br == 0 ? "BRANCH A" : "BRANCH B") + String::fromUTF8 ("  \xc2\xb7  DROP HERE"), r, Justification::centred, false);
             }
 
     if (g.clipRegionIntersects (addZone().expanded (16)))
@@ -1372,7 +1347,7 @@ void RackView::paint (Graphics& g)
             g.setColour (removeRed.withAlpha (0.06f));
             g.fillRoundedRectangle (r, cs::radius);
             dashedRound (g, r.reduced (0.5f), cs::radius, removeRed.withAlpha (0.7f), 1.3f);
-            g.setFont (cs::monoFont (11.0f, true));
+            g.setFont (cs::labelFont (12.0f, true));
             g.setColour (removeRed.interpolatedWith (Colours::white, 0.35f));
             g.drawText ("DROP ON THE FX LIBRARY TO REMOVE", r, Justification::centred, false);
         }
@@ -1419,8 +1394,8 @@ void RackView::paintOverChildren (Graphics& g)
         g.setColour (cs::iceDeep.withAlpha (0.08f));
         g.fillRoundedRectangle (col, cs::radius);
         dashedRound (g, col.reduced (0.5f), cs::radius, cs::ice.withAlpha (0.8f), 1.3f);
-        tagPill (g, Rectangle<float> (92.0f, 20.0f).withCentre ({ col.getCentreX(), col.getY() + 2.0f }),
-                 drop.branch == 0 ? "BRANCH A" : "BRANCH B", cs::ice, Colours::white, 8.5f);
+        tagPill (g, Rectangle<float> (110.0f, 22.0f).withCentre ({ col.getCentreX(), col.getY() + 2.0f }),
+                 drop.branch == 0 ? "BRANCH A" : "BRANCH B", cs::ice, Colours::white, cs::pillTextSize);
     }
     else if (drop.kind == DropTarget::Replace)
     {
@@ -1434,8 +1409,8 @@ void RackView::paintOverChildren (Graphics& g)
             Path outline;
             outline.addRoundedRectangle (b.reduced (1.0f), cs::radius - 1.0f);
             cs::strokeGlow (g, outline, acc, 2.0f, 1.0f);
-            tagPill (g, Rectangle<float> (104.0f, 24.0f).withCentre (b.getCentre()), "REPLACE", acc,
-                     acc.interpolatedWith (Colours::white, 0.6f), 9.5f, acc);
+            tagPill (g, Rectangle<float> (124.0f, 26.0f).withCentre (b.getCentre()), "REPLACE", acc,
+                     acc.interpolatedWith (Colours::white, 0.6f), 12.0f, acc);
         }
     }
 }

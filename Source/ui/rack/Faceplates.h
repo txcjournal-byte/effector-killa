@@ -35,12 +35,36 @@ struct State
     bool reduceMotion = false;
 };
 
-// Layout of a full-size faceplate (898 x 140 at 1x). Knob components are placed by RackView
-// inside knobArea(); the live element is drawn by paintFaceplate inside liveArea().
+// Card layout (TrapWin CHAIN view, UX pass 10/2026 - readable at 100 %). Two variants by width:
+//   FULL    (width >= compactBelow): height fullHeight (120). Name top-left, live screen under it,
+//           knob row on the right, pills (ST/MID/SIDE, preset, 5 icon pills) top-right.
+//   COMPACT (SPLIT branch columns, ~350 wide): name + ST/MID/SIDE on row 1, screen | preset pill +
+//           icon pills on row 2, knobs in one or two rows below (height from compactHeight()).
+// Knob components are placed by RackView inside knobArea(); the live element is drawn by
+// paintFaceplate inside liveArea(). All button positions come from here so cards and controls agree.
+constexpr float compactBelow = 600.0f;
+constexpr int fullHeight = 120;
+constexpr float iconPill = 22.0f, iconGap = 5.0f, msWidth = 104.0f;
+constexpr float controlRowHeight = 74.0f;     // label 14 + knob face 44 + value 16
+constexpr float controlGap = 4.0f, mixGap = 14.0f;
+constexpr float labelTracking = 0.3f, valueTracking = 0.2f;   // px, Plex Mono labels 11 px / values 12 px
+
 juce::Rectangle<float> nameArea (juce::Rectangle<float> plate);
 juce::Rectangle<float> liveArea (EffectType, juce::Rectangle<float> plate);
 juce::Rectangle<float> presetLcdArea (juce::Rectangle<float> plate);
+juce::Rectangle<float> msArea (juce::Rectangle<float> plate);
+juce::Rectangle<float> iconArea (juce::Rectangle<float> plate, int index);   // 0 menu, 1 power, 2 solo, 3 lock, 4 remove
 juce::Rectangle<float> knobArea (EffectType, juce::Rectangle<float> plate);
+juce::Rectangle<float> statusArea (EffectType, juce::Rectangle<float> plate);  // POWER OFF / SOLO / audition pill
+juce::Rectangle<float> miniGlyphArea (juce::Rectangle<float> plate);          // live glyph of a library miniature
+
+// Control row metrics shared with ek::ui::RackControl.
+juce::String displayLabel (const ParamSpec* spec);        // short UI label (nullptr = unit DRY/WET)
+juce::String displayChoice (const juce::String& choice);  // short choice text for segmented pills
+float controlWidth (const ParamSpec* spec);               // preferred width of one control (nullptr = DRY/WET)
+float knobRowWidth (EffectType);                          // all used params + DRY/WET with minimum gaps
+int knobRows (EffectType, float plateWidth);              // 1, or 2 on narrow compact cards
+int compactHeight (EffectType, float plateWidth);         // card height of the compact variant
 
 // Base colours so RackView can tint knobs/labels to match the panel.
 struct Palette { juce::Colour plate, plateDark, ink, accent, led; };

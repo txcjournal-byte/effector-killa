@@ -4,13 +4,14 @@
 // No hardware materials (no ears, screws, wood, lacquer, PCB, tape or illustrations).
 //
 // Drawing is split in two layers:
-//  - a static layer (card body, accent edge, chrome name, category line, screen inset, preset pill) rendered
+//  - a static layer (card body, accent edge, chrome name, screen inset, preset pill) rendered
 //    once per type / size / pixel scale into an image cache (it uses real blurs for the glows);
 //  - the live element (rings, heat bar, curves, meters...) drawn every frame from the State snapshot with
 //    cheap layered-stroke glows.
 // knobArea() is left calm on purpose: RackView places the real knob components on top of it.
 #include "Faceplates.h"
 #include "../Theme.h"
+#include "CardStyle.h"
 #include <functional>
 #include <map>
 
@@ -29,10 +30,7 @@ const Colour cCard2  { 0xff0b111c };
 const Colour cInset  { 0xff05080f };
 const Colour cLine   { 0x2e9fc3ff };   // rgba(159,195,255,.18)
 const Colour cText   { 0xffe6ecf7 };
-const Colour cText2  { 0xffa9b6cc };
-const Colour cMuted  { 0xff8794ab };
 const Colour cIce    { 0xff9fc3ff };
-const Colour cGlow   { 0x804676c4 };   // rgba(70,118,196,.5)
 
 constexpr float cardCorner = 20.0f, miniCorner = 10.0f, screenCorner = 10.0f;
 
@@ -40,23 +38,21 @@ struct Look
 {
     Colour accent;
     const char* name;       // chrome title
-    const char* category;   // Plex Mono line under the title
-    const char* role;       // muted descriptor above the knob row
 };
 
 Look look (EffectType t)
 {
     switch (t)
     {
-        case EffectType::CassettePlug:   return { Colour (0xffe8b86b), "CASSETTE PLUG",    "SATURATION", "TAPE / TUBE DRIVE" };
-        case EffectType::Menace:         return { Colour (0xffff4d5e), "MENACE",           "DISTORTION", "FOUR-MODE DISTORTION" };
-        case EffectType::Brainrot:       return { Colour (0xff7cfc6b), "BRAINROT",         "LO-FI",      "BIT / RATE REDUCER" };
-        case EffectType::ThroughTheWall: return { Colour (0xff5b8cff), "THROUGH THE WALL", "FILTER",     "MULTIMODE FILTER" };
-        case EffectType::ToneUp:         return { Colour (0xffc9d0dd), "TONE UP",          "EQUALIZER",  "5-BAND EQUALIZER" };
-        case EffectType::Squeeze:        return { Colour (0xff3ddc97), "SQUEEZE",          "COMPRESSOR", "PARALLEL COMPRESSOR" };
-        case EffectType::Overcooked:     return { Colour (0xffff8a3d), "OVERCOOKED",       "MULTIBAND",  "3-BAND UP / DOWN DYNAMICS" };
-        case EffectType::Slap:           return { Colour (0xffffd23f), "SLAP",             "TRANSIENT",  "TRANSIENT SHAPER" };
-        default:                         return { cIce, "", "", "" };
+        case EffectType::CassettePlug:   return { Colour (0xffe8b86b), "CASSETTE PLUG" };
+        case EffectType::Menace:         return { Colour (0xffff4d5e), "MENACE" };
+        case EffectType::Brainrot:       return { Colour (0xff7cfc6b), "BRAINROT" };
+        case EffectType::ThroughTheWall: return { Colour (0xff5b8cff), "THROUGH THE WALL" };
+        case EffectType::ToneUp:         return { Colour (0xffc9d0dd), "TONE UP" };
+        case EffectType::Squeeze:        return { Colour (0xff3ddc97), "SQUEEZE" };
+        case EffectType::Overcooked:     return { Colour (0xffff8a3d), "OVERCOOKED" };
+        case EffectType::Slap:           return { Colour (0xffffd23f), "SLAP" };
+        default:                         return { cIce, "" };
     }
 }
 
@@ -71,9 +67,6 @@ double animTime (const State& s) { return (s.reduceMotion || ! s.powered) ? 0.0 
 // ---------------------------------------------------------------------------------------------
 // text
 // ---------------------------------------------------------------------------------------------
-Font displayFont (float h) { return th::stencilFont (h).withHorizontalScale (1.0f); } // Archivo Black (900)
-Font mono (float h)        { return th::monoLabel (h); }                              // IBM Plex Mono Medium
-Font monoBold (float h)    { return th::osdFont (h); }                                // IBM Plex Mono Bold
 
 void text (Graphics& g, const String& s, Rectangle<float> r, Font f, Colour c, Justification j)
 {
@@ -96,64 +89,10 @@ void glowText (Graphics& g, const String& s, Rectangle<float> r, Font f, Colour 
     g.drawText (s, r, j, false);
 }
 
-// Archivo 900 italic chrome title (trapwin.com .tw-chrome): vertical chrome gradient + soft blue glow.
-// Archivo Black is the bundled 900 cut; the italic is a 12 degree shear (no italic TTF bundled).
-Path chromePath (const String& s, float height, Rectangle<float> box, float baseline)
+// big screen readout (UX pass: >= 12 px, bold Plex Mono, accent-tinted with a soft glow)
+void readout (Graphics& g, const String& s, Rectangle<float> r, float h, Colour c, Justification j)
 {
-    Font f = displayFont (height);
-    float w = GlyphArrangement::getStringWidth (f, s);
-    const float maxW = box.getWidth() - height * 0.25f;
-    if (w > maxW && w > 0.0f)
-    {
-        f = displayFont (height * maxW / w);
-        w = GlyphArrangement::getStringWidth (f, s);
-    }
-    GlyphArrangement ga;
-    ga.addLineOfText (f, s, box.getX(), baseline);
-    Path p;
-    ga.createPath (p);
-    p.applyTransform (AffineTransform::shear (-0.21f, 0.0f).translated (baseline * 0.21f, 0.0f));
-    return p;
-}
-
-void paintChrome (Graphics& g, const Path& p, float glow)
-{
-    const auto b = p.getBounds();
-    if (glow > 0.0f)
-    {
-        DropShadow (cGlow.withMultipliedAlpha (glow), jmax (4, roundToInt (b.getHeight() * 0.55f)), {}).drawForPath (g, p);
-        DropShadow (cIce.withAlpha (0.16f * glow), jmax (2, roundToInt (b.getHeight() * 0.12f)), {}).drawForPath (g, p);
-    }
-    ColourGradient chrome (Colour (0xfff4f6fb), 0.0f, b.getY(), Colour (0xffe6eaf2), 0.0f, b.getBottom(), false);
-    chrome.addColour (0.48, Colour (0xffc9d0dd));
-    chrome.addColour (0.52, Colour (0xff8e98ab));
-    g.setGradientFill (chrome);
-    g.fillPath (p);
-}
-
-// four-point TrapWin sparkle
-Path sparkle (Point<float> c, float r)
-{
-    Path p;
-    const float k = r * 0.22f;
-    p.startNewSubPath (c.x, c.y - r);
-    p.quadraticTo (c.x + k, c.y - k, c.x + r, c.y);
-    p.quadraticTo (c.x + k, c.y + k, c.x, c.y + r);
-    p.quadraticTo (c.x - k, c.y + k, c.x - r, c.y);
-    p.quadraticTo (c.x - k, c.y - k, c.x, c.y - r);
-    p.closeSubPath();
-    return p;
-}
-
-// "SATURATION  ✦ TRAPWIN" in muted Plex Mono
-void categoryLine (Graphics& g, const String& category, Rectangle<float> r, float h)
-{
-    const auto f = mono (h);
-    text (g, category, r, f, cMuted, Justification::centredLeft);
-    const float x = r.getX() + GlyphArrangement::getStringWidth (f, category) + h * 1.1f;
-    g.setColour (cIce.withAlpha (0.85f));
-    g.fillPath (sparkle ({ x + h * 0.45f, r.getCentreY() }, h * 0.5f));
-    text (g, "TRAPWIN", r.withLeft (x + h * 1.25f), f, cMuted, Justification::centredLeft);
+    glowText (g, s, r, ek::card::labelFont (jmax (12.0f, h), true, 0.3f), c, j, 0.8f);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -255,9 +194,12 @@ void glass (Graphics& g, Rectangle<float> r, float corner)
 // ---------------------------------------------------------------------------------------------
 // static layer
 // ---------------------------------------------------------------------------------------------
-Rectangle<float> miniLiveArea (Rectangle<float> plate)
+Rectangle<float> miniLiveArea (Rectangle<float> plate) { return miniGlyphArea (plate); }
+
+// chrome effect name: 22 px on full cards, 18 px on compact SPLIT cards, >= 12 px on library rows
+void paintName (Graphics& g, const char* name, Rectangle<float> box, float maxH, float glow)
 {
-    return { plate.getRight() - 8.0f - 84.0f, plate.getY() + 6.0f, 84.0f, plate.getHeight() - 12.0f };
+    ek::card::paintChromeTitle (g, name, box, maxH, glow, 0.8f);
 }
 
 void paintStatic (Graphics& g, EffectType t, Rectangle<float> p, bool mini)
@@ -267,7 +209,7 @@ void paintStatic (Graphics& g, EffectType t, Rectangle<float> p, bool mini)
     {
         paintCard (g, p, lk.accent, miniCorner, true);
         // accent dot
-        const Point<float> dot (p.getX() + 13.0f, p.getCentreY());
+        const Point<float> dot (p.getX() + 12.0f, p.getCentreY());
         DropShadow (lk.accent.withAlpha (0.8f), 6, {}).drawForPath (g, [&] { Path d; d.addEllipse (Rectangle<float> (6.0f, 6.0f).withCentre (dot)); return d; }());
         g.setColour (lk.accent);
         g.fillEllipse (Rectangle<float> (5.0f, 5.0f).withCentre (dot));
@@ -275,24 +217,15 @@ void paintStatic (Graphics& g, EffectType t, Rectangle<float> p, bool mini)
         g.fillEllipse (Rectangle<float> (1.8f, 1.8f).withCentre (dot.translated (-0.6f, -0.6f)));
 
         const auto live = miniLiveArea (p);
-        const auto nameBox = Rectangle<float> (p.getX() + 24.0f, p.getY() + 3.0f, live.getX() - p.getX() - 30.0f, 22.0f);
-        paintChrome (g, chromePath (lk.name, 15.5f, nameBox, p.getY() + 20.5f), 0.8f);
-        categoryLine (g, lk.category, { nameBox.getX() + 1.0f, p.getY() + 24.5f, nameBox.getWidth(), 10.0f }, 7.0f);
-        paintScreenBase (g, live, lk.accent, 7.0f, false);
+        const auto nameBox = Rectangle<float> (p.getX() + 21.0f, p.getY(), live.getX() - p.getX() - 26.0f, p.getHeight());
+        paintName (g, lk.name, nameBox, jlimit (12.0f, 17.0f, p.getHeight() * 0.5f), 0.7f);
+        paintScreenBase (g, live, lk.accent, 6.0f, false);
         return;
     }
 
     paintCard (g, p, lk.accent, cardCorner, false);
-
-    const auto na = nameArea (p);
-    paintChrome (g, chromePath (lk.name, 30.0f, na, na.getY() + 31.0f), 1.0f);
-    categoryLine (g, lk.category, { na.getX() + 1.0f, na.getY() + 38.0f, na.getWidth(), 12.0f }, 8.5f);
-
-    // muted descriptor above the knob row (no frame: the knob area stays calm)
-    const auto ka = knobArea (t, p);
-    if (ka.getY() < p.getY() + 60.0f)   // full-width card only (compact SPLIT cards have no room for it)
-        text (g, lk.role, { ka.getX() + 4.0f, p.getY() + 13.0f, 300.0f, 20.0f }, mono (8.0f), cMuted.withAlpha (0.75f), Justification::centredLeft);
-
+    const bool narrow = p.getWidth() < compactBelow;
+    paintName (g, lk.name, nameArea (p), narrow ? 18.0f : 22.0f, 1.0f);
     paintScreenBase (g, liveArea (t, p), lk.accent, screenCorner, true);
 
     // preset pill (text is drawn by RackView)
@@ -353,28 +286,6 @@ void glowFillRounded (Graphics& g, Rectangle<float> r, float corner, Colour c, f
     g.fillRoundedRectangle (r, corner);
 }
 
-// small pill used for mode lamps on the screens
-void modePill (Graphics& g, Rectangle<float> r, const String& label, bool on, Colour accent, float fontH)
-{
-    const float rad = r.getHeight() * 0.5f;
-    if (on)
-    {
-        g.setColour (accent.withAlpha (0.10f));
-        g.fillRoundedRectangle (r.expanded (2.0f), rad + 2.0f);
-        g.setColour (accent.withAlpha (0.22f));
-        g.fillRoundedRectangle (r, rad);
-        g.setColour (accent.withAlpha (0.9f));
-        g.drawRoundedRectangle (r.reduced (0.5f), rad, 1.0f);
-        glowText (g, label, r, mono (fontH), hot (accent, 0.55f), Justification::centred, 0.8f);
-    }
-    else
-    {
-        g.setColour (cLine);
-        g.drawRoundedRectangle (r.reduced (0.5f), rad, 1.0f);
-        text (g, label, r, mono (fontH), cMuted.withAlpha (0.8f), Justification::centred);
-    }
-}
-
 String hz (float f) { return f >= 1000.0f ? String (f / 1000.0f, f < 10000.0f ? 2 : 1) + " kHz" : String (roundToInt (f)) + " Hz"; }
 
 // ---------------------------------------------------------------------------------------------
@@ -412,9 +323,8 @@ void liveCassette (Graphics& g, Rectangle<float> a, const State& s, bool mini, C
 
     auto pairOfReels = [&] (Rectangle<float> r, float rad, bool tiny)
     {
-        const Point<float> c1 (r.getX() + rad + (tiny ? 3.0f : 10.0f), r.getCentreY());
-        const Point<float> c2 (r.getRight() - rad - (tiny ? 3.0f : 10.0f), r.getCentreY());
-        // tape path along the bottom, through a small head
+        const Point<float> c1 (r.getX() + rad + (tiny ? 2.0f : 6.0f), r.getCentreY());
+        const Point<float> c2 (r.getRight() - rad - (tiny ? 2.0f : 6.0f), r.getCentreY());
         Path tape;
         tape.startNewSubPath (c1.x, c1.y + rad);
         tape.lineTo (c2.x, c2.y + rad);
@@ -422,9 +332,8 @@ void liveCassette (Graphics& g, Rectangle<float> a, const State& s, bool mini, C
         if (! tiny)
         {
             const float hx = (c1.x + c2.x) * 0.5f;
-            glowFillRounded (g, { hx - 5.0f, c1.y + rad - 1.5f, 10.0f, 3.0f }, 1.5f, accent, 0.5f);
             g.setColour (accent.withAlpha (0.9f));
-            g.fillRoundedRectangle (hx - 5.0f, c1.y + rad - 1.5f, 10.0f, 3.0f, 1.5f);
+            glowFillRounded (g, { hx - 5.0f, c1.y + rad - 1.5f, 10.0f, 3.0f }, 1.5f, accent, 0.5f);
         }
         reel (g, c1, rad, angle, 0.92f, accent, tiny);
         reel (g, c2, rad, angle * 1.18f + 0.7f, 0.62f, accent, tiny);
@@ -432,32 +341,28 @@ void liveCassette (Graphics& g, Rectangle<float> a, const State& s, bool mini, C
 
     if (mini)
     {
-        pairOfReels (a.reduced (14.0f, 2.0f), a.getHeight() * 0.32f, true);
-        glass (g, a, 7.0f);
+        pairOfReels (a.reduced (3.0f, 1.0f), jmin (a.getHeight() * 0.36f, a.getWidth() * 0.2f), true);
+        glass (g, a, 6.0f);
         return;
     }
 
-    pairOfReels (a.withWidth (120.0f).reduced (0.0f, 6.0f), 17.0f, false);
-
-    // right: TAPE / TUBE pills, wow wave and readout
-    auto side = a.withTrimmedLeft (124.0f).reduced (6.0f, 0.0f);
+    // reels on the left, the mode (TAPE / TUBE) as the big readout, WOW as a wave under it
+    const float reelsW = jmin (104.0f, a.getWidth() * 0.56f);
+    pairOfReels (a.withWidth (reelsW).reduced (2.0f, 6.0f), jmin (16.0f, a.getHeight() * 0.25f, reelsW * 0.17f), false);
+    auto side = a.withTrimmedLeft (reelsW).reduced (4.0f, 8.0f).withTrimmedRight (4.0f);
     const bool tube = s.params[0] >= 0.5f;
-    modePill (g, { side.getX(), a.getY() + 8.0f, 39.0f, 14.0f }, "TAPE", ! tube, accent, 7.5f);
-    modePill (g, { side.getX() + 44.0f, a.getY() + 8.0f, 39.0f, 14.0f }, "TUBE", tube, accent, 7.5f);
-
+    readout (g, tube ? "TUBE" : "TAPE", side.removeFromTop (18.0f), 14.0f, hot (accent, 0.4f), Justification::centredRight);
+    side.removeFromTop (6.0f);
     Path w;
-    const auto wr = Rectangle<float> (side.getX(), a.getY() + 27.0f, side.getWidth(), 12.0f);
+    const auto wr = side.withSizeKeepingCentre (side.getWidth(), jmin (16.0f, side.getHeight()));
     const float ph = (float) (t * 2.0);
     for (int i = 0; i <= (int) wr.getWidth(); ++i)
     {
         const float x = (float) i / wr.getWidth();
-        const float y = wr.getCentreY() - std::sin (x * MathConstants<float>::twoPi * 2.0f + ph) * wr.getHeight() * 0.5f * (0.12f + 0.88f * wow);
+        const float y = wr.getCentreY() - std::sin (x * MathConstants<float>::twoPi * 1.5f + ph) * wr.getHeight() * 0.5f * (0.12f + 0.88f * wow);
         if (i == 0) w.startNewSubPath (wr.getX(), y); else w.lineTo (wr.getX() + (float) i, y);
     }
-    glowStroke (g, w, accent, 1.0f, 0.8f);
-    text (g, "WOW", { side.getX(), a.getY() + 42.0f, 40.0f, 11.0f }, mono (7.5f), cMuted, Justification::centredLeft);
-    glowText (g, String (roundToInt (wow * 100.0f)) + " %", { side.getX(), a.getY() + 42.0f, side.getWidth(), 11.0f }, mono (8.0f),
-              hot (accent, 0.4f), Justification::centredRight, 0.6f);
+    glowStroke (g, w, accent, 1.2f, 0.8f);
     glass (g, a, screenCorner);
 }
 
@@ -504,34 +409,21 @@ void liveMenace (Graphics& g, Rectangle<float> a, const State& s, bool mini, Col
 
     if (mini)
     {
-        heatBar (g, { a.getX() + 7.0f, a.getCentreY() - 3.0f, a.getWidth() - 30.0f, 6.0f }, lvl, accent, false);
-        glowDot (g, { a.getRight() - 11.0f, a.getCentreY() }, 3.2f, accent, 0.25f + 0.75f * lvl);
-        glass (g, a, 7.0f);
+        heatBar (g, { a.getX() + 5.0f, a.getCentreY() - 3.0f, a.getWidth() - 22.0f, 6.0f }, lvl, accent, false);
+        glowDot (g, { a.getRight() - 8.0f, a.getCentreY() }, 2.8f, accent, 0.25f + 0.75f * lvl);
+        glass (g, a, 6.0f);
         return;
     }
 
-    // DRIVE dot
-    const Point<float> c (a.getX() + 25.0f, a.getY() + 23.0f);
-    Path ring;
-    ring.addEllipse (Rectangle<float> (22.0f, 22.0f).withCentre (c));
-    g.setColour (cLine);
-    g.strokePath (ring, PathStrokeType (1.0f));
-    glowDot (g, c, 5.5f, accent, 0.2f + 0.8f * lvl);
-    text (g, "DRIVE", { c.x - 22.0f, a.getY() + 39.0f, 44.0f, 11.0f }, mono (7.5f), cMuted, Justification::centred);
-
-    // mode row
-    const char* types[] = { "FUZZ", "CLIP", "FOLD", "RECT" };
+    // big mode word + heat percentage, the heat bar underneath
+    static const char* types[] = { "FUZZ", "CLIP", "FOLD", "RECT" };
     const int type = jlimit (0, 3, roundToInt (realParam (EffectType::Menace, s, 0)));
-    auto row = Rectangle<float> (a.getX() + 54.0f, a.getY() + 7.0f, a.getWidth() - 62.0f, 13.0f);
-    const float cw = row.getWidth() / 4.0f;
-    for (int i = 0; i < 4; ++i)
-        modePill (g, row.withX (row.getX() + (float) i * cw).withWidth (cw).reduced (1.5f, 0.0f), types[i], i == type && s.powered, accent, 7.0f);
-
-    // heat bar + readout
-    heatBar (g, { a.getX() + 54.0f, a.getY() + 27.0f, a.getWidth() - 62.0f, 9.0f }, lvl, accent, true);
-    text (g, "HEAT", { a.getX() + 54.0f, a.getY() + 43.0f, 60.0f, 11.0f }, mono (7.5f), cMuted, Justification::centredLeft);
-    glowText (g, String (roundToInt (lvl * 100.0f)) + " %", { a.getX() + 54.0f, a.getY() + 43.0f, a.getWidth() - 62.0f, 11.0f }, mono (8.0f),
-              hot (accent, 0.4f), Justification::centredRight, 0.6f);
+    auto in = a.reduced (10.0f, 8.0f);
+    auto top = in.removeFromTop (18.0f);
+    readout (g, types[type], top, 15.0f, hot (accent, 0.45f), Justification::centredLeft);
+    readout (g, String (roundToInt (lvl * 100.0f)) + "%", top, 13.0f, hot (accent, 0.2f), Justification::centredRight);
+    in.removeFromTop (8.0f);
+    heatBar (g, in.removeFromTop (12.0f), lvl, accent, true);
     glass (g, a, screenCorner);
 }
 
@@ -583,22 +475,22 @@ void liveBrainrot (Graphics& g, Rectangle<float> a, const State& s, bool mini, C
 
     if (mini)
     {
-        steppedWave (a.reduced (6.0f, 6.0f).withWidth (44.0f), 0.9f);
-        bitColumns (a.withTrimmedLeft (54.0f).reduced (2.0f, 6.0f).withTrimmedRight (4.0f), 6);
-        glass (g, a, 7.0f);
+        steppedWave (a.reduced (4.0f, 4.0f).withWidth (a.getWidth() * 0.5f), 0.9f);
+        bitColumns (a.withTrimmedLeft (a.getWidth() * 0.55f).reduced (2.0f, 4.0f), 5);
+        glass (g, a, 6.0f);
         return;
     }
 
-    auto inner = a.reduced (8.0f, 6.0f);
-    auto readout = inner.removeFromBottom (11.0f);
-    inner.removeFromBottom (3.0f);
-    steppedWave (inner.removeFromLeft (118.0f), 1.2f);
-    inner.removeFromLeft (8.0f);
-    bitColumns (inner, 16);
-
-    glowText (g, String (bits) + "-BIT  /  " + String (rate / 1000.0f, rate < 10000.0f ? 1 : 0) + " kHz", readout, mono (8.0f),
-              hot (accent, 0.35f), Justification::centredLeft, 0.6f);
-    text (g, "MSB > LSB", readout, mono (7.0f), cMuted, Justification::centredRight);
+    // "8 BIT" + "11 kHz" on top, stepped wave | bit columns below
+    auto inner = a.reduced (9.0f, 6.0f);
+    auto top = inner.removeFromTop (17.0f);
+    readout (g, String (bits) + " BIT", top, 14.0f, hot (accent, 0.45f), Justification::centredLeft);
+    readout (g, rate >= 10000.0f ? String (roundToInt (rate / 1000.0f)) + " kHz" : String (rate / 1000.0f, 1) + " kHz", top, 12.0f,
+             hot (accent, 0.2f), Justification::centredRight);
+    inner.removeFromTop (5.0f);
+    steppedWave (inner.removeFromLeft (inner.getWidth() * 0.5f), 1.2f);
+    inner.removeFromLeft (6.0f);
+    bitColumns (inner, 8);
     glass (g, a, screenCorner);
 }
 
@@ -670,29 +562,26 @@ void liveThroughTheWall (Graphics& g, Rectangle<float> a, const State& s, bool m
 
     if (mini)
     {
-        curveDisplay (g, a.reduced (6.0f, 5.0f), accent, -30.0f, 18.0f, dbAt, -30.0f, 0.9f);
-        glass (g, a, 7.0f);
+        curveDisplay (g, a.reduced (4.0f, 3.0f), accent, -30.0f, 18.0f, dbAt, -30.0f, 0.9f);
+        glass (g, a, 6.0f);
         return;
     }
 
+    // curve over the whole screen; type (LP24 ...) top-left, cutoff bottom-left
     auto inner = a.reduced (8.0f, 6.0f);
-    auto readout = inner.removeFromBottom (11.0f);
-    inner.removeFromBottom (2.0f);
     {
         Graphics::ScopedSaveState ss (g);
         g.reduceClipRegion (inner.expanded (0.0f, 2.0f).toNearestInt());
-        curveDisplay (g, inner, accent, -30.0f, 18.0f, dbAt, -30.0f, 1.3f);
+        curveDisplay (g, inner.withTrimmedTop (14.0f), accent, -30.0f, 18.0f, dbAt, -30.0f, 1.3f);
     }
-    const float cx = xOfFreq (inner, fc);
-    const float cy = jmap (jlimit (-30.0f, 18.0f, dbAt (fc)), -30.0f, 18.0f, inner.getBottom(), inner.getY());
-    g.setColour (accent.withAlpha (0.25f));
-    for (float y = inner.getY(); y < inner.getBottom(); y += 4.0f) g.fillRect (cx - 0.4f, y, 0.8f, 2.0f);
-    glowDot (g, { cx, jmax (inner.getY() + 3.0f, cy) }, 2.6f, accent, 1.0f);
+    const auto plot = inner.withTrimmedTop (14.0f);
+    const float cx = xOfFreq (plot, fc);
+    const float cy = jmap (jlimit (-30.0f, 18.0f, dbAt (fc)), -30.0f, 18.0f, plot.getBottom(), plot.getY());
+    glowDot (g, { cx, jmax (plot.getY() + 3.0f, cy) }, 2.6f, accent, 1.0f);
 
-    const char* names[] = { "LP12", "LP24", "HP", "BP", "NOTCH", "COMB" };
-    glowText (g, names[jlimit (0, 5, type)], inner.withHeight (10.0f), mono (7.5f), hot (accent, 0.5f), Justification::centredRight, 0.6f);
-    glowText (g, "CUTOFF " + hz (fc), readout, mono (8.0f), hot (accent, 0.4f), Justification::centredLeft, 0.6f);
-    text (g, "RESO " + String (roundToInt (reso * 100.0f)) + " %", readout, mono (7.5f), cMuted, Justification::centredRight);
+    static const char* names[] = { "LP12", "LP24", "HP", "BP", "NOTCH", "COMB" };
+    readout (g, names[jlimit (0, 5, type)], inner.withHeight (15.0f), 13.0f, hot (accent, 0.5f), Justification::centredLeft);
+    readout (g, hz (fc), inner.withHeight (15.0f), 13.0f, hot (accent, 0.3f), Justification::centredRight);
     glass (g, a, screenCorner);
 }
 
@@ -720,17 +609,17 @@ void liveToneUp (Graphics& g, Rectangle<float> a, const State& s, bool mini, Col
 
     if (mini)
     {
-        auto plot = a.reduced (6.0f, 5.0f);
+        auto plot = a.reduced (4.0f, 3.0f);
         g.setColour (cIce.withAlpha (0.14f));
         g.fillRect (plot.getX(), plot.getCentreY() - 0.3f, plot.getWidth(), 0.6f);
         curveDisplay (g, plot, lineC, -18.0f, 18.0f, dbAt, 0.0f, 0.9f);
-        glass (g, a, 7.0f);
+        glass (g, a, 6.0f);
         return;
     }
 
+    // the EQ curve with its 5 band nodes; one readout: TILT
     auto inner = a.reduced (8.0f, 6.0f);
-    auto readout = inner.removeFromBottom (11.0f);
-    inner.removeFromBottom (2.0f);
+    auto top = inner.removeFromTop (15.0f);
     g.setColour (cIce.withAlpha (0.16f));
     g.fillRect (inner.getX(), inner.getCentreY() - 0.35f, inner.getWidth(), 0.7f);
     curveDisplay (g, inner, lineC, -18.0f, 18.0f, dbAt, 0.0f, 1.3f);
@@ -745,9 +634,7 @@ void liveToneUp (Graphics& g, Rectangle<float> a, const State& s, bool mini, Col
         node.addEllipse (Rectangle<float> (6.0f, 6.0f).withCentre ({ x, y }));
         glowStroke (g, node, lineC, 1.0f, 0.7f);
     }
-    text (g, "+18", inner.withHeight (9.0f), mono (6.5f), cMuted.withAlpha (0.7f), Justification::topLeft);
-    glowText (g, "TILT " + String (tilt >= 0.0f ? "+" : "") + String (tilt, 1) + " dB", readout, mono (8.0f), hot (lineC, 0.3f), Justification::centredLeft, 0.6f);
-    text (g, "5 BANDS", readout, mono (7.5f), cMuted, Justification::centredRight);
+    readout (g, "TILT " + String (tilt >= 0.05f ? "+" : "") + String (tilt, 1), top, 12.0f, hot (lineC, 0.3f), Justification::centredLeft);
     glass (g, a, screenCorner);
 }
 
@@ -791,23 +678,18 @@ void liveSqueeze (Graphics& g, Rectangle<float> a, const State& s, bool mini, Co
 
     if (mini)
     {
-        grArc (g, { a.getX() + 22.0f, a.getCentreY() + 2.5f }, 9.5f, gr, accent, true);
-        glowText (g, String (gr, 1), { a.getX() + 40.0f, a.getY(), a.getWidth() - 46.0f, a.getHeight() }, monoBold (10.0f),
-                  hot (accent, 0.45f), Justification::centredRight, 0.7f);
-        glass (g, a, 7.0f);
+        const float r = jmin (a.getHeight() * 0.42f, a.getWidth() * 0.3f);
+        grArc (g, { a.getCentreX(), a.getCentreY() + r * 0.3f }, r, gr, accent, true);
+        glass (g, a, 6.0f);
         return;
     }
 
-    grArc (g, { a.getX() + 52.0f, a.getY() + 31.0f }, 19.0f, gr, accent, false);
-    text (g, "GR", { a.getX() + 40.0f, a.getY() + 25.0f, 24.0f, 12.0f }, mono (7.5f), cMuted, Justification::centred);
-    text (g, "20      0", { a.getX() + 22.0f, a.getY() + 44.0f, 60.0f, 10.0f }, mono (6.5f), cMuted.withAlpha (0.7f), Justification::centred);
-
-    auto side = a.withTrimmedLeft (106.0f).reduced (6.0f, 6.0f);
-    glowText (g, String (gr, 1), side.withHeight (24.0f), monoBold (21.0f), hot (accent, 0.5f), Justification::centredLeft, 1.0f);
-    text (g, "dB", { side.getX() + 52.0f, side.getY() + 9.0f, 30.0f, 12.0f }, mono (8.0f), cMuted, Justification::centredLeft);
-    const float ratio = realParam (EffectType::Squeeze, s, 1);
-    text (g, "GAIN REDUCTION", { side.getX(), side.getY() + 26.0f, side.getWidth(), 10.0f }, mono (7.0f), cMuted, Justification::centredLeft);
-    text (g, "RATIO " + String (ratio, 1) + ":1", { side.getX(), side.getBottom() - 10.0f, side.getWidth(), 10.0f }, mono (7.0f), cText2.withAlpha (0.8f), Justification::centredLeft);
+    // gain-reduction arc + the big "6.5 dB"
+    const float r = jmin (20.0f, a.getHeight() * 0.32f);
+    grArc (g, { a.getX() + 12.0f + r, a.getCentreY() + r * 0.25f }, r, gr, accent, false);
+    auto side = a.withTrimmedLeft (24.0f + r * 2.0f).reduced (4.0f, 8.0f).withTrimmedRight (4.0f);
+    readout (g, String (gr, 1), side.removeFromTop (side.getHeight() * 0.62f), 22.0f, hot (accent, 0.5f), Justification::centredRight);
+    readout (g, "dB GR", side, 12.0f, hot (accent, 0.15f), Justification::centredRight);
     glass (g, a, screenCorner);
 }
 
@@ -816,13 +698,13 @@ void liveSqueeze (Graphics& g, Rectangle<float> a, const State& s, bool mini, Co
 // ---------------------------------------------------------------------------------------------
 void bandBars (Graphics& g, Rectangle<float> r, const State& s, Colour accent, bool labels, float barW)
 {
-    const char* names[] = { "LOW", "MID", "HIGH" };
+    static const char* names[] = { "L", "M", "H" };
     const float cw = r.getWidth() / 3.0f;
     for (int b = 0; b < 3; ++b)
     {
         auto cell = r.withX (r.getX() + (float) b * cw).withWidth (cw);
-        auto lab = labels ? cell.removeFromBottom (10.0f) : Rectangle<float>();
-        if (labels) cell.removeFromBottom (3.0f);
+        auto lab = labels ? cell.removeFromBottom (13.0f) : Rectangle<float>();
+        if (labels) cell.removeFromBottom (2.0f);
         auto bar = cell.withSizeKeepingCentre (barW, cell.getHeight());
         const float v = s.powered ? jlimit (0.0f, 1.0f, s.bands[(size_t) b]) : 0.0f;
         g.setColour (accent.withAlpha (0.09f));
@@ -836,7 +718,7 @@ void bandBars (Graphics& g, Rectangle<float> r, const State& s, Colour accent, b
             g.setGradientFill (gr);
             g.fillRoundedRectangle (lit, barW * 0.5f);
         }
-        if (labels) text (g, names[b], lab.expanded (8.0f, 0.0f), mono (7.0f), cMuted, Justification::centred);
+        if (labels) text (g, names[b], lab, ek::card::labelFont (12.0f, true, 0.0f), ek::card::label, Justification::centred);
     }
 }
 
@@ -844,20 +726,19 @@ void liveOvercooked (Graphics& g, Rectangle<float> a, const State& s, bool mini,
 {
     if (mini)
     {
-        bandBars (g, a.reduced (14.0f, 5.0f), s, accent, false, 6.0f);
-        glass (g, a, 7.0f);
+        bandBars (g, a.reduced (a.getWidth() * 0.18f, 3.0f), s, accent, false, 5.0f);
+        glass (g, a, 6.0f);
         return;
     }
 
-    bandBars (g, a.withWidth (104.0f).reduced (8.0f, 6.0f), s, accent, true, 9.0f);
-
-    auto side = a.withTrimmedLeft (110.0f).reduced (4.0f, 6.0f).withTrimmedRight (4.0f);
+    // three band bars (L M H) + the big average heat
+    const float barsW = jmin (96.0f, a.getWidth() * 0.55f);
+    bandBars (g, a.withWidth (barsW).reduced (8.0f, 6.0f), s, accent, true, 9.0f);
+    auto side = a.withTrimmedLeft (barsW).reduced (2.0f, 8.0f).withTrimmedRight (6.0f);
     const float avg = s.powered ? (s.bands[0] + s.bands[1] + s.bands[2]) / 3.0f : 0.0f;
-    text (g, "HEAT", side.withHeight (10.0f), mono (7.5f), cMuted, Justification::centredLeft);
-    glowText (g, String (roundToInt (avg * 100.0f)), { side.getX(), side.getY() + 10.0f, 60.0f, 22.0f }, monoBold (19.0f), hot (accent, 0.45f),
-              Justification::centredLeft, 1.0f);
-    text (g, "%", { side.getX() + 26.0f, side.getY() + 18.0f, 20.0f, 12.0f }, mono (8.0f), cMuted, Justification::centredLeft);
-    text (g, "UP + DOWN", { side.getX(), side.getBottom() - 10.0f, side.getWidth(), 10.0f }, mono (7.0f), cText2.withAlpha (0.8f), Justification::centredLeft);
+    readout (g, String (roundToInt (avg * 100.0f)) + "%", side.removeFromTop (side.getHeight() * 0.62f), 22.0f, hot (accent, 0.45f),
+             Justification::centredRight);
+    readout (g, "HEAT", side, 12.0f, hot (accent, 0.15f), Justification::centredRight);
     glass (g, a, screenCorner);
 }
 
@@ -925,38 +806,37 @@ void liveSlap (Graphics& g, Rectangle<float> a, const State& s, bool mini, Colou
 
     if (mini)
     {
-        flash (a, 7.0f);
-        envelope (g, a.reduced (6.0f, 5.0f).withTrimmedRight (20.0f), s.params[0] * 2.0f - 1.0f, s.params[1] * 2.0f - 1.0f, accent, 0.9f, false);
-        glowDot (g, { a.getRight() - 11.0f, a.getCentreY() }, 3.2f, accent, hit ? 1.0f : 0.15f);
-        glass (g, a, 7.0f);
+        flash (a, 6.0f);
+        envelope (g, a.reduced (4.0f, 3.0f).withTrimmedRight (12.0f), s.params[0] * 2.0f - 1.0f, s.params[1] * 2.0f - 1.0f, accent, 0.9f, false);
+        glowDot (g, { a.getRight() - 7.0f, a.getCentreY() }, 2.6f, accent, hit ? 1.0f : 0.15f);
+        glass (g, a, 6.0f);
         return;
     }
 
     flash (a, screenCorner);
-    auto inner = a.reduced (8.0f, 6.0f);
-    auto right = inner.removeFromRight (56.0f);
+    auto inner = a.reduced (8.0f, 8.0f);
+    auto right = inner.removeFromRight (46.0f);
     inner.removeFromRight (6.0f);
     envelope (g, inner, atk, sus, accent, 1.3f, true);
 
-    // HIT pill
-    auto pill = right.withSizeKeepingCentre (right.getWidth(), 20.0f).translated (0.0f, -5.0f);
+    // HIT pill (lights on every transient)
+    auto pill = right.withSizeKeepingCentre (right.getWidth(), 24.0f);
     if (hit)
     {
         g.setColour (accent.withAlpha (0.12f));
-        g.fillRoundedRectangle (pill.expanded (6.0f), 16.0f);
+        g.fillRoundedRectangle (pill.expanded (6.0f), 18.0f);
         g.setColour (accent.withAlpha (0.25f));
-        g.fillRoundedRectangle (pill.expanded (2.5f), 12.5f);
+        g.fillRoundedRectangle (pill.expanded (2.5f), 14.5f);
         g.setColour (hot (accent, 0.25f));
-        g.fillRoundedRectangle (pill, 10.0f);
-        text (g, "HIT", pill, monoBold (10.0f), Colour (0xff05070b), Justification::centred);
+        g.fillRoundedRectangle (pill, 12.0f);
+        text (g, "HIT", pill, ek::card::labelFont (13.0f, true, 0.3f), Colour (0xff05070b), Justification::centred);
     }
     else
     {
-        g.setColour (cLine);
-        g.drawRoundedRectangle (pill.reduced (0.5f), 10.0f, 1.0f);
-        text (g, "HIT", pill, monoBold (10.0f), cMuted, Justification::centred);
+        g.setColour (cLine.withMultipliedAlpha (1.6f));
+        g.drawRoundedRectangle (pill.reduced (0.5f), 12.0f, 1.0f);
+        text (g, "HIT", pill, ek::card::labelFont (13.0f, true, 0.3f), ek::card::label.withAlpha (0.7f), Justification::centred);
     }
-    text (g, "TRANSIENT", { right.getX() - 6.0f, pill.getBottom() + 4.0f, right.getWidth() + 12.0f, 10.0f }, mono (6.5f), cMuted, Justification::centred);
     glass (g, a, screenCorner);
 }
 
@@ -1009,7 +889,7 @@ Palette paletteColorGroup (EffectType t)
 {
     const auto lk = look (t);
     // plate / plateDark = card and inset, ink = text-2 for knob labels, accent = value arcs, led = glow colour
-    return { cCard, cInset, cText2, lk.accent, lk.accent };
+    return { cCard, cInset, ek::card::label, lk.accent, lk.accent };
 }
 
 void paintColorGroup (Graphics& g, EffectType t, Rectangle<float> plate, const State& s, bool miniature)

@@ -8,9 +8,44 @@ namespace cs = ek::card;
 
 namespace
 {
-constexpr float labelH = 13.0f;
-constexpr float valueH = 16.0f;
-constexpr float ringRoom = 7.0f;   // space around the value arc reserved for mod rings
+constexpr float labelH = 14.0f;    // 11 px Plex Mono label
+constexpr float valueH = 16.0f;    // 12 px Plex Mono value
+constexpr float ringRoom = 3.0f;   // space around the value arc reserved for mod rings (38 px face in a 44 px row)
+constexpr float maxFace = 40.0f;
+
+Font labelF (bool bold = false) { return cs::labelFont (cs::labelSize, bold, faceplate::labelTracking); }
+Font valueF (bool bold = false) { return cs::labelFont (cs::valueSize, bold, faceplate::valueTracking); }
+
+// the focus belongs to the editor (spacebar / shortcuts must reach the host)
+void noFocus (Component& c)
+{
+    c.setWantsKeyboardFocus (false);
+    c.setMouseClickGrabsKeyboardFocus (false);
+}
+
+// compact value text for the cards (at most ~7 characters at 12 px)
+String compactValue (const ParamSpec& sp, float v)
+{
+    switch (sp.unit)
+    {
+        case Unit::Hz:
+            if (v >= 1000.0f) return String (v / 1000.0f, v >= 10000.0f ? 0 : 1) + " kHz";
+            if (v < 0.005f) return "0 Hz";
+            if (v < 10.0f) return String (v, 2) + " Hz";
+            if (v < 100.0f && std::abs (v - std::round (v)) > 0.05f) return String (v, 1) + " Hz";
+            return String (roundToInt (v)) + " Hz";
+        case Unit::Db:
+            if (std::abs (v) >= 9.95f) return (v > 0.0f ? "+" : "") + String (roundToInt (v)) + " dB";
+            return (v > 0.05f ? "+" : "") + String (v, 1) + " dB";
+        case Unit::Ms:
+            if (v >= 1000.0f) return String (v / 1000.0f, 2) + " s";
+            return v < 10.0f ? String (v, 1) + " ms" : String (roundToInt (v)) + " ms";
+        case Unit::Voices:
+        case Unit::Stages:  return String (roundToInt (v));
+        case Unit::Pattern: return "#" + String (roundToInt (v) + 1).paddedLeft ('0', 2);
+        default:            return sp.format (v);
+    }
+}
 
 Point<float> polar (Point<float> c, float r, float angle) { return { c.x + r * std::sin (angle), c.y - r * std::cos (angle) }; }
 float angleFor (float norm) { return theme::knobStart + jlimit (0.0f, 1.0f, norm) * (theme::knobEnd - theme::knobStart); }
@@ -51,7 +86,8 @@ void paintDisc (Graphics& g, Point<float> c, float r, float angle, Colour accent
 RackControl::RackControl (int s, int p, const ParamSpec* sp, RangedAudioParameter* hp, const faceplate::Palette& palette)
     : slot (s), param (p), kind (kindFor (sp)), spec (sp), hostParam (hp), pal (palette)
 {
-    label = spec != nullptr ? spec->name.toUpperCase() : String ("DRY/WET");
+    label = faceplate::displayLabel (spec);
+    noFocus (*this);
     defaultValue = spec != nullptr ? spec->defaultNorm() : 1.0f;
     if (hostParam != nullptr)
     {
@@ -84,21 +120,10 @@ RackControl::Kind RackControl::kindFor (const ParamSpec* s)
     }
 }
 
-int RackControl::preferredWidth (Kind k, const ParamSpec* s)
+int RackControl::preferredWidth (Kind, const ParamSpec* s)
 {
-    switch (k)
-    {
-        case Kind::Toggle:   return 56;
-        case Kind::Selector: return 66;
-        case Kind::LedRow:
-        {
-            int longest = 4;
-            if (s != nullptr) for (auto& c : s->choices) longest = jmax (longest, c.length());
-            return jlimit (58, 84, 30 + longest * 6);
-        }
-        case Kind::Rotary:
-        default:             return 66;
-    }
+    // one source of truth with the card layout (faceplate::knobArea / knobRowWidth)
+    return (int) std::ceil (faceplate::controlWidth (s));
 }
 
 int RackControl::numSteps() const
@@ -122,11 +147,7 @@ float RackControl::stepToNorm (int step) const
 String RackControl::valueText() const
 {
     if (spec == nullptr) return String (roundToInt (value * 100.0f)) + " %";
-    const float real = spec->toReal (value);
-    // slow LFO rates etc.: the engine's text rounds to whole Hz, the card shows decimals
-    if (spec->unit == Unit::Hz && real < 100.0f && std::abs (real - std::round (real)) > 0.005f)
-        return String (real, real < 10.0f ? 2 : 1) + " Hz";
-    return spec->format (real);
+    return compactValue (*spec, spec->toReal (value));
 }
 
 float RackControl::labelHeight() const { return labelH; }
@@ -141,7 +162,7 @@ Rectangle<float> RackControl::getFaceBounds() const
     if (kind == Kind::Rotary || kind == Kind::Selector)
     {
         // the square that hugs the value arc; mod rings (face / 2 + 3 ...) land in the reserved margin
-        const float s = jmax (12.0f, jmin (r.getWidth(), r.getHeight()) - ringRoom * 2.0f);
+        const float s = jmin (maxFace, jmax (12.0f, jmin (r.getWidth(), r.getHeight()) - ringRoom * 2.0f));
         return r.withSizeKeepingCentre (s, s);
     }
     return r.reduced (4.0f, 1.0f);
@@ -159,14 +180,14 @@ void RackControl::paintLabel (Graphics& g)
 {
     auto r = getLocalBounds().toFloat().removeFromTop (labelH);
     const bool hot = isMouseOver() || dragging;
-    g.setFont (cs::monoFont (8.0f));
-    g.setColour (hot ? cs::text : cs::text2.withAlpha (0.82f));
-    g.drawFittedText (label, r.reduced (1.0f, 0.0f).toNearestInt(), Justification::centred, 1, 0.6f);
+    g.setFont (labelF());
+    g.setColour (hot ? Colours::white : cs::label);
+    g.drawFittedText (label, r.toNearestInt(), Justification::centred, 1, 0.85f);
 }
 
 void RackControl::paintValue (Graphics& g, const String& text)
 {
-    auto r = getLocalBounds().toFloat().removeFromBottom (valueH).reduced (2.0f, 1.0f);
+    auto r = getLocalBounds().toFloat().removeFromBottom (valueH).reduced (1.0f, 0.0f);
     const bool hot = isMouseOver() || dragging;
     if (hot)
     {
@@ -176,13 +197,13 @@ void RackControl::paintValue (Graphics& g, const String& text)
         g.setColour (pal.accent.withAlpha (0.35f));
         g.drawRoundedRectangle (r.reduced (0.5f), r.getHeight() * 0.5f - 0.5f, 1.0f);
     }
-    const auto f = cs::monoFont (8.8f);
-    if (hot) cs::glowText (g, text, r, f, cs::text, Justification::centred, 0.6f);
+    const auto f = valueF();
+    if (hot) cs::glowText (g, text, r, f, Colours::white, Justification::centred, 0.6f);
     else
     {
         g.setFont (f);
-        g.setColour (cs::text.withAlpha (0.78f));
-        g.drawFittedText (text, r.reduced (2.0f, 0.0f).toNearestInt(), Justification::centred, 1, 0.6f);
+        g.setColour (cs::value);
+        g.drawFittedText (text, getLocalBounds().removeFromBottom ((int) valueH), Justification::centred, 1, 0.85f);
     }
 }
 
@@ -252,7 +273,7 @@ Rectangle<float> RackControl::ledRowItem (int i) const
 {
     const auto face = getFaceBounds();
     const int n = jmax (1, numSteps());
-    const float h = jmin (16.0f, face.getHeight() / (float) n);
+    const float h = jmin (16.0f, jmax (13.0f, face.getHeight() / (float) n));
     const float top = face.getY() + (face.getHeight() - h * (float) n) * 0.5f;
     return { face.getX(), top + h * (float) i, face.getWidth(), h };
 }
@@ -292,13 +313,13 @@ void RackControl::paintLedRow (Graphics& g)
         if (on) cs::dotGlow (g, dotC, 1.8f, pal.accent, 1.0f);
         else
         {
-            g.setColour (cs::muted.withAlpha (0.45f));
+            g.setColour (cs::label.withAlpha (0.35f));
             g.fillEllipse (Rectangle<float> (2.6f, 2.6f).withCentre (dotC));
         }
-        const String t = spec != nullptr ? spec->choices[i].toUpperCase() : String();
-        g.setFont (cs::monoFont (7.8f, on));
-        g.setColour (on ? cs::text : cs::muted);
-        g.drawFittedText (t, row.withTrimmedLeft (15.0f).withTrimmedRight (4.0f).toNearestInt(), Justification::centredLeft, 1, 0.6f);
+        const String t = spec != nullptr ? faceplate::displayChoice (spec->choices[i]) : String();
+        g.setFont (labelF (on));
+        g.setColour (on ? Colours::white : cs::label.withAlpha (0.8f));
+        g.drawFittedText (t, row.withTrimmedLeft (15.0f).withTrimmedRight (2.0f).toNearestInt(), Justification::centredLeft, 1, 0.85f);
     }
 }
 
@@ -331,7 +352,7 @@ void RackControl::paintToggle (Graphics& g)
         g.setColour (pal.accent.withAlpha (0.4f));
         g.fillEllipse (knob.expanded (2.0f));
     }
-    g.setColour (on ? Colours::white : cs::muted.withAlpha (0.7f));
+    g.setColour (on ? Colours::white : cs::label.withAlpha (0.6f));
     g.fillEllipse (knob);
 }
 
@@ -504,6 +525,7 @@ void RackControl::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& 
 // ============================================================================
 SideButton::SideButton (Icon i, Colour c) : icon (i), colour (c)
 {
+    noFocus (*this);
     setRepaintsOnMouseActivity (true);
     setMouseCursor (MouseCursor::PointingHandCursor);
 }
@@ -634,8 +656,8 @@ void SideButton::paint (Graphics& g)
     g.drawEllipse (circle.reduced (0.5f), 1.0f);
 
     auto ir = circle.reduced (rad * 0.5f).translated (0.0f, down ? 0.5f : 0.0f);
-    Colour ic = lit ? colour.interpolatedWith (Colours::white, 0.35f) : cs::text2.withAlpha (0.8f);
-    if (! lastEnabled) ic = cs::muted.withAlpha (0.3f);
+    Colour ic = lit ? colour.interpolatedWith (Colours::white, 0.35f) : cs::label;
+    if (! lastEnabled) ic = cs::label.withAlpha (0.3f);
     else if (over && ! lit) ic = dangerHover ? theme::killRed.brighter (0.3f) : cs::text;
     if (lit)
     {
@@ -689,6 +711,7 @@ void SideButton::mouseUp (const MouseEvent& e)
 // ============================================================================
 UnitLcd::UnitLcd()
 {
+    noFocus (*this);
     setRepaintsOnMouseActivity (true);
     setMouseCursor (MouseCursor::PointingHandCursor);
 }
@@ -730,9 +753,9 @@ void UnitLcd::paint (Graphics& g)
     {
         Graphics::ScopedSaveState ss (g);
         g.reduceClipRegion (content.withWidth (content.getWidth() * reveal).toNearestInt());
-        g.setFont (cs::monoFont (9.6f));
-        g.setColour (over ? cs::text : cs::text.withAlpha (0.9f));
-        g.drawFittedText (text.toUpperCase(), content.toNearestInt(), Justification::centredLeft, 1, 0.7f);
+        g.setFont (cs::labelFont (12.0f, false, 0.3f));
+        g.setColour (over ? Colours::white : cs::value);
+        g.drawFittedText (text.toUpperCase(), content.toNearestInt(), Justification::centredLeft, 1, 0.85f);
     }
     if (reveal < 1.0f)
     {
@@ -746,7 +769,7 @@ void UnitLcd::paint (Graphics& g)
     chev.startNewSubPath (ac.x - 3.2f, ac.y - 1.5f);
     chev.lineTo (ac.x, ac.y + 1.7f);
     chev.lineTo (ac.x + 3.2f, ac.y - 1.5f);
-    g.setColour (over ? cs::ice : cs::text2.withAlpha (0.8f));
+    g.setColour (over ? cs::ice : cs::label);
     g.strokePath (chev, PathStrokeType (1.3f, PathStrokeType::curved, PathStrokeType::rounded));
 }
 
@@ -755,6 +778,7 @@ void UnitLcd::mouseDown (const MouseEvent&) { if (onClick) onClick(); }
 // ============================================================================
 MsSwitch::MsSwitch()
 {
+    noFocus (*this);
     setRepaintsOnMouseActivity (true);
     setMouseCursor (MouseCursor::PointingHandCursor);
 }
@@ -803,8 +827,8 @@ void MsSwitch::paint (Graphics& g)
             g.setColour (cs::ice.withAlpha (0.07f));
             g.fillRoundedRectangle (seg.reduced (2.0f), (seg.getHeight() - 4.0f) * 0.5f);
         }
-        g.setFont (cs::monoFont (7.6f, on));
-        g.setColour (on ? Colours::white : (i == hover ? cs::text : cs::muted));
+        g.setFont (cs::labelFont (cs::pillTextSize, on, 0.3f));
+        g.setColour (on ? Colours::white : (i == hover ? Colours::white : cs::label));
         g.drawText (names[i], seg, Justification::centred, false);
     }
 }
