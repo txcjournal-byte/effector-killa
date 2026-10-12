@@ -159,14 +159,14 @@ int runUnitsSnapshot (const juce::File& outDir);
 #include "ui/rack/CardStyle.h"
 
 // Renders the Cassette Plug..Slap faceplates at 2x with a fake live State (+ mock knobs on top,
-// the way RackView places them) and their 264x41 miniatures into one contact sheet.
+// the way RackView places them) and their 200x32 library miniatures into one contact sheet.
 static int renderFaceplatesColor (const juce::File& outDir)
 {
     using namespace ek;
     using namespace juce;
     const EffectType types[] = { EffectType::CassettePlug, EffectType::Menace, EffectType::Brainrot, EffectType::ThroughTheWall,
                                  EffectType::ToneUp, EffectType::Squeeze, EffectType::Overcooked, EffectType::Slap };
-    constexpr float sc = 2.0f, W = 898.0f, H = 140.0f, gap = 18.0f, mW = 264.0f, mH = 41.0f;
+    constexpr float sc = 2.0f, W = 724.0f, H = (float) faceplate::fullHeight, gap = 18.0f, mW = 200.0f, mH = 32.0f;
     const int miniCols = 3, miniRows = 4;
     const float sheetW = 24.0f + W + 24.0f;
     const float sheetH = 40.0f + 8.0f * (H + gap) + 30.0f + (float) miniRows * (mH + 12.0f) + 20.0f;
@@ -216,19 +216,19 @@ static int renderFaceplatesColor (const juce::File& outDir)
         int used = 0;
         for (auto& p : info.params) used += p.used ? 1 : 0;
         const int n = used + (info.mixParam < 0 ? 1 : 0);
-        const float cw = jmin (78.0f, ka.getWidth() / (float) jmax (1, n));
+        const float cw = jmin (62.0f, ka.getWidth() / (float) jmax (1, n));
         int k = 0;
         for (int i = 0; i < kNumParams && k < n; ++i)
         {
             if (! info.params[(size_t) i].used) continue;
             const auto cell = Rectangle<float> (ka.getX() + cw * (float) k, ka.getY(), cw, ka.getHeight());
-            g.setColour (pal.ink.withAlpha (0.8f));
-            g.setFont (theme::monoLabel (8.5f));
-            g.drawText (info.params[(size_t) i].name, cell.withHeight (14.0f), Justification::centred);
+            g.setColour (card::label);
+            g.setFont (card::labelFont (card::labelSize, false, faceplate::labelTracking));
+            g.drawText (faceplate::displayLabel (&info.params[(size_t) i]), cell.withHeight (14.0f), Justification::centred);
             {
                 // TrapWin knob (TRAPWIN-STYLE.md): flat dark disc, thin line, accent value arc with glow, white dot
                 const auto c = cell.getCentre().translated (0.0f, -2.0f);
-                const float r = 17.0f, ang = -1.0f + 0.3f * (float) k;
+                const float r = 15.0f, ang = -1.0f + 0.3f * (float) k;
                 Path track, val;
                 track.addCentredArc (c.x, c.y, r + 4.0f, r + 4.0f, 0.0f, theme::knobStart, theme::knobEnd, true);
                 val.addCentredArc (c.x, c.y, r + 4.0f, r + 4.0f, 0.0f, theme::knobStart, ang, true);
@@ -246,8 +246,8 @@ static int renderFaceplatesColor (const juce::File& outDir)
                 g.setColour (Colours::white);
                 g.fillEllipse (Rectangle<float> (3.6f, 3.6f).withCentre (c.getPointOnCircumference (r * 0.68f, ang)));
             }
-            g.setColour (pal.ink.withAlpha (0.8f));
-            g.setFont (theme::monoLabel (8.5f));
+            g.setColour (card::value);
+            g.setFont (card::labelFont (card::valueSize, false, faceplate::valueTracking));
             g.drawText (info.params[(size_t) i].format (info.params[(size_t) i].toReal (s.params[(size_t) i])),
                         cell.withTop (cell.getBottom() - 16.0f), Justification::centred);
             ++k;
@@ -257,7 +257,7 @@ static int renderFaceplatesColor (const juce::File& outDir)
 
     g.setColour (theme::silverDim);
     g.setFont (theme::monoLabel (11.0f));
-    g.drawText ("MINIATURES (264 x 41)  -  last row: powered off, solo-dimmed, reduce motion", Rectangle<float> (24.0f, y, W, 20.0f), Justification::centredLeft);
+    g.drawText ("MINIATURES (200 x 32)  -  last row: powered off, solo-dimmed, reduce motion", Rectangle<float> (24.0f, y, W, 20.0f), Justification::centredLeft);
     y += 26.0f;
     for (int i = 0; i < 8; ++i)
     {
@@ -287,14 +287,14 @@ static int renderFaceplatesColor (const juce::File& outDir)
 
 // --faceplates-space: contact sheet of the space-group faceplates
 // Renders the Doubles..Red Line faceplates at 2x with a fake live State (+ mock knobs on top,
-// the way RackView places them) and their 264x41 miniatures into one PNG.
+// the way RackView places them) and their 200x32 library miniatures into one PNG.
 static int renderFaceplatesSpace (const juce::File& outDir)
 {
     using namespace ek;
     using namespace juce;
     const EffectType types[] = { EffectType::Doubles, EffectType::Swirl, EffectType::AdLibThrow, EffectType::AuraRoom,
                                  EffectType::WideBody, EffectType::Chopped, EffectType::RedLine };
-    constexpr float sc = 2.0f, W = 898.0f, H = 140.0f, gap = 18.0f, mW = 264.0f, mH = 41.0f;
+    constexpr float sc = 2.0f, W = 724.0f, H = (float) faceplate::fullHeight, gap = 18.0f, mW = 200.0f, mH = 32.0f;
     const int miniCols = 3, miniRows = 3;
     const float sheetW = 24.0f + W + 24.0f;
     const float sheetH = 40.0f + 7.0f * (H + gap) + 30.0f + (float) miniRows * (mH + 12.0f) + 20.0f;
@@ -354,17 +354,18 @@ static int renderFaceplatesSpace (const juce::File& outDir)
         int used = 0;
         for (auto& p : info.params) used += p.used ? 1 : 0;
         const int n = used + (info.mixParam < 0 ? 1 : 0);
-        const float cw = juce::jmin (78.0f, ka.getWidth() / (float) juce::jmax (1, n));
+        const float cw = juce::jmin (62.0f, ka.getWidth() / (float) juce::jmax (1, n));
         int k = 0;
         for (int i = 0; i < kNumParams && k < n; ++i)
         {
             if (! info.params[(size_t) i].used) continue;
             const auto cell = Rectangle<float> (ka.getX() + cw * (float) k, ka.getY(), cw, ka.getHeight());
-            g.setColour (card::muted);
-            g.setFont (card::monoFont (8.0f));
-            g.drawText (info.params[(size_t) i].name.toUpperCase(), cell.withHeight (14.0f), Justification::centred);
-            card::paintKnob (g, cell.getCentre().translated (0.0f, -2.0f), 17.0f, s.params[(size_t) i], pal.accent);
-            g.setColour (pal.ink);
+            g.setColour (card::label);
+            g.setFont (card::labelFont (card::labelSize, false, faceplate::labelTracking));
+            g.drawText (faceplate::displayLabel (&info.params[(size_t) i]), cell.withHeight (14.0f), Justification::centred);
+            card::paintKnob (g, cell.getCentre().translated (0.0f, -1.0f), 15.5f, s.params[(size_t) i], pal.accent);
+            g.setColour (card::value);
+            g.setFont (card::labelFont (card::valueSize, false, faceplate::valueTracking));
             g.drawText (info.params[(size_t) i].format (info.params[(size_t) i].toReal (s.params[(size_t) i])),
                         cell.withTop (cell.getBottom() - 16.0f), Justification::centred);
             ++k;
@@ -374,7 +375,7 @@ static int renderFaceplatesSpace (const juce::File& outDir)
 
     g.setColour (theme::silverDim);
     g.setFont (theme::monoLabel (11.0f));
-    g.drawText ("MINIATURES (264 x 41)", Rectangle<float> (24.0f, y, W, 20.0f), Justification::centredLeft);
+    g.drawText ("MINIATURES (200 x 32)", Rectangle<float> (24.0f, y, W, 20.0f), Justification::centredLeft);
     y += 26.0f;
     for (int i = 0; i < 7; ++i)
     {

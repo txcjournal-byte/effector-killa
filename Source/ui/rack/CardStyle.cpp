@@ -35,6 +35,14 @@ Font monoFont (float h, bool bold)
     return f.withExtraKerningFactor (1.0f / jmax (6.0f, h));   // +1 px letter spacing
 }
 
+Font labelFont (float h, bool bold, float trackingPx)
+{
+    auto t = bold ? plexBold() : plexMed();
+    Font f = t != nullptr ? Font (FontOptions (t).withHeight (h))
+                          : Font (FontOptions().withName (Font::getDefaultMonospacedFontName()).withHeight (h));
+    return f.withExtraKerningFactor (trackingPx / jmax (6.0f, h));
+}
+
 void paintCard (Graphics& g, Rectangle<float> r, Colour accent, bool mini)
 {
     const float rad = mini ? radiusMini : radius;
@@ -103,7 +111,13 @@ void paintCard (Graphics& g, Rectangle<float> r, Colour accent, bool mini)
     }
 }
 
-Rectangle<float> paintChromeTitle (Graphics& g, const String& name, Rectangle<float> r, float maxHeight, float glowAmt)
+float chromeTitleWidth (const String& name, float maxHeight)
+{
+    const Font f = displayFont (maxHeight);
+    return GlyphArrangement::getStringWidth (f, name.toUpperCase()) + f.getAscent() * 0.72f * shear;
+}
+
+Rectangle<float> paintChromeTitle (Graphics& g, const String& name, Rectangle<float> r, float maxHeight, float glowAmt, float minShrink)
 {
     const String s = name.toUpperCase();
     Font f = displayFont (maxHeight);
@@ -111,8 +125,8 @@ Rectangle<float> paintChromeTitle (Graphics& g, const String& name, Rectangle<fl
     float w = widthOf (f);
     if (w > r.getWidth())
     {
-        // shrink first (down to 72 %), then squeeze horizontally
-        const float h = jmax (maxHeight * 0.72f, maxHeight * r.getWidth() / w);
+        // shrink first (down to minShrink, 72 % by default), then squeeze horizontally
+        const float h = jmax (maxHeight * minShrink, maxHeight * r.getWidth() / w);
         f = displayFont (h);
         w = widthOf (f);
         if (w > r.getWidth()) f = f.withHorizontalScale (r.getWidth() / w);
@@ -165,24 +179,6 @@ void paintSparkle (Graphics& g, Point<float> c, float r, Colour colour, float gl
     }
     g.setColour (colour);
     g.fillPath (star (r));
-}
-
-void paintCategory (Graphics& g, const String& category, Rectangle<float> r, float h, Colour accent)
-{
-    const Font f = monoFont (h);
-    const String cat = category.toUpperCase();
-    g.setFont (f);
-    g.setColour (muted);
-    g.drawText (cat, r, Justification::centredLeft, false);
-    float x = r.getX() + GlyphArrangement::getStringWidth (f, cat) + h * 1.1f;
-    // separator dot
-    g.setColour (muted.withAlpha (0.55f));
-    g.fillEllipse (Rectangle<float> (h * 0.22f, h * 0.22f).withCentre ({ x, r.getCentreY() }));
-    x += h * 1.0f;
-    paintSparkle (g, { x + h * 0.38f, r.getCentreY() }, h * 0.42f, accent.interpolatedWith (ice, 0.35f), 0.8f);
-    x += h * 1.15f;
-    g.setColour (text2.withAlpha (0.85f));
-    g.drawText ("TRAPWIN", Rectangle<float> (x, r.getY(), jmax (0.0f, r.getRight() - x), r.getHeight()), Justification::centredLeft, false);
 }
 
 void paintScreen (Graphics& g, Rectangle<float> r, float corner, Colour accent)

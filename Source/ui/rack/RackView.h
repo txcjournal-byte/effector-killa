@@ -5,7 +5,8 @@
 //
 // Geometry: a 26 px gutter on the left carries the glowing ice-blue SIGNAL LINE (a node per card, a pulse
 // travelling down while audio is present - static when reduce motion is on). Cards fill the rest of the
-// width (any width >= ~680; 852 in the editor, ~1088 without the FX library): faceplate painted by
+// width (any width >= ~630; 752 in the 1000 x 680 editor -> 724 x 120 cards; SPLIT columns ~349 wide
+// use the compact variant): faceplate painted by
 // ek::faceplate::paintFaceplate into the whole card (no side strip), real controls on top inside
 // faceplate::knobArea(): every used parameter + DRY/WET, label above, value below; switch parameters as
 // segmented pills / pill toggles. Top-right row (from faceplate::presetLcdArea()):
@@ -73,9 +74,9 @@ public:
     UnitComponent (EffectorKillaAudioProcessor& p, RackView& owner, int slot);
     ~UnitComponent() override;
 
-    static constexpr int height = 140;           // full-width card
-    static constexpr int compactBelow = 600;     // narrower cards use the compact layout (SPLIT branches)
-    // card height for a width (full: 140, compact: 186 with one knob row, 268 with two)
+    static constexpr int height = ek::faceplate::fullHeight;                  // full-width card (120)
+    static constexpr int compactBelow = (int) ek::faceplate::compactBelow;    // narrower cards use the compact layout (SPLIT branches)
+    // card height for a width (full: 120, compact: 186 with one knob row, 260 with two)
     static int idealHeight (ek::EffectType type, int width);
 
     int getSlot() const noexcept { return slot; }
