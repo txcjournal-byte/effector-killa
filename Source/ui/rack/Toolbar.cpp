@@ -238,7 +238,9 @@ void Toolbar::resized()
         const float lw = logo.isValid() ? lh * (float) logo.getWidth() / (float) logo.getHeight() : 99.0f;
         logoArea = { 16.0f, ((float) height - lh) * 0.5f + 1.0f, lw, lh };
     }
-    int x = (int) logoArea.getRight() + 16;
+    // product name in chrome italic next to the (image) logo - the logo itself is never redrawn as text
+    productArea = { logoArea.getRight() + 8.0f, 14.0f, 124.0f, 30.0f };
+    int x = (int) productArea.getRight() + 16;
     auto place = [&] (Component& c, int width, int gapAfter = 6) { c.setBounds (x, y, width, h); x += width + gapAfter; };
     place (libBtn, w, 16);
     place (aBtn, 38, 4); place (bBtn, 38, 14);
@@ -253,7 +255,9 @@ void Toolbar::resized()
     const int rightStart = rx;
 
     // centre group: < [preset] >  save revert fav, centred over the chain when there is room
-    const int lcdW = 300, core = w + 6 + lcdW + 6 + w, extra = 12 + 3 * w + 2 * 6;
+    const int extra = 12 + 3 * w + 2 * 6;
+    const int lcdW = jlimit (170, 300, rightStart - 36 - leftEnd - (w + 6 + 6 + w) - extra);
+    const int core = w + 6 + lcdW + 6 + w;
     const int cx = centreX > 0 ? centreX : getWidth() / 2;
     x = jlimit (leftEnd + 18, jmax (leftEnd + 18, rightStart - 18 - core - extra), cx - core / 2);
     place (prevBtn, w);
@@ -280,6 +284,7 @@ void Toolbar::paint (Graphics& g)
         g.setImageResamplingQuality (Graphics::highResamplingQuality);
         g.drawImage (logo, logoArea, RectanglePlacement::centred);
     }
+    ek::card::paintChromeTitle (g, "EFFECTOR", productArea, 21.0f, 0.8f);
     // thin separators between the groups
     auto sep = [&] (const Component& left, const Component& right)
     {

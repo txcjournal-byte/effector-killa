@@ -59,6 +59,7 @@ private:
     PresetLcd lcd;
     hw::HwButton libBtn, prevBtn, nextBtn, saveBtn, revertBtn, favBtn, aBtn, bBtn, undoBtn, redoBtn, settingsBtn, infoBtn, bypassBtn;
     juce::Rectangle<float> logoArea;
+    juce::Rectangle<float> productArea;   // "EFFECTOR" product name next to the logo
     int centreX = -1;
     juce::uint32 bypassDownAt = 0;
     bool bypassWasOn = false;
