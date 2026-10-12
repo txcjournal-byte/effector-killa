@@ -1,0 +1,14 @@
+TrapWin Effector 1.0.0 - macOS installation (Apple Silicon & Intel, macOS 11+)
+==============================================================================
+
+The plugin is signed and notarized by Apple.
+
+1. Unzip "TrapWinEffector-macOS-signed.zip" (double-click it).
+2. In Finder press Shift+Cmd+G and go to:  /Library/Audio/Plug-Ins/
+   - copy "TrapWin Effector.vst3"      into  /Library/Audio/Plug-Ins/VST3/
+   - copy "TrapWin Effector.component" into  /Library/Audio/Plug-Ins/Components/   (AU - Logic Pro, GarageBand)
+   (You can also use ~/Library/Audio/Plug-Ins/... for your user only.)
+3. Optional: copy "TrapWin Effector.app" (standalone) into /Applications.
+4. Open your DAW and rescan plugins. Logic Pro checks AU plugins automatically on start.
+
+Support: trapwin.com

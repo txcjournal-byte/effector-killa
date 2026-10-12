@@ -197,12 +197,20 @@ jobs:
         run: |
           D="trapwin.com/TrapWin Effector 1.0.0"
           mkdir -p "$D/Windows" "$D/macOS" "$D/Docs"
-          cp artefacts/TrapWinEffector-Windows-Installer/*.exe "$D/Windows/" || true
+          # Shop downloads: one zip per platform with the installer / plugins, install notes and EULA
+          W=stage/win; M=stage/mac; mkdir -p "$W" "$M"
+          cp artefacts/TrapWinEffector-Windows-Installer/*.exe "$W/"
+          cp "installer/notes/INSTALL - Windows.txt" EULA.txt "$W/"
+          (cd "$W" && zip -qry "$GITHUB_WORKSPACE/$D/Windows/TrapWinEffector-1.0.0-Windows.zip" .)
           if [ -d artefacts/TrapWinEffector-macOS-signed ]; then
-            cp artefacts/TrapWinEffector-macOS-signed/*.zip "$D/macOS/"
+            (cd "$M" && unzip -q ../../artefacts/TrapWinEffector-macOS-signed/*.zip)
+            MZ="TrapWinEffector-1.0.0-macOS.zip"
           else
-            (cd artefacts/TrapWinEffector-macOS && zip -qry "../../$D/macOS/TrapWinEffector-1.0.0-macOS-UNSIGNED.zip" .)
+            cp -R artefacts/TrapWinEffector-macOS/. "$M/"
+            MZ="TrapWinEffector-1.0.0-macOS-UNSIGNED.zip"
           fi
+          cp "installer/notes/INSTALL - macOS.txt" EULA.txt "$M/"
+          (cd "$M" && zip -qry --symlinks "$GITHUB_WORKSPACE/$D/macOS/$MZ" .)
           cp MANUAL.md "$D/Docs/TrapWin Effector Manual.md"
           cp EULA.txt "$D/Docs/"
           cp Resources/Fonts/*.txt "$D/Docs/"

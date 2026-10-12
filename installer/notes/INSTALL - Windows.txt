@@ -1,0 +1,12 @@
+TrapWin Effector 1.0.0 - Windows installation
+=============================================
+
+1. Run "TrapWinEffector-1.0.0-Windows-Setup.exe" and follow the installer.
+   (If Windows SmartScreen shows "Windows protected your PC", click "More info" -> "Run anyway".)
+2. The VST3 plugin is installed to:  C:\Program Files\Common Files\VST3\TrapWin Effector.vst3
+   The standalone app is installed to: C:\Program Files\TrapWin\TrapWin Effector
+3. Open your DAW and rescan plugins.
+   FL Studio: Options -> Manage plugins -> Find plugins, then add "TrapWin Effector" to your favourites.
+
+Requirements: Windows 10/11 64-bit, a VST3 host (FL Studio, Ableton Live, Studio One, Reaper, Bitwig, Cubase ...).
+Support: trapwin.com
