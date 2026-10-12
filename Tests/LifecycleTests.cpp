@@ -114,6 +114,44 @@ public:
             }
         }
 
+        beginTest ("re-prepare while the audio thread runs (wrapper holds the callback lock)");
+        {
+            EffectorKillaAudioProcessor p;
+            p.prepareToPlay (44100.0, 256);
+            std::atomic<bool> run { true };
+            std::atomic<int> blocks { 0 };
+            std::atomic<bool> finite { true };
+            std::thread audio ([&]
+            {
+                juce::AudioBuffer<float> buf (2, 256);
+                juce::MidiBuffer midi;
+                while (run.load())
+                {
+                    for (int c = 0; c < 2; ++c)
+                        for (int i = 0; i < 256; ++i) buf.setSample (c, i, 0.2f * std::sin ((float) i * 0.05f));
+                    {
+                        const juce::ScopedLock sl (p.getCallbackLock());   // as the VST3 / AU wrappers do
+                        p.processBlock (buf, midi);
+                    }
+                    for (int c = 0; c < 2; ++c)
+                        for (int i = 0; i < 256; ++i)
+                            if (! std::isfinite (buf.getSample (c, i))) finite = false;
+                    ++blocks;
+                }
+            });
+            const double rates[] = { 48000.0, 96000.0, 44100.0 };
+            for (int k = 0; k < 9; ++k)
+            {
+                p.prepareToPlay (rates[k % 3], 128 << (k % 3));
+                if (k % 3 == 1) p.kill();
+                juce::Thread::sleep (3);
+            }
+            run.store (false);
+            audio.join();
+            expect (blocks.load() > 0);
+            expect (finite.load(), "output stays finite across re-prepares");
+        }
+
         beginTest ("destroy without release / with pending crossfade");
         {
             for (int round = 0; round < 10; ++round)

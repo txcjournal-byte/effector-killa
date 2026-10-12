@@ -194,7 +194,10 @@ EffectorKillaAudioProcessor::~EffectorKillaAudioProcessor()
 // ============================================================================
 void EffectorKillaAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    resolvePendingTrim();   // the start-up preset's trim before any audio
+    resolvePendingTrim();   // the start-up preset's trim before any audio (outside the lock: it renders offline)
+    // Plugin wrappers call processBlock under the callback lock; holding it here makes a re-prepare
+    // from another thread while audio still runs safe (the rack frees and rebuilds its chains).
+    const juce::ScopedLock sl (getCallbackLock());
     currentSampleRate = sampleRate;
     engine.prepare (sampleRate, samplesPerBlock, oversampling);
     pushExtrasToEngine();
