@@ -141,6 +141,7 @@ private:
     void showSaveDialog();
     void layoutBody();
     void updateConstrainer();
+    bool fitsScreen (float scale) const;
     float autoScale() const;
     void applyScale (float s);   // setUiScale without remembering it as the user's choice
     float currentScale() const { return (float) getHeight() / (float) kHeight; }

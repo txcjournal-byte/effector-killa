@@ -228,6 +228,8 @@ EffectorKillaAudioProcessorEditor::EffectorKillaAudioProcessorEditor (EffectorKi
     // a size saved with the project wins; otherwise the size the user picked last (any project)
     float startScale = processor.uiScale;
     if (startScale <= 0.0f && hw::userUiScale() >= 0.0f) startScale = hw::userUiScale();
+    // a saved size that does not fit this screen (e.g. saved by an older, larger UI) falls back to Auto
+    if (startScale > 0.0f && ! fitsScreen (startScale)) startScale = 0.0f;
     applyScale (startScale);
     startTimerHz (30);
 }
@@ -262,6 +264,13 @@ void EffectorKillaAudioProcessorEditor::releaseKeyboard()
 {
     releaseKeyboardRecursive (content);
     lastChildCount = countComponents (content);
+}
+
+bool EffectorKillaAudioProcessorEditor::fitsScreen (float s) const
+{
+    const auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
+    const auto area = d != nullptr ? d->userArea : juce::Rectangle<int> (1920, 1040);
+    return (float) kHeight * s <= (float) area.getHeight() * 0.85f && (float) kWidth * s <= (float) area.getWidth() * 0.95f;
 }
 
 float EffectorKillaAudioProcessorEditor::autoScale() const
@@ -306,7 +315,11 @@ void EffectorKillaAudioProcessorEditor::resized()
     if (scale <= 0.0f) return;
     content.setBounds (0, 0, kWidth, kHeight);
     content.setTransform (juce::AffineTransform::scale (scale));
-    if (! settingSize && isShowing()) processor.uiScale = scale; // dragged the corner: remember that size
+    // Remember a new size only when the user drags the corner. Hosts (FL Studio) restore their own
+    // remembered window size on open - often from an older, larger version of the UI - and that must
+    // not overwrite the user's size choice.
+    if (! settingSize && isShowing() && juce::ModifierKeys::currentModifiers.isAnyMouseButtonDown())
+        processor.uiScale = scale;
 }
 
 bool EffectorKillaAudioProcessorEditor::modExpanded() const
