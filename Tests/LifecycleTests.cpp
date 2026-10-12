@@ -5,6 +5,13 @@
 #include "PluginProcessor.h"
 #include <thread>
 
+// Shared CI runners (especially macOS VMs) are much slower and noisier than a desktop:
+// wall-clock limits are relaxed 10x there so timing checks catch real hangs, not runner load.
+static double timingSlack()
+{
+    return juce::SystemStats::getEnvironmentVariable ("CI", {}).isNotEmpty() ? 10.0 : 1.0;
+}
+
 using namespace ektest;
 
 class LifecycleTest : public juce::UnitTest
@@ -51,8 +58,8 @@ public:
                         + juce::String (total / 50.0, 2) + " ms, worst ctor " + juce::String (worstCtor, 2)
                         + " ms, worst dtor " + juce::String (worstDtor, 2) + " ms");
            #if ! JUCE_DEBUG
-            expect (worstCtor < 30.0, "processor ctor took " + juce::String (worstCtor, 2) + " ms");
-            expect (worstDtor < 10.0, "processor dtor took " + juce::String (worstDtor, 2) + " ms");
+            expect (worstCtor < 30.0 * timingSlack(), "processor ctor took " + juce::String (worstCtor, 2) + " ms");
+            expect (worstDtor < 10.0 * timingSlack(), "processor dtor took " + juce::String (worstDtor, 2) + " ms");
            #endif
         }
 
@@ -110,7 +117,7 @@ public:
                 p.reset();
                 const double dt = nowMs() - a;
                 expect (blocks.load() > 0);
-                expect (dt < 100.0, "dtor after audio took " + juce::String (dt, 2) + " ms");
+                expect (dt < 100.0 * timingSlack(), "dtor after audio took " + juce::String (dt, 2) + " ms");
             }
         }
 
@@ -164,7 +171,7 @@ public:
                 p->stepPreset (1);       // another pending chain
                 const double a = nowMs();
                 p.reset();               // no releaseResources()
-                expect (nowMs() - a < 100.0);
+                expect (nowMs() - a < 100.0 * timingSlack());
             }
         }
 

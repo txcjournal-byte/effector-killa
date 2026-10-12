@@ -61,7 +61,13 @@ jobs:
         run: |
           T=$(find build -type f \( -name EffectorKillaTests -o -name EffectorKillaTests.exe \) -perm -u+x | head -n 1)
           [ -z "$T" ] && T=$(find build -type f -name "EffectorKillaTests.exe" | head -n 1)
-          "$T"
+          set +e
+          "$T" 2>&1 | tee test-output.txt
+          rc=${PIPESTATUS[0]}
+          set -e
+          # surface failing checks as annotations (job logs are not always reachable)
+          grep -E "FAILED|!!!|failure" test-output.txt | grep -v "0 failure" | head -n 20 | while read -r l; do echo "::error::$l"; done
+          exit $rc
 
       - name: pluginval (strictness 5)
         shell: bash
