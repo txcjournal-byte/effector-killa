@@ -2,7 +2,7 @@
 small "PLUGIN" / "VST3 · AU" corners, big chrome EFFECTOR, subtitle, UI render with an ice-blue
 glow frame, "TRAPWIN · AUDIO UNDERGROUND" footer. No big TRAPWIN logo on the cover.
 
-usage: python3 -I Tools/make_cover.py <ui_2x.png> <out.png>
+usage: python3 -I Tools/make_cover.py <ui_2x.png> <out.png> [badge]
 The UI render comes from the snapshot tool (00_cover_ui.png).
 """
 import sys, os
@@ -79,5 +79,22 @@ im.paste(ui, (x, y), mask)
 d = ImageDraw.Draw(im)
 d.rounded_rectangle((x - 1, y - 1, x + tw, y + th), radius=16, outline=(120, 160, 230), width=2)
 centre('TRAPWIN  ·  AUDIO UNDERGROUND', y + th + 40, f2, (150, 165, 190))
+
+# value badge (top-right of the UI frame): "$299 VALUE · $99"
+if len(sys.argv) > 3 and sys.argv[3]:
+    fb = ImageFont.truetype(F + 'osd.ttf', 34)
+    a, b = '$299 VALUE', '  ·  $99'
+    wa, wb = d.textlength(a, font=fb), d.textlength(b, font=fb)
+    bw, bh = int(wa + wb + 56), 64
+    bx, by = (W - bw) // 2, 46   # top centre, between the PLUGIN / VST3 · AU corner labels
+    gl = Image.new('L', (W, H), 0)
+    ImageDraw.Draw(gl).rounded_rectangle((bx, by, bx + bw, by + bh), radius=bh // 2, fill=255)
+    gl = np.asarray(gl.filter(ImageFilter.GaussianBlur(14)))[..., None] / 255.0
+    im = Image.fromarray((np.asarray(im).astype(np.float32) + gl * np.array([255, 46, 62]) * 0.55).clip(0, 255).astype(np.uint8))
+    d = ImageDraw.Draw(im)
+    d.rounded_rectangle((bx, by, bx + bw, by + bh), radius=bh // 2, fill=(255, 46, 62), outline=(255, 150, 160), width=2)
+    d.text((bx + 28, by + 13), a, font=fb, fill=(255, 225, 228))
+    d.text((bx + 28 + wa, by + 13), b, font=fb, fill=(255, 255, 255))
+
 im.save(out_p)
 print('wrote', out_p, 'UI', tw, 'x', th, 'bottom', y + th)
