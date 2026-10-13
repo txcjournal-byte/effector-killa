@@ -20,7 +20,7 @@ jobs:
             name: Windows
             pluginval: pluginval_Windows.zip
             exe: pluginval.exe
-          - os: macos-latest
+          - os: macos-15
             name: macOS
             pluginval: pluginval_macOS.zip
             exe: pluginval.app/Contents/MacOS/pluginval
