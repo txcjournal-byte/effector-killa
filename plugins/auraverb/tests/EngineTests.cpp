@@ -74,11 +74,12 @@ static double measureRt60 (Mode m, double sr, float decay, float size, bool vint
     Stereo x = silence (sr, (double) n / sr);
     x.l[0] = x.r[0] = 1.0f;
     auto y = run (e, x, 512);
-    std::vector<double> edc (n);
+    const size_t len = std::min (n, y.l.size());   // silence() may round the length down by one sample
+    std::vector<double> edc (len);
     double acc = 0;
-    for (size_t i = n; i-- > 0;) { acc += (double) y.l[i] * y.l[i] + (double) y.r[i] * y.r[i]; edc[i] = acc; }
+    for (size_t i = len; i-- > 0;) { acc += (double) y.l[i] * y.l[i] + (double) y.r[i] * y.r[i]; edc[i] = acc; }
     double t5 = -1, t35 = -1;
-    for (size_t i = 0; i < n; ++i)
+    for (size_t i = 0; i < len; ++i)
     {
         const double d = 10 * std::log10 (edc[i] / edc[0] + 1e-30);
         if (t5 < 0 && d <= -5) t5 = (double) i / sr;
