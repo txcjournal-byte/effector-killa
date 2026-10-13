@@ -18,6 +18,8 @@ OUT_DIR = "/home/claude/effector-killa/store"
 S = 2048
 M = 96  # outer margin
 
+PILL_GREEN = dict(glow=(40, 230, 140), top=(70, 245, 160), bot=(0, 160, 90), edge=(190, 255, 220), shadow=(0, 70, 40))
+
 PRODUCTS = {
     "dust": dict(title="DUST TAPE", subtitle="LO-FI TAPE MACHINE", accent=(255, 140, 50),
                  price="$99 VALUE  •  $29", chips=["20 PRESETS", "TAPE · VINYL · WOBBLE", "ZERO-HASSLE LO-FI"],
@@ -53,6 +55,30 @@ PRODUCTS = {
                      price="$179 VALUE  •  $39", chips=["808 GLIDE", "4 SATURATION TYPES", "30 PRESETS"],
                      ui="/home/claude/trapwin-subkilla/shots/subkilla_ui.png", out="sub-killa-cover.jpg",
                      bg_hue=(16, 16, 18), bloom=0.6),
+    "auraverb": dict(title="AURA VERB", subtitle="PRO STUDIO REVERB · 7 MODES", accent=(232, 196, 106),
+                price="$249 VALUE  •  $39", chips=['7 REVERB MODES', 'SHIMMER · 80s · DARK', '44 PRESETS'],
+                ui="/home/claude/trapwin-auraverb/shots/auraverb_darkspace.png", out="aura-verb-cover.jpg", bg_hue=(10, 14, 30), bloom=0.8),
+    "ghostdelay": dict(title="GHOST DELAY", subtitle="TAPE · ANALOG · PITCH · REVERSE", accent=(125, 255, 216),
+                price="$199 VALUE  •  $29", chips=['7 DELAY MODES', 'GHOST PITCH ECHOES', '47 PRESETS'],
+                ui="/home/claude/trapwin-ghostdelay/shots/ghostdelay_ghost.png", out="ghost-delay-cover.jpg", bg_hue=(8, 22, 22), bloom=0.6),
+    "autokilla": dict(title="AUTO KILLA", subtitle="REAL-TIME VOCAL TUNE", accent=(47, 123, 255),
+                price="$399 VALUE  •  $49", chips=['17 ms LIVE MODE', 'AUTO KEY DETECT', '38 PRESETS'],
+                ui="/home/claude/trapwin-autokilla/shots/autokilla_live_autokey.png", out="auto-killa-cover.jpg", bg_hue=(8, 12, 30), bloom=1.0),
+    "heat": dict(title="HEAT", subtitle="MULTIBAND SATURATION", accent=(255, 90, 54),
+                price="$199 VALUE  •  $29", chips=['8 SATURATION MODELS', '3 BANDS · 8x OVERSAMPLING', 'LOW KEEP FOR 808s'],
+                ui="/home/claude/trapwin-heat/shots/heat_3band.png", out="heat-cover.jpg", bg_hue=(28, 12, 10), bloom=0.9),
+    "glow": dict(title="GLOW", subtitle="ONE-KNOB ENHANCER", accent=(255, 228, 92),
+                price="$49 VALUE  •  $9", chips=['ONE KNOB', 'WARM · BRIGHT · FAT · LOUD', 'AUTO GAIN'],
+                ui="/home/claude/trapwin-glow/shots/glow_ui.png", out="glow-cover.jpg", bg_hue=(22, 18, 8), bloom=0.6),
+    "wide": dict(title="WIDE", subtitle="STEREO IMAGER", accent=(185, 168, 255),
+                price="FREE DOWNLOAD", chips=['3-BAND WIDTH', 'MONO-SAFE BASS', '100% FREE'],
+                ui="/home/claude/trapwin-wide/shots/wide_ui.png", out="wide-cover.jpg", bg_hue=(14, 12, 30), bloom=0.9, pill=PILL_GREEN),
+    "snap": dict(title="SNAP", subtitle="TRANSIENT SHAPER", accent=(255, 61, 127),
+                price="$129 VALUE  •  $19", chips=['ATTACK · SUSTAIN', 'SPLIT BAND', '30 PRESETS'],
+                ui="/home/claude/trapwin-snap/shots/snap_ui.png", out="snap-cover.jpg", bg_hue=(26, 10, 18), bloom=0.9),
+    "sweep": dict(title="SWEEP", subtitle="FILTER MOTION · LFO · ENVELOPE", accent=(32, 217, 138),
+                price="$149 VALUE  •  $19", chips=['2 FILTERS · 8 TYPES', 'DRAW YOUR LFO', '39 PRESETS'],
+                ui="/home/claude/trapwin-sweep/shots/sweep_ui.png", out="sweep-cover.jpg", bg_hue=(8, 22, 16), bloom=0.7),
 }
 
 
