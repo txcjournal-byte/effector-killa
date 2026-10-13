@@ -165,7 +165,12 @@ jobs:
           grep -q '"status" *: *"Accepted"' notary.json || { echo "::error::Notarization not accepted: $(cat notary.json)"; \
             xcrun notarytool log "$(sed -n 's/.*"id" *: *"\([^"]*\)".*/\1/p' notary.json | head -1)" "${NOTARY[@]}" || true; exit 1; }
           rm -f AuthKey.p8
-          for b in signed/*; do for i in 1 2 3 4 5 6 7 8; do xcrun stapler staple "$b" && break; echo "staple retry $i"; sleep 30; done; xcrun stapler validate "$b"; codesign --verify --deep --strict "$b"; done
+          for b in signed/*; do
+            ok=0; for i in 1 2 3 4 5 6 7 8; do if xcrun stapler staple "$b" > staple.log 2>&1; then ok=1; break; fi; echo "staple retry $i"; sleep 30; done
+            if [ $ok -ne 1 ]; then tail -5 staple.log | while IFS= read -r l; do echo "::error::staple $b: ${l//%/%25}"; done; cat notary.json | head -c 600 | tr '\n' ' ' | sed 's/^/::error::notary: /'; echo; exit 68; fi
+            xcrun stapler validate "$b" || echo "::error::validate failed $b"
+            codesign --verify --deep --strict "$b" || echo "::error::codesign verify failed $b"
+          done
           rm TrapWinWIDE-macOS-signed.zip
           ditto -c -k --keepParent signed TrapWinWIDE-macOS-signed.zip
           echo "::notice::macOS signed ($MACOS_SIGN_IDENTITY), notarized and stapled: $(ls signed | tr '\n' ' ')"
