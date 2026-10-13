@@ -67,5 +67,11 @@ out = Image.composite(Image.fromarray(lit), out, mask)
 edge = ImageChops.subtract(mask, mask.filter(ImageFilter.MinFilter(5))).filter(ImageFilter.GaussianBlur(1.5))
 out = Image.composite(Image.new("RGB", (W, H), (255, 60, 40)), out, edge.point(lambda v: int(v * 0.55)))
 
+# official TrapWin logo, top-left
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from brand import place, trapwin_logo
+out = place(out, trapwin_logo(58, tagline=True), 26, 20).convert("RGB")
+
 out.save(dst, quality=92)
 print("wrote", dst, out.size)

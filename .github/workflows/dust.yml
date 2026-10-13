@@ -1,4 +1,4 @@
-name: Build TrapWin DUST (Windows + macOS)
+name: Build TrapWin DUST TAPE (Windows + macOS)
 
 on:
   push:
@@ -55,7 +55,7 @@ jobs:
         run: |
           curl -sSL -o pv.zip "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval }}"
           unzip -q pv.zip
-          VST3=$(find build -type d -name "TrapWin DUST.vst3" | head -n 1)
+          VST3=$(find build -type d -name "TrapWin DUST TAPE.vst3" | head -n 1)
           set +e
           ./${{ matrix.exe }} --strictness-level 8 --validate-in-process --timeout-ms 600000 "$VST3" 2>&1 | tee pluginval.log
           rc=${PIPESTATUS[0]}
@@ -70,7 +70,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           mkdir -p ~/Library/Audio/Plug-Ins/Components
-          cp -R "$(find build -type d -name 'TrapWin DUST.component' | head -n 1)" ~/Library/Audio/Plug-Ins/Components/
+          cp -R "$(find build -type d -name 'TrapWin DUST TAPE.component' | head -n 1)" ~/Library/Audio/Plug-Ins/Components/
           killall -9 AudioComponentRegistrar || true
           sleep 5
           auval -v aufx TwDs Trpw
@@ -79,8 +79,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          cp -R "$(find build -type d -name 'TrapWin DUST.vst3' | head -n 1)" dist/
-          if [ "$RUNNER_OS" == "macOS" ]; then cp -R "$(find build -type d -name 'TrapWin DUST.component' | head -n 1)" dist/; fi
+          cp -R "$(find build -type d -name 'TrapWin DUST TAPE.vst3' | head -n 1)" dist/
+          if [ "$RUNNER_OS" == "macOS" ]; then cp -R "$(find build -type d -name 'TrapWin DUST TAPE.component' | head -n 1)" dist/; fi
 
       - uses: actions/upload-artifact@v4
         with:
@@ -135,9 +135,9 @@ jobs:
           fi
           [ -n "$MACOS_SIGN_IDENTITY" ] || { echo "::error::No Developer ID Application identity in the .p12"; exit 1; }
           mkdir -p signed
-          AU=$(find build -type d -name "TrapWin DUST.component" | head -n 1)
-          APP=$(find build -type d -name "TrapWin DUST.app" | head -n 1)
-          for b in "dist/TrapWin DUST.vst3" "$AU" "$APP"; do
+          AU=$(find build -type d -name "TrapWin DUST TAPE.component" | head -n 1)
+          APP=$(find build -type d -name "TrapWin DUST TAPE.app" | head -n 1)
+          for b in "dist/TrapWin DUST TAPE.vst3" "$AU" "$APP"; do
             [ -n "$b" ] && [ -d "$b" ] || continue
             codesign --force --deep --options runtime --timestamp -s "$MACOS_SIGN_IDENTITY" "$b"
             cp -R "$b" signed/
@@ -193,18 +193,18 @@ jobs:
           cp artefacts/TrapWinDUST-Windows-Installer/*.exe stage/win/
           cp -R artefacts/TrapWinDUST-Windows/. stage/win/
           cp "installer/notes/INSTALL - Windows.txt" installer/EULA.txt stage/win/
-          (cd stage/win && zip -qry "$OUT/TrapWin-DUST-$V-Windows.zip" .)
+          (cd stage/win && zip -qry "$OUT/TrapWin-DUST-TAPE-$V-Windows.zip" .)
           if [ -d artefacts/TrapWinDUST-macOS-signed ]; then
             (cd stage/mac && unzip -q ../../artefacts/TrapWinDUST-macOS-signed/*.zip && mv signed/* . && rmdir signed)
-            MZ="TrapWin-DUST-$V-macOS.zip"
+            MZ="TrapWin-DUST-TAPE-$V-macOS.zip"
           else
             cp -R artefacts/TrapWinDUST-macOS/. stage/mac/
-            MZ="TrapWin-DUST-$V-macOS-UNSIGNED.zip"
+            MZ="TrapWin-DUST-TAPE-$V-macOS-UNSIGNED.zip"
           fi
           cp "installer/notes/INSTALL - macOS.txt" installer/EULA.txt stage/mac/
           (cd stage/mac && zip -qry --symlinks "$OUT/$MZ" .)
           ls -la shop
       - uses: actions/upload-artifact@v4
         with:
-          name: SHOP-TrapWin-DUST
+          name: SHOP-TrapWin-DUST-TAPE
           path: plugins/dust/shop
