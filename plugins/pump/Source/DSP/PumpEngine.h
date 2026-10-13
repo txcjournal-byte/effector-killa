@@ -1,4 +1,4 @@
-// TrapWin PUMP – rhythmic volume shaper / sidechain ducker.
+// TrapWin PUMP KING – rhythmic volume shaper / sidechain ducker.
 // Plain C++17 so it can be tested headless; wrapped by JUCE in PluginProcessor.
 #pragma once
 

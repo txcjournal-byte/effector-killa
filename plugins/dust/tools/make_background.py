@@ -70,12 +70,16 @@ img.paste(hdr, (0, 0), mask)
 d.rounded_rectangle((8 * S, 8 * S, W - 8 * S, hdr_h - 4 * S), radius=10 * S, outline=(120, 104, 86, 110), width=S)
 d.line((14 * S, hdr_h - 4 * S, W - 14 * S, hdr_h - 4 * S), fill=(0, 0, 0, 160), width=2 * S)
 
-# ---------- logo (engraved: dark shadow + light highlight) ----------
-logo_font = font("ArchivoBlack-Regular.ttf", 58)
-for off, col in (((1, 2), (12, 9, 7, 230)), ((0, 0), (234, 223, 200, 255))):
-    d.text((28 * S + off[0] * S, 16 * S + off[1] * S), "DUST", font=logo_font, fill=col)
+# ---------- logo: TrapWin chrome title + official TrapWin logo ----------
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from brand import chrome_title, place, place_title, trapwin_logo
+img = place_title(img, chrome_title("DUST TAPE", 30 * S, glow=(255, 140, 50), glow_strength=0.75), 26 * S, 20 * S)
+_lg = trapwin_logo(44 * S)
+img = place(img, _lg, 22 * S, 58 * S)
+d = ImageDraw.Draw(img)
 sub = font("BarlowCondensed-SemiBold.ttf", 13)
-d.text((31 * S, 86 * S), "TRAPWIN  /  LO-FI & VINTAGE COLOR", font=sub, fill=(227, 155, 60, 255))
+d.text((22 * S + _lg.width + 12 * S, 72 * S), "LO-FI TAPE MACHINE", font=sub, fill=(227, 155, 60, 255))
 
 # ---------- cassette window ----------
 cx0, cy0, cx1, cy1 = 330, 20, 630, 132

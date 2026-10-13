@@ -45,16 +45,15 @@ d = ImageDraw.Draw(img)
 # top bevel highlight
 d.line((10 * S, 2 * S, W - 10 * S, 2 * S), fill=(90, 96, 86, 120), width=S)
 
-# ---------- logo with lime glow ----------
-glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-gd = ImageDraw.Draw(glow)
-logo_font = font("ArchivoBlack-Regular.ttf", 46)
-gd.text((24 * S, 10 * S), "PUMP", font=logo_font, fill=LIME + (200,))
-glow = glow.filter(ImageFilter.GaussianBlur(9 * S))
-img = Image.alpha_composite(img, glow)
+# ---------- logo: TrapWin chrome title + official TrapWin logo ----------
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from brand import chrome_title, place, place_title, trapwin_logo
+img = place_title(img, chrome_title("PUMP KING", 22 * S, glow=LIME, glow_strength=0.7), 24 * S, 14 * S)
+_lg = trapwin_logo(36 * S)
+img = place(img, _lg, 20 * S, 40 * S)
 d = ImageDraw.Draw(img)
-d.text((24 * S, 10 * S), "PUMP", font=logo_font, fill=LIME + (255,))
-d.text((28 * S, 62 * S), "TRAPWIN  /  VOLUME SHAPER & SIDECHAIN", font=font("BarlowCondensed-SemiBold.ttf", 13),
+d.text((20 * S + _lg.width + 10 * S, 50 * S), "VOLUME SHAPER & SIDECHAIN", font=font("BarlowCondensed-SemiBold.ttf", 13),
        fill=(125, 134, 118, 255))
 
 # dropdown labels (engraved)

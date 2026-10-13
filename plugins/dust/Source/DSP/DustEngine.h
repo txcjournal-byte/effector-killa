@@ -1,4 +1,4 @@
-// TrapWin DUST – lo-fi & vintage color engine.
+// TrapWin DUST TAPE – lo-fi & vintage color engine.
 // Plain C++17, no framework dependency, so it can be tested headless and wrapped by JUCE.
 #pragma once
 

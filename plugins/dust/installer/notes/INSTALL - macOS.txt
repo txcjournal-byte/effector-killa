@@ -1,7 +1,7 @@
-TrapWin DUST - macOS install (Apple Silicon & Intel)
+TrapWin DUST TAPE - macOS install (Apple Silicon & Intel)
 
-1. Copy "TrapWin DUST.vst3" to   /Library/Audio/Plug-Ins/VST3
-2. Copy "TrapWin DUST.component" to   /Library/Audio/Plug-Ins/Components   (Logic, GarageBand)
+1. Copy "TrapWin DUST TAPE.vst3" to   /Library/Audio/Plug-Ins/VST3
+2. Copy "TrapWin DUST TAPE.component" to   /Library/Audio/Plug-Ins/Components   (Logic, GarageBand)
    Tip: in Finder press Cmd+Shift+G and paste the path.
 3. Restart your DAW and rescan plugins.
 

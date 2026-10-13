@@ -1,8 +1,8 @@
-TrapWin PUMP - Windows install
+TrapWin PUMP KING - Windows install
 
 1. Run TrapWin-PUMP-Setup.exe and click through the installer.
-   (Or copy the folder "TrapWin PUMP.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+   (Or copy the folder "TrapWin PUMP KING.vst3" to C:\Program Files\Common Files\VST3 yourself.)
 2. FL Studio: Options > Manage plugins > Find more plugins.
-3. Load "TrapWin PUMP" on any mixer insert.
+3. Load "TrapWin PUMP KING" on any mixer insert.
 
 Need help? https://trapwin.com/pages/contact

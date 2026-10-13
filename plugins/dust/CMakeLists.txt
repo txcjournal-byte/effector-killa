@@ -46,7 +46,7 @@ juce_add_plugin(Dust
     PLUGIN_MANUFACTURER_CODE Trpw
     PLUGIN_CODE TwDs
     FORMATS VST3 AU Standalone
-    PRODUCT_NAME "TrapWin DUST"
+    PRODUCT_NAME "TrapWin DUST TAPE"
     DESCRIPTION "Lo-fi & vintage color"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE

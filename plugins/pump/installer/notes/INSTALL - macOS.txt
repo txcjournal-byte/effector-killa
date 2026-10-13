@@ -1,7 +1,7 @@
-TrapWin PUMP - macOS install (Apple Silicon & Intel)
+TrapWin PUMP KING - macOS install (Apple Silicon & Intel)
 
-1. Copy "TrapWin PUMP.vst3" to   /Library/Audio/Plug-Ins/VST3
-2. Copy "TrapWin PUMP.component" to   /Library/Audio/Plug-Ins/Components   (Logic, GarageBand)
+1. Copy "TrapWin PUMP KING.vst3" to   /Library/Audio/Plug-Ins/VST3
+2. Copy "TrapWin PUMP KING.component" to   /Library/Audio/Plug-Ins/Components   (Logic, GarageBand)
    Tip: in Finder press Cmd+Shift+G and paste the path.
 3. Restart your DAW and rescan plugins.
 

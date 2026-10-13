@@ -1,4 +1,4 @@
-# TrapWin DUST
+# TrapWin DUST TAPE
 
 Lo-fi & vintage color plugin (VST3 / AU / Standalone, Windows + macOS) – tape saturation,
 wow & flutter, vinyl crackle & hiss, bitcrush, tone and the AGE macro. JUCE 8, C++17.

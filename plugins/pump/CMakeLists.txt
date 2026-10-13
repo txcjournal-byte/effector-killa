@@ -46,7 +46,7 @@ juce_add_plugin(Pump
     PLUGIN_MANUFACTURER_CODE Trpw
     PLUGIN_CODE TwPm
     FORMATS VST3 AU Standalone
-    PRODUCT_NAME "TrapWin PUMP"
+    PRODUCT_NAME "TrapWin PUMP KING"
     DESCRIPTION "Volume shaper & sidechain"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT TRUE
