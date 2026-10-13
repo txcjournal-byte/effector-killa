@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "BinaryData.h"
 
 namespace
 {
@@ -10,9 +11,25 @@ const juce::Colour cDim   { 0xff7d8676 };
 const juce::Colour cLime  { 0xffb6ff3b };
 const juce::Colour cHot   { 0xffff4f7b };
 
+struct Fonts
+{
+    juce::Typeface::Ptr label = juce::Typeface::createSystemTypefaceFor (BinaryData::BarlowCondensedBold_ttf, BinaryData::BarlowCondensedBold_ttfSize);
+    juce::Typeface::Ptr labelSemi = juce::Typeface::createSystemTypefaceFor (BinaryData::BarlowCondensedSemiBold_ttf, BinaryData::BarlowCondensedSemiBold_ttfSize);
+    juce::Typeface::Ptr mono = juce::Typeface::createSystemTypefaceFor (BinaryData::ShareTechMonoRegular_ttf, BinaryData::ShareTechMonoRegular_ttfSize);
+    static const Fonts& get() { static Fonts f; return f; }
+};
+
 juce::Font font (float h, bool bold = true)
 {
-    return juce::Font (juce::FontOptions (juce::Font::getDefaultSansSerifFontName(), h, bold ? juce::Font::bold : juce::Font::plain));
+    return juce::Font (juce::FontOptions (bold ? Fonts::get().label : Fonts::get().labelSemi).withHeight (h));
+}
+
+juce::Font mono (float h) { return juce::Font (juce::FontOptions (Fonts::get().mono).withHeight (h)); }
+
+juce::Point<float> knobCentre (int i)
+{
+    const float kw = (820.0f - 32.0f) / 6.0f;
+    return { 16.0f + (float) i * kw + kw * 0.5f, 430.0f };
 }
 } // namespace
 
@@ -29,46 +46,79 @@ PumpLook::PumpLook()
     setColour (juce::Label::textColourId, cText);
 }
 
-void PumpLook::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos, float start, float end, juce::Slider& s)
+void PumpLook::drawRotarySlider (juce::Graphics& g, int x, int y, int w, int h, float pos, float, float, juce::Slider& s)
 {
-    const auto b = juce::Rectangle<int> (x, y, w, h).toFloat().reduced (6.0f);
-    const float r = juce::jmin (b.getWidth(), b.getHeight()) * 0.5f;
-    const auto c = b.getCentre();
-    const float a = start + pos * (end - start);
-    juce::Path track, val;
-    track.addCentredArc (c.x, c.y, r - 3, r - 3, 0, start, end, true);
-    val.addCentredArc (c.x, c.y, r - 3, r - 3, 0, start, a, true);
-    g.setColour (cGrid);
-    g.strokePath (track, juce::PathStrokeType (5.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.setColour (s.isEnabled() ? cLime : cDim);
-    g.strokePath (val, juce::PathStrokeType (5.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    const float kr = r - 12.0f;
-    g.setColour (cPanel.brighter (0.08f));
-    g.fillEllipse (c.x - kr, c.y - kr, kr * 2, kr * 2);
-    g.setColour (cGrid.brighter (0.2f));
-    g.drawEllipse (c.x - kr, c.y - kr, kr * 2, kr * 2, 1.0f);
+    const auto c = juce::Rectangle<int> (x, y, w, h).toFloat().getCentre();
+    const bool on = s.isEnabled();
+
+    // LED ring: 21 dots, lit up to the value (unlit dots are part of the background)
+    const int lit = juce::roundToInt (pos * 20.0f);
+    for (int k = 0; k <= 20; ++k)
+    {
+        if (k > lit) break;
+        const float a = juce::degreesToRadians (225.0f - 270.0f * (float) k / 20.0f);
+        const float lx = c.x + std::cos (a) * 38.0f, ly = c.y - std::sin (a) * 38.0f;
+        const auto col = on ? cLime : cDim;
+        g.setColour (col.withAlpha (0.25f));
+        g.fillEllipse (lx - 4.0f, ly - 4.0f, 8.0f, 8.0f);
+        g.setColour (col);
+        g.fillEllipse (lx - 1.9f, ly - 1.9f, 3.8f, 3.8f);
+    }
+
+    // rubber body
+    const float r = 28.0f;
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.fillEllipse (c.x - r + 1.0f, c.y - r + 3.0f, r * 2, r * 2);
+    g.setGradientFill (juce::ColourGradient (juce::Colour (0xff2c302a), c.x, c.y - r, juce::Colour (0xff0e100d), c.x, c.y + r, false));
+    g.fillEllipse (c.x - r, c.y - r, r * 2, r * 2);
+    // grip ribs
+    g.setColour (juce::Colours::black.withAlpha (0.35f));
+    const float angle = juce::degreesToRadians (-135.0f + 270.0f * pos);
+    for (int i = 0; i < 30; ++i)
+    {
+        const float a = angle + juce::MathConstants<float>::twoPi * (float) i / 30.0f;
+        g.drawLine (c.x + std::sin (a) * r * 0.86f, c.y - std::cos (a) * r * 0.86f, c.x + std::sin (a) * r * 0.99f, c.y - std::cos (a) * r * 0.99f, 1.0f);
+    }
+    // brushed metal top
+    const float t = r * 0.68f;
+    juce::ColourGradient metal (juce::Colour (0xffc9cfc2), c.x - t, c.y - t, juce::Colour (0xff4b5047), c.x + t, c.y + t, false);
+    metal.addColour (0.5, juce::Colour (0xff8a9083));
+    g.setGradientFill (metal);
+    g.fillEllipse (c.x - t, c.y - t, t * 2, t * 2);
+    g.setColour (juce::Colours::black.withAlpha (0.5f));
+    g.drawEllipse (c.x - t, c.y - t, t * 2, t * 2, 1.0f);
+    // indicator
     juce::Path p;
-    p.addRoundedRectangle (-1.5f, -kr + 3, 3.0f, kr * 0.5f, 1.5f);
-    g.setColour (cText);
-    g.fillPath (p, juce::AffineTransform::rotation (a).translated (c));
+    p.addRoundedRectangle (-1.6f, -r * 0.98f, 3.2f, r * 0.42f, 1.6f);
+    g.setColour (on ? cLime : cDim);
+    g.fillPath (p, juce::AffineTransform::rotation (angle).translated (c));
 }
 
 void PumpLook::drawComboBox (juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox&)
 {
-    const auto r = juce::Rectangle<float> (0, 0, (float) w, (float) h).reduced (0.5f);
-    g.setColour (cPanel.brighter (0.05f));
+    const auto r = juce::Rectangle<float> (0, 0, (float) w, (float) h);
+    g.setColour (juce::Colour (0xff3c4238));
     g.fillRoundedRectangle (r, 5.0f);
-    g.setColour (cGrid.brighter (0.3f));
-    g.drawRoundedRectangle (r, 5.0f, 1.0f);
+    g.setColour (juce::Colour (0xff070906));
+    g.fillRoundedRectangle (r.reduced (1.0f), 4.5f);
+    g.setGradientFill (juce::ColourGradient (cLime.withAlpha (0.10f), 0, 0, cLime.withAlpha (0.02f), 0, (float) h, false));
+    g.fillRoundedRectangle (r.reduced (2.0f), 4.0f);
     juce::Path arrow;
     const float ax = (float) w - 14.0f, ay = (float) h * 0.5f;
-    arrow.addTriangle (ax - 4, ay - 2, ax + 4, ay - 2, ax, ay + 3);
+    arrow.addTriangle (ax - 4.5f, ay - 2.5f, ax + 4.5f, ay - 2.5f, ax, ay + 3.5f);
     g.setColour (cLime);
     g.fillPath (arrow);
 }
 
-juce::Font PumpLook::getComboBoxFont (juce::ComboBox&) { return font (14.0f); }
-juce::Font PumpLook::getPopupMenuFont() { return font (14.0f, false); }
+void PumpLook::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
+{
+    label.setBounds (8, 1, box.getWidth() - 28, box.getHeight() - 2);
+    label.setFont (getComboBoxFont (box));
+    label.setColour (juce::Label::textColourId, cLime);
+}
+
+juce::Font PumpLook::getComboBoxFont (juce::ComboBox&) { return mono (15.0f); }
+juce::Font PumpLook::getPopupMenuFont() { return font (16.0f, false); }
 
 // ---------------- CurveEditor ----------------
 
@@ -193,19 +243,16 @@ void CurveEditor::timerCallback()
 void CurveEditor::paint (juce::Graphics& g)
 {
     const auto r = plot();
-    g.setColour (cPanel);
-    g.fillRoundedRectangle (getLocalBounds().toFloat(), 10.0f);
-
     // grid: 16 steps, beats brighter
     for (int i = 0; i <= 16; ++i)
     {
         const float x = r.getX() + r.getWidth() * (float) i / 16.0f;
-        g.setColour (i % 4 == 0 ? cGrid.brighter (0.35f) : cGrid);
+        g.setColour (cLime.withAlpha (i % 4 == 0 ? 0.16f : 0.06f));
         g.drawVerticalLine ((int) x, r.getY(), r.getBottom());
     }
     for (int i = 0; i <= 4; ++i)
     {
-        g.setColour (cGrid);
+        g.setColour (cLime.withAlpha (0.06f));
         g.drawHorizontalLine ((int) (r.getY() + r.getHeight() * (float) i / 4.0f), r.getX(), r.getRight());
     }
 
@@ -236,8 +283,13 @@ void CurveEditor::paint (juce::Graphics& g)
     fill.closeSubPath();
     g.setGradientFill (juce::ColourGradient (cLime.withAlpha (0.28f), 0, r.getY(), cLime.withAlpha (0.02f), 0, r.getBottom(), false));
     g.fillPath (fill);
-    g.setColour (cLime);
-    g.strokePath (curvePath, juce::PathStrokeType (2.5f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    // phosphor glow
+    g.setColour (cLime.withAlpha (0.10f));
+    g.strokePath (curvePath, juce::PathStrokeType (12.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.setColour (cLime.withAlpha (0.22f));
+    g.strokePath (curvePath, juce::PathStrokeType (6.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    g.setColour (cLime.brighter (0.3f));
+    g.strokePath (curvePath, juce::PathStrokeType (2.2f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // points
     for (int i = 0; i < (int) pts.size(); ++i)
@@ -270,37 +322,38 @@ void CurveEditor::paint (juce::Graphics& g)
 PumpPanel::PumpPanel (PumpProcessor& p) : proc (p), curve (p)
 {
     setLookAndFeel (&look);
+    background = juce::ImageCache::getFromMemory (BinaryData::bg_png, BinaryData::bg_pngSize);
     addAndMakeVisible (curve);
 
     const char* ids[] = { IDs::depth, IDs::smooth, IDs::crossover, IDs::threshold, IDs::mix, IDs::output };
     const char* names[] = { "DEPTH", "SMOOTH", "X-OVER", "THRESH", "MIX", "OUTPUT" };
+    const char* tips[] = { "How far the curve pulls the volume down", "Softens the curve edges (no clicks)",
+                           "Crossover for the LOW / HIGH band modes", "Kick level that fires the curve in AUDIO mode",
+                           "Dry / wet blend", "Output level" };
     for (size_t i = 0; i < knobs.size(); ++i)
     {
         auto& k = knobs[i];
-        k.s.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 70, 16);
-        k.s.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
-        k.s.setColour (juce::Slider::textBoxTextColourId, cText);
+        k.s.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
         k.s.setRotaryParameters (juce::MathConstants<float>::pi * 1.25f, juce::MathConstants<float>::pi * 2.75f, true);
+        k.s.setTooltip (tips[i]);
+        k.s.onValueChange = [this] { repaint (16, 372, baseW - 32, 120); };
         addAndMakeVisible (k.s);
         k.l.setText (names[i], juce::dontSendNotification);
         k.l.setJustificationType (juce::Justification::centred);
-        k.l.setFont (font (12.0f));
+        k.l.setFont (font (15.0f));
+        k.l.setColour (juce::Label::textColourId, cText);
+        k.l.setInterceptsMouseClicks (false, false);
         addAndMakeVisible (k.l);
         k.a = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, ids[i], k.s);
     }
 
     const char* cids[] = { IDs::rate, IDs::trigger, IDs::band };
-    const char* cnames[] = { "RATE", "TRIGGER", "BAND" };
     for (size_t i = 0; i < choices.size(); ++i)
     {
         auto& c = choices[i];
         if (auto* param = dynamic_cast<juce::AudioParameterChoice*> (proc.apvts.getParameter (cids[i])))
             c.box.addItemList (param->choices, 1);
         addAndMakeVisible (c.box);
-        c.l.setText (cnames[i], juce::dontSendNotification);
-        c.l.setFont (font (11.0f));
-        c.l.setColour (juce::Label::textColourId, cDim);
-        addAndMakeVisible (c.l);
         c.a = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, cids[i], c.box);
     }
 
@@ -309,10 +362,6 @@ PumpPanel::PumpPanel (PumpProcessor& p) : proc (p), curve (p)
     shapeBox.setSelectedId (proc.getCurrentProgram() + 1, juce::dontSendNotification);
     shapeBox.onChange = [this] { proc.setCurrentProgram (shapeBox.getSelectedId() - 1); };
     addAndMakeVisible (shapeBox);
-    shapeLabel.setText ("SHAPE", juce::dontSendNotification);
-    shapeLabel.setFont (font (11.0f));
-    shapeLabel.setColour (juce::Label::textColourId, cDim);
-    addAndMakeVisible (shapeLabel);
 
     startTimerHz (10);
 }
@@ -330,48 +379,47 @@ void PumpPanel::timerCallback()
     const int band = (int) proc.apvts.getRawParameterValue (IDs::band)->load();
     knobs[3].s.setEnabled (trig == 2);
     knobs[2].s.setEnabled (band != 0);
+    if (shapeBox.getSelectedId() != proc.getCurrentProgram() + 1)
+        shapeBox.setSelectedId (proc.getCurrentProgram() + 1, juce::dontSendNotification);
 }
 
 void PumpPanel::paint (juce::Graphics& g)
 {
-    g.fillAll (cBg);
-    g.setColour (cLime);
-    g.setFont (font (44.0f));
-    g.drawText ("PUMP", 24, 10, 200, 52, juce::Justification::centredLeft);
+    g.drawImage (background, getLocalBounds().toFloat(), juce::RectanglePlacement::stretchToFit);
     g.setColour (cDim);
-    g.setFont (font (11.0f));
-    g.drawText ("TRAPWIN  /  VOLUME SHAPER & SIDECHAIN", 28, 58, 320, 14, juce::Justification::centredLeft);
-    g.setColour (cDim.withAlpha (0.8f));
-    g.setFont (font (11.0f, false));
+    g.setFont (font (12.0f, false));
     g.drawText ("drag points  /  drag a line to bend it  /  double-click to add or delete  /  shift = snap to grid",
-                300, 62, baseW - 316, 16, juce::Justification::centredRight);
-    g.setColour (cPanel);
-    g.fillRoundedRectangle (16, 372, (float) baseW - 32, 116, 10.0f);
+                300, 64, baseW - 316, 14, juce::Justification::centredRight);
+}
+
+void PumpPanel::paintOverChildren (juce::Graphics& g)
+{
+    g.setFont (mono (14.0f));
+    for (size_t i = 0; i < knobs.size(); ++i)
+    {
+        const auto c = knobCentre ((int) i);
+        auto& k = knobs[i];
+        g.setColour (k.s.isEnabled() ? cLime : cDim);
+        g.drawText (k.s.getTextFromValue (k.s.getValue()), juce::Rectangle<float> (110.0f, 16.0f).withCentre ({ c.x, c.y + 49.0f }),
+                    juce::Justification::centred);
+    }
 }
 
 void PumpPanel::resized()
 {
-    // top bar: shape + rate + trigger + band
-    int x = 300;
-    shapeLabel.setBounds (x, 12, 160, 14);
-    shapeBox.setBounds (x, 28, 160, 30);
-    x += 172;
-    const int widths[] = { 110, 110, 100 };
+    shapeBox.setBounds (300, 28, 160, 30);
+    const int xs[] = { 472, 594, 716 };
+    const int widths[] = { 110, 110, 96 };
     for (size_t i = 0; i < choices.size(); ++i)
-    {
-        choices[i].l.setBounds (x, 12, widths[i], 14);
-        choices[i].box.setBounds (x, 28, widths[i], 30);
-        x += widths[i] + 12;
-    }
+        choices[i].box.setBounds (xs[i], 28, widths[i], 30);
 
-    curve.setBounds (16, 82, baseW - 32, 278);
+    curve.setBounds (16, 82, baseW - 32, 280);
 
-    const int kw = (baseW - 32) / (int) knobs.size();
     for (size_t i = 0; i < knobs.size(); ++i)
     {
-        const int kx = 16 + (int) i * kw;
-        knobs[i].l.setBounds (kx, 378, kw, 16);
-        knobs[i].s.setBounds (kx + kw / 2 - 45, 394, 90, 90);
+        const auto c = knobCentre ((int) i);
+        knobs[i].s.setBounds (juce::Rectangle<float> (90.0f, 90.0f).withCentre (c).toNearestInt());
+        knobs[i].l.setBounds (juce::Rectangle<float> (120.0f, 16.0f).withCentre ({ c.x, c.y - 49.0f }).toNearestInt());
     }
 }
 

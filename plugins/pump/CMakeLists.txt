@@ -57,6 +57,12 @@ juce_add_plugin(Pump
     VST3_CATEGORIES Fx Dynamics
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
+juce_add_binary_data(PumpAssets SOURCES
+    Resources/bg.png
+    Resources/fonts/BarlowCondensed-SemiBold.ttf
+    Resources/fonts/BarlowCondensed-Bold.ttf
+    Resources/fonts/ShareTechMono-Regular.ttf)
+
 target_sources(Pump PRIVATE
     Source/DSP/PumpEngine.cpp
     Source/PluginProcessor.cpp
@@ -72,6 +78,7 @@ target_compile_definitions(Pump PUBLIC
 
 target_link_libraries(Pump
     PRIVATE
+        PumpAssets
         juce::juce_audio_utils
     PUBLIC
         juce::juce_recommended_config_flags
@@ -85,5 +92,5 @@ if(PUMP_BUILD_TOOLS)
     target_sources(PumpSnapshot PRIVATE tools/Snapshot.cpp)
     target_include_directories(PumpSnapshot PRIVATE Source)
     target_compile_definitions(PumpSnapshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_DISPLAY_SPLASH_SCREEN=0)
-    target_link_libraries(PumpSnapshot PRIVATE Pump juce::juce_audio_utils juce::juce_recommended_config_flags)
+    target_link_libraries(PumpSnapshot PRIVATE Pump PumpAssets juce::juce_audio_utils juce::juce_recommended_config_flags)
 endif()

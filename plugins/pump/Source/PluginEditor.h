@@ -8,6 +8,7 @@ public:
     PumpLook();
     void drawRotarySlider (juce::Graphics&, int, int, int, int, float, float, float, juce::Slider&) override;
     void drawComboBox (juce::Graphics&, int, int, bool, int, int, int, int, juce::ComboBox&) override;
+    void positionComboBoxText (juce::ComboBox&, juce::Label&) override;
     juce::Font getComboBoxFont (juce::ComboBox&) override;
     juce::Font getPopupMenuFont() override;
 };
@@ -49,6 +50,7 @@ public:
     explicit PumpPanel (PumpProcessor&);
     ~PumpPanel() override;
     void paint (juce::Graphics&) override;
+    void paintOverChildren (juce::Graphics&) override;
     void resized() override;
     static constexpr int baseW = 820, baseH = 500;
 
@@ -69,12 +71,11 @@ private:
     struct Choice
     {
         juce::ComboBox box;
-        juce::Label l;
         std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> a;
     };
     std::array<Choice, 3> choices; // rate, trigger, band
     juce::ComboBox shapeBox;
-    juce::Label shapeLabel;
+    juce::Image background;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PumpPanel)
 };
