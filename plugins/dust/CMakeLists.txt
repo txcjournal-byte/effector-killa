@@ -57,6 +57,13 @@ juce_add_plugin(Dust
     VST3_CATEGORIES Fx Distortion
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
+juce_add_binary_data(DustAssets SOURCES
+    Resources/bg.png
+    Resources/fonts/ArchivoBlack-Regular.ttf
+    Resources/fonts/BarlowCondensed-SemiBold.ttf
+    Resources/fonts/BarlowCondensed-Bold.ttf
+    Resources/fonts/ShareTechMono-Regular.ttf)
+
 target_sources(Dust PRIVATE
     Source/DSP/DustEngine.cpp
     Source/Presets.cpp
@@ -73,6 +80,7 @@ target_compile_definitions(Dust PUBLIC
 
 target_link_libraries(Dust
     PRIVATE
+        DustAssets
         juce::juce_audio_utils
     PUBLIC
         juce::juce_recommended_config_flags
@@ -86,5 +94,5 @@ if(DUST_BUILD_TOOLS)
     target_sources(DustSnapshot PRIVATE tools/Snapshot.cpp)
     target_include_directories(DustSnapshot PRIVATE Source)
     target_compile_definitions(DustSnapshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_DISPLAY_SPLASH_SCREEN=0)
-    target_link_libraries(DustSnapshot PRIVATE Dust juce::juce_audio_utils juce::juce_recommended_config_flags)
+    target_link_libraries(DustSnapshot PRIVATE Dust DustAssets juce::juce_audio_utils juce::juce_recommended_config_flags)
 endif()

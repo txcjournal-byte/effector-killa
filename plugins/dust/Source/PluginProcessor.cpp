@@ -163,6 +163,15 @@ void DustProcessor::setStateInformation (const void* data, int sizeInBytes)
             auto tree = juce::ValueTree::fromXml (*xml);
             currentProgram = (int) tree.getProperty ("program", 0);
             apvts.replaceState (tree);
+            // APVTS skips parameters whose snapped value already matches (bool / choice), which can leave an
+            // un-snapped raw value behind. Push every stored value explicitly so the restore is exact.
+            for (auto* param : getParameters())
+                if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*> (param))
+                {
+                    const auto child = tree.getChildWithProperty ("id", ranged->paramID);
+                    if (child.isValid() && child.hasProperty ("value"))
+                        ranged->setValueNotifyingHost (ranged->convertTo0to1 ((float) child.getProperty ("value")));
+                }
         }
 }
 
