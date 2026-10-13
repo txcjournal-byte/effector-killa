@@ -1,0 +1,8 @@
+TrapWin GHOST DELAY - Windows install
+
+1. Run TrapWin-GHOST-DELAY-Setup.exe and click through the installer.
+   (Or copy the folder "TrapWin GHOST DELAY.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "TrapWin GHOST DELAY" on any mixer insert (vocals, melodies, drums) or a send/bus with MIX at 100 %.
+
+Need help? https://trapwin.com/pages/contact

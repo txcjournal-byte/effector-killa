@@ -1,0 +1,8 @@
+TrapWin AURA VERB - Windows install
+
+1. Run TrapWin-AURA-VERB-Setup.exe and click through the installer.
+   (Or copy the folder "TrapWin AURA VERB.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "TrapWin AURA VERB" on any mixer insert, or on a send / return bus with MIX at 100 %.
+
+Need help? https://trapwin.com/pages/contact

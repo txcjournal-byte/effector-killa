@@ -1,0 +1,8 @@
+TrapWin HEAT - Windows install
+
+1. Run TrapWin-HEAT-Setup.exe and click through the installer.
+   (Or copy the folder "TrapWin HEAT.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "TrapWin HEAT" on any mixer insert: 808, drums, vocals, synths or the mix bus.
+
+Need help? https://trapwin.com/pages/contact

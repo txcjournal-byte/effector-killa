@@ -1,0 +1,11 @@
+TrapWin AUTO KILLA - Windows install
+
+1. Run TrapWin-AUTO-KILLA-Setup.exe and click through the installer.
+   (Or copy the folder "TrapWin AUTO KILLA.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "TrapWin AUTO KILLA" on your vocal mixer insert. Set KEY + SCALE (or press AUTO KEY).
+   Recording / monitoring through the tuner: use LIVE mode (about 17 ms). Mixing: MIX mode.
+4. MIDI NOTES (optional, FL Studio): in the plugin wrapper settings set an input port, route a
+   MIDI Out channel on the same port, hold notes = target notes.
+
+Need help? https://trapwin.com/pages/contact

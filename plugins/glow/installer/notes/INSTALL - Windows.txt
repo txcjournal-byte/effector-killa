@@ -1,0 +1,8 @@
+TrapWin GLOW - Windows install
+
+1. Run TrapWin-GLOW-Setup.exe and click through the installer.
+   (Or copy the folder "TrapWin GLOW.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "TrapWin GLOW" on your vocal, 808, drums, melody or mix bus (any mixer insert).
+
+Need help? https://trapwin.com/pages/contact

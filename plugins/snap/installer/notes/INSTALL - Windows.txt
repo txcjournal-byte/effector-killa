@@ -1,0 +1,8 @@
+TrapWin SNAP - Windows install
+
+1. Run TrapWin-SNAP-Setup.exe and click through the installer.
+   (Or copy the folder "TrapWin SNAP.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "TrapWin SNAP" on a drum, 808, bus or vocal track (any mixer insert).
+
+Need help? https://trapwin.com/pages/contact

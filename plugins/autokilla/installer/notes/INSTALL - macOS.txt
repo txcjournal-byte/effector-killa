@@ -1,0 +1,9 @@
+TrapWin AUTO KILLA - macOS install (Apple Silicon & Intel)
+
+1. Copy "TrapWin AUTO KILLA.vst3" to   /Library/Audio/Plug-Ins/VST3
+2. Copy "TrapWin AUTO KILLA.component" to   /Library/Audio/Plug-Ins/Components   (Logic, GarageBand)
+   Tip: in Finder press Cmd+Shift+G and paste the path.
+3. Restart your DAW and rescan plugins.
+4. Recording / monitoring through the tuner: LIVE mode (about 17 ms). Mixing: MIX mode.
+
+Need help? https://trapwin.com/pages/contact

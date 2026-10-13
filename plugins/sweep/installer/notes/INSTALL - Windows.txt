@@ -1,0 +1,11 @@
+TrapWin SWEEP - Windows install
+
+1. Run TrapWin-SWEEP-Setup.exe and click through the installer.
+   (Or copy the folder "TrapWin SWEEP.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "TrapWin SWEEP" on any mixer insert.
+4. MIDI-triggered sweeps (ADSR trigger = MIDI) in FL Studio: add a "MIDI Out" channel and pick a
+   port number, then open SWEEP's wrapper settings (gear icon) and set the same MIDI input port.
+   Notes you play on that MIDI Out channel now fire the filter envelope.
+
+Need help? https://trapwin.com/pages/contact

@@ -1,0 +1,17 @@
+TRAPWIN SNAP - END USER LICENSE AGREEMENT
+
+1. LICENSE. You may install and use TrapWin SNAP on up to 2 computers you own or
+   control, for creating music, including commercial releases. Music you make with
+   the plugin is yours; no royalties are due.
+
+2. RESTRICTIONS. You may not resell, rent, share, redistribute or publish the
+   plugin, its installer or its presets, and you may not reverse engineer it.
+
+3. NO WARRANTY. The plugin is provided "as is", without warranty of any kind.
+
+4. LIABILITY. TrapWin is not liable for any damage to hardware, hearing, data or
+   anything else arising from the use of the plugin.
+
+5. TERMINATION. This license ends automatically if you break these terms.
+
+https://trapwin.com

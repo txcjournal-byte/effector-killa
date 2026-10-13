@@ -1,0 +1,8 @@
+TrapWin SWEEP - macOS install (Apple Silicon & Intel)
+
+1. Copy "TrapWin SWEEP.vst3" to   /Library/Audio/Plug-Ins/VST3
+2. Copy "TrapWin SWEEP.component" to   /Library/Audio/Plug-Ins/Components   (Logic, GarageBand)
+   Tip: in Finder press Cmd+Shift+G and paste the path.
+3. Restart your DAW and rescan plugins.
+
+Need help? https://trapwin.com/pages/contact

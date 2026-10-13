@@ -1,0 +1,210 @@
+name: Build TrapWin HEAT (Windows + macOS)
+
+on:
+  push:
+    branches: [plugins]
+    paths: ['plugins/heat/**', '.github/workflows/heat.yml']
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: plugins/heat
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+            pluginval: pluginval_Windows.zip
+            exe: pluginval.exe
+          - os: macos-13
+            name: macOS
+            pluginval: pluginval_macOS.zip
+            exe: pluginval.app/Contents/MacOS/pluginval
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        shell: bash
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: bash
+        run: |
+          set +e
+          cmake --build build --config Release --parallel 4 2>&1 | tee build.log
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then
+            grep -E "error( |:)|: fatal error|undefined reference|unresolved external" build.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+          fi
+          exit $rc
+
+      - name: DSP tests
+        shell: bash
+        run: |
+          T=$(find build -type f \( -name HeatTests -o -name HeatTests.exe \) | head -n 1)
+          "$T"
+
+      - name: pluginval (strictness 8)
+        shell: bash
+        run: |
+          curl -sSL -o pv.zip "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval }}"
+          unzip -q pv.zip
+          VST3=$(find build -type d -name "TrapWin HEAT.vst3" | head -n 1)
+          set +e
+          ./${{ matrix.exe }} --strictness-level 8 --validate-in-process --timeout-ms 600000 "$VST3" 2>&1 | tee pluginval.log
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then
+            # job logs are not always reachable: surface the failure as annotations
+            grep -nE "FAILED|!!!|Error|failed|Starting tests in" pluginval.log | tail -25 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+            tail -15 pluginval.log | while IFS= read -r l; do echo "::warning::${l//%/%25}"; done
+          fi
+          exit $rc
+
+      - name: auval
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          cp -R "$(find build -type d -name 'TrapWin HEAT.component' | head -n 1)" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar || true
+          sleep 5
+          auval -v aufx TwHt Trpw
+
+      - name: Collect artefacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp -R "$(find build -type d -name 'TrapWin HEAT.vst3' | head -n 1)" dist/
+          if [ "$RUNNER_OS" == "macOS" ]; then cp -R "$(find build -type d -name 'TrapWin HEAT.component' | head -n 1)" dist/; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TrapWinHEAT-${{ matrix.name }}
+          path: plugins/heat/dist
+
+      - name: Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          $version = (Select-String -Path CMakeLists.txt -Pattern 'project\(TRAPWIN_HEAT VERSION ([0-9.]+)\)').Matches[0].Groups[1].Value
+          $dist = (Resolve-Path dist).Path
+          & $iscc "/DAppVersion=$version" "/DSourceDir=$dist" installer\heat.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: TrapWinHEAT-Windows-Installer
+          path: plugins/heat/installer-out/*.exe
+
+      - name: macOS sign & notarise
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          if [ -z "$MACOS_CERT_P12" ]; then echo "::warning::macOS NOT signed - signing secrets missing (unsigned build)."; exit 0; fi
+          KC=build.keychain
+          echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p ci "$KC"
+          security default-keychain -s "$KC"
+          security unlock-keychain -p ci "$KC"
+          security import cert.p12 -k "$KC" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          curl -fsSL -o DeveloperIDG2CA.cer https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer \
+            && security import DeveloperIDG2CA.cer -k "$KC" || true
+          security list-keychains -d user -s "$KC" login.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KC"
+          security find-identity -v -p codesigning "$KC"
+          if [ -z "$MACOS_SIGN_IDENTITY" ]; then
+            MACOS_SIGN_IDENTITY=$(security find-identity -v -p codesigning "$KC" | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)
+          fi
+          [ -n "$MACOS_SIGN_IDENTITY" ] || { echo "::error::No Developer ID Application identity in the .p12"; exit 1; }
+          mkdir -p signed
+          AU=$(find build -type d -name "TrapWin HEAT.component" | head -n 1)
+          APP=$(find build -type d -name "TrapWin HEAT.app" | head -n 1)
+          for b in "dist/TrapWin HEAT.vst3" "$AU" "$APP"; do
+            [ -n "$b" ] && [ -d "$b" ] || continue
+            codesign --force --deep --options runtime --timestamp -s "$MACOS_SIGN_IDENTITY" "$b"
+            cp -R "$b" signed/
+          done
+          ditto -c -k --keepParent signed TrapWinHEAT-macOS-signed.zip
+          if [ -n "$APPLE_API_KEY_P8" ]; then
+            # normalise the pasted key: drop CR/whitespace, rebuild a proper PEM with 64-char lines
+            P8="$APPLE_API_KEY_P8"
+            # accept a base64-encoded .p8 file as well (secret pasted from a "base64 AuthKey.p8" file)
+            if ! printf '%s' "$P8" | grep -q -- '-----BEGIN'; then
+              DEC=$(printf '%s' "$P8" | tr -d ' \r\n\t' | base64 --decode 2>/dev/null || true)
+              if printf '%s' "$DEC" | grep -q -- '-----BEGIN'; then P8="$DEC"; echo "APPLE_API_KEY_P8 was base64-encoded - decoded."; fi
+            fi
+            B64=$(printf '%s' "$P8" | tr -d '\r' | sed -e 's/-----[A-Z ]*-----//g' | tr -d ' \n\t')
+            { echo "-----BEGIN PRIVATE KEY-----"; echo "$B64" | fold -w 64; echo "-----END PRIVATE KEY-----"; } > AuthKey.p8
+            openssl pkey -in AuthKey.p8 -noout || { echo "::error::APPLE_API_KEY_P8 is not a valid private key (base64 length ${#B64})"; exit 1; }
+            APPLE_API_KEY_ID=$(printf '%s' "$APPLE_API_KEY_ID" | tr -d ' \r\n'); APPLE_API_ISSUER_ID=$(printf '%s' "$APPLE_API_ISSUER_ID" | tr -d ' \r\n')
+            NOTARY=(--key AuthKey.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID")
+          else
+            NOTARY=(--apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD")
+          fi
+          xcrun notarytool submit TrapWinHEAT-macOS-signed.zip "${NOTARY[@]}" --wait --output-format json | tee notary.json
+          grep -q '"status" *: *"Accepted"' notary.json || { echo "::error::Notarization not accepted: $(cat notary.json)"; \
+            xcrun notarytool log "$(sed -n 's/.*"id" *: *"\([^"]*\)".*/\1/p' notary.json | head -1)" "${NOTARY[@]}" || true; exit 1; }
+          rm -f AuthKey.p8
+          for b in signed/*; do xcrun stapler staple "$b"; xcrun stapler validate "$b"; codesign --verify --deep --strict "$b"; done
+          rm TrapWinHEAT-macOS-signed.zip
+          ditto -c -k --keepParent signed TrapWinHEAT-macOS-signed.zip
+          echo "::notice::macOS signed ($MACOS_SIGN_IDENTITY), notarized and stapled: $(ls signed | tr '\n' ' ')"
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: TrapWinHEAT-macOS-signed
+          path: plugins/heat/TrapWinHEAT-macOS-signed.zip
+          if-no-files-found: ignore
+
+  # ---- two ready-to-upload shop files: one per Shopify variant -----------------------------------
+  package:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: plugins/heat/artefacts
+      - name: Assemble shop downloads
+        shell: bash
+        run: |
+          V=$(sed -n 's/project(TRAPWIN_HEAT VERSION \([0-9.]*\))/\1/p' CMakeLists.txt)
+          mkdir -p shop stage/win stage/mac
+          OUT="$PWD/shop"
+          cp artefacts/TrapWinHEAT-Windows-Installer/*.exe stage/win/
+          cp -R artefacts/TrapWinHEAT-Windows/. stage/win/
+          cp "installer/notes/INSTALL - Windows.txt" installer/EULA.txt stage/win/
+          (cd stage/win && zip -qry "$OUT/TrapWin-HEAT-$V-Windows.zip" .)
+          if [ -d artefacts/TrapWinHEAT-macOS-signed ]; then
+            (cd stage/mac && unzip -q ../../artefacts/TrapWinHEAT-macOS-signed/*.zip && mv signed/* . && rmdir signed)
+            MZ="TrapWin-HEAT-$V-macOS.zip"
+          else
+            cp -R artefacts/TrapWinHEAT-macOS/. stage/mac/
+            MZ="TrapWin-HEAT-$V-macOS-UNSIGNED.zip"
+          fi
+          cp "installer/notes/INSTALL - macOS.txt" installer/EULA.txt stage/mac/
+          (cd stage/mac && zip -qry --symlinks "$OUT/$MZ" .)
+          ls -la shop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SHOP-TrapWin-HEAT
+          path: plugins/heat/shop
