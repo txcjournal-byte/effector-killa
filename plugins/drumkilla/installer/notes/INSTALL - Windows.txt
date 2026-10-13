@@ -1,0 +1,8 @@
+DRUM KILLA - Windows install
+
+1. Run TrapWin-DUST-Setup.exe and click through the installer.
+   (Or copy the folder "DRUM KILLA.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "DRUM KILLA" on any mixer insert.
+
+Need help? https://trapwin.com/pages/contact

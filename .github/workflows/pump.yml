@@ -189,10 +189,11 @@ jobs:
         run: |
           V=$(sed -n 's/project(TRAPWIN_PUMP VERSION \([0-9.]*\))/\1/p' CMakeLists.txt)
           mkdir -p shop stage/win stage/mac
+          OUT="$PWD/shop"
           cp artefacts/TrapWinPUMP-Windows-Installer/*.exe stage/win/
           cp -R artefacts/TrapWinPUMP-Windows/. stage/win/
           cp "installer/notes/INSTALL - Windows.txt" installer/EULA.txt stage/win/
-          (cd stage/win && zip -qry "$GITHUB_WORKSPACE/shop/TrapWin-PUMP-$V-Windows.zip" .)
+          (cd stage/win && zip -qry "$OUT/TrapWin-PUMP-$V-Windows.zip" .)
           if [ -d artefacts/TrapWinPUMP-macOS-signed ]; then
             (cd stage/mac && unzip -q ../../artefacts/TrapWinPUMP-macOS-signed/*.zip && mv signed/* . && rmdir signed)
             MZ="TrapWin-PUMP-$V-macOS.zip"
@@ -201,7 +202,7 @@ jobs:
             MZ="TrapWin-PUMP-$V-macOS-UNSIGNED.zip"
           fi
           cp "installer/notes/INSTALL - macOS.txt" installer/EULA.txt stage/mac/
-          (cd stage/mac && zip -qry --symlinks "$GITHUB_WORKSPACE/shop/$MZ" .)
+          (cd stage/mac && zip -qry --symlinks "$OUT/$MZ" .)
           ls -la shop
       - uses: actions/upload-artifact@v4
         with:
