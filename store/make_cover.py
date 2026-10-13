@@ -33,8 +33,26 @@ PRODUCTS = {
                 bg_hue=(24, 10, 26)),
     "drum": dict(title="DRUM KILLA", subtitle="DRUM DAMAGE UNIT", accent=(255, 40, 40),
                  price="$149 VALUE  •  $39", chips=["808 · KICK · SNARE · CLAP", "42 PRESETS", "CLIP · DRIVE · DUCK"],
-                 ui="/home/claude/effector-killa/plugins/drumkilla/Resources/background.jpg",
+                 ui="/home/claude/dk-shots/dk_ui.png",
                  out="drum-killa-cover.jpg", bg_hue=(26, 8, 10)),
+    "halo": dict(title="HALO", subtitle="LUSH REVERB · FREEZE · DUCK", accent=(95, 227, 255),
+                 price="FREE DOWNLOAD", chips=["26 PRESETS", "FREEZE · DUCK", "100% FREE"],
+                 ui="/home/claude/trapwin-halo/shots/halo_ui.png", out="halo-cover.jpg",
+                 bg_hue=(8, 20, 30), bloom=0.75,
+                 pill=dict(glow=(40, 230, 140), top=(70, 245, 160), bot=(0, 160, 90), edge=(190, 255, 220),
+                           shadow=(0, 70, 40))),
+    "throw": dict(title="THROW", subtitle="VOCAL THROW · TAPE DELAY", accent=(255, 178, 46),
+                  price="$199 VALUE  •  $29", chips=["ONE-CLICK THROWS", "TAPE · PING-PONG", "29 PRESETS"],
+                  ui="/home/claude/trapwin-throw/shots/throw_ui.png", out="throw-cover.jpg",
+                  bg_hue=(26, 18, 10), bloom=0.85),
+    "chopper": dict(title="CHOPPER", subtitle="STUTTER · TAPE STOP · REVERSE", accent=(155, 92, 255),
+                    price="$149 VALUE  •  $29", chips=["16-STEP CHOPS", "7 EFFECTS", "33 PRESETS"],
+                    ui="/home/claude/trapwin-chopper/shots/chopper_ui.png", out="chopper-cover.jpg",
+                    bg_hue=(16, 10, 30)),
+    "subkilla": dict(title="SUB KILLA", subtitle="808 & SUB BASS SYNTH", accent=(255, 45, 45),
+                     price="$179 VALUE  •  $39", chips=["808 GLIDE", "4 SATURATION TYPES", "30 PRESETS"],
+                     ui="/home/claude/trapwin-subkilla/shots/subkilla_ui.png", out="sub-killa-cover.jpg",
+                     bg_hue=(16, 16, 18), bloom=0.6),
 }
 
 
@@ -86,14 +104,18 @@ def background(cfg, ui_box):
 
 
 # ---------------------------------------------------------------- elements
-def pill(text, accent, h=118):
+PILL_RED = dict(glow=(255, 46, 64), top=(255, 92, 104), bot=(214, 18, 40), edge=(255, 190, 196), shadow=(110, 0, 16))
+
+
+def pill(text, accent, h=118, style=None):
+    st = style or PILL_RED
     f = font("ArchivoBlack-Regular.ttf", int(h * 0.42))
     tw = ImageDraw.Draw(Image.new("L", (1, 1))).textlength(text, font=f)
     w = int(tw + h * 1.1)
     pad = 60
     W, H = w + pad * 2, h + pad * 2
     out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    red = (255, 46, 64)
+    red = st["glow"]
     glow = Image.new("L", (W, H), 0)
     ImageDraw.Draw(glow).rounded_rectangle((pad, pad, pad + w, pad + h), h // 2, fill=200)
     glow = glow.filter(ImageFilter.GaussianBlur(26))
@@ -103,7 +125,7 @@ def pill(text, accent, h=118):
     # body gradient
     body = np.zeros((h, w, 4), np.uint8)
     t = np.linspace(0, 1, h)[:, None]
-    for i, (a, b) in enumerate(zip((255, 92, 104), (214, 18, 40))):
+    for i, (a, b) in enumerate(zip(st["top"], st["bot"])):
         body[..., i] = (a * (1 - t) + b * t).astype(np.uint8)
     mk = Image.new("L", (w, h), 0)
     ImageDraw.Draw(mk).rounded_rectangle((0, 0, w - 1, h - 1), h // 2, fill=255)
@@ -111,7 +133,7 @@ def pill(text, accent, h=118):
     bi = Image.fromarray(body, "RGBA")
     out.alpha_composite(bi, (pad, pad))
     d = ImageDraw.Draw(out)
-    d.rounded_rectangle((pad, pad, pad + w - 1, pad + h - 1), h // 2, outline=(255, 190, 196, 255), width=4)
+    d.rounded_rectangle((pad, pad, pad + w - 1, pad + h - 1), h // 2, outline=st["edge"] + (255,), width=4)
     # gloss
     gloss = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     ImageDraw.Draw(gloss).rounded_rectangle((pad + h * 0.25, pad + 8, pad + w - h * 0.25, pad + h * 0.42),
@@ -120,7 +142,7 @@ def pill(text, accent, h=118):
     bb = d.textbbox((0, 0), text, font=f)
     tx = pad + (w - (bb[2] - bb[0])) / 2 - bb[0]
     ty = pad + (h - (bb[3] - bb[1])) / 2 - bb[1]
-    d.text((tx + 2, ty + 4), text, font=f, fill=(110, 0, 16, 200))
+    d.text((tx + 2, ty + 4), text, font=f, fill=st["shadow"] + (200,))
     d.text((tx, ty), text, font=f, fill=(255, 255, 255, 255))
     return out, pad
 
@@ -241,7 +263,7 @@ def make(key):
     img = place(img, logo, M, top_y)
 
     # ---- price pill top-right, vertically centred on the logo
-    p, ppad = pill(cfg["price"], acc)
+    p, ppad = pill(cfg["price"], acc, style=cfg.get("pill"))
     ph = p.height - 2 * ppad
     img = place(img, p, S - M - (p.width - ppad), top_y + (logo_h - ph) // 2 - ppad)
 
@@ -250,7 +272,7 @@ def make(key):
     img = place(img, title, tx - lx0, title_top - ly0)
 
     # sparkles around title
-    for sx, sy, ss in ((tx - 10, title_top - 30, 90), (tx + (lx1 - lx0) - 40, title_bot - 40, 120),
+    for sx, sy, ss in ((tx - 55, title_top + (title_bot - title_top) * 0.25, 90), (tx + (lx1 - lx0) - 40, title_bot - 40, 120),
                        (tx + (lx1 - lx0) * 0.55, title_top - 55, 54)):
         img = place(img, sparkle(ss), sx - ss / 2, sy - ss / 2)
 
