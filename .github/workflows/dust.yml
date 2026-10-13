@@ -56,7 +56,15 @@ jobs:
           curl -sSL -o pv.zip "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval }}"
           unzip -q pv.zip
           VST3=$(find build -type d -name "TrapWin DUST.vst3" | head -n 1)
-          ./${{ matrix.exe }} --strictness-level 8 --validate-in-process --timeout-ms 600000 "$VST3"
+          set +e
+          ./${{ matrix.exe }} --strictness-level 8 --validate-in-process --timeout-ms 600000 "$VST3" 2>&1 | tee pluginval.log
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then
+            # job logs are not always reachable: surface the failure as annotations
+            grep -nE "FAILED|!!!|Error|failed|Starting tests in" pluginval.log | tail -25 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+            tail -15 pluginval.log | while IFS= read -r l; do echo "::warning::${l//%/%25}"; done
+          fi
+          exit $rc
 
       - name: auval
         if: runner.os == 'macOS'
