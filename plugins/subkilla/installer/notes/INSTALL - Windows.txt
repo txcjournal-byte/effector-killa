@@ -1,0 +1,9 @@
+TrapWin SUB KILLA - Windows install
+
+1. Run TrapWin-SUB-KILLA-Setup.exe and click through the installer.
+   (Or copy the folder "TrapWin SUB KILLA.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "TrapWin SUB KILLA" as an instrument (Channel rack > Add > TrapWin SUB KILLA)
+   and play it from the piano roll. Overlap two notes for the 808 slide.
+
+Need help? https://trapwin.com/pages/contact

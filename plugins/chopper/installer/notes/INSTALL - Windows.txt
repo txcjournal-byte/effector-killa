@@ -1,0 +1,9 @@
+TrapWin CHOPPER - Windows install
+
+1. Run TrapWin-CHOPPER-*-Windows-Setup.exe and click through the installer.
+   (Or copy the folder "TrapWin CHOPPER.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "TrapWin CHOPPER" on any mixer insert (drums, 808, vocals, the full beat).
+   It follows the project tempo; press play to sync the step sequencer.
+
+Need help? https://trapwin.com/pages/contact

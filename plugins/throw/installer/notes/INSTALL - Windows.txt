@@ -1,0 +1,8 @@
+TrapWin THROW - Windows install
+
+1. Run TrapWin-THROW-Setup.exe and click through the installer.
+   (Or copy the folder "TrapWin THROW.vst3" to C:\Program Files\Common Files\VST3 yourself.)
+2. FL Studio: Options > Manage plugins > Find more plugins.
+3. Load "TrapWin THROW" on your vocal or ad-lib track (any mixer insert).
+
+Need help? https://trapwin.com/pages/contact
