@@ -1,0 +1,65 @@
+name: Store files release (all plugins + bundles)
+
+# Collects the SHOP-* artifacts from the latest successful build of every plugin,
+# builds the bundle zips and publishes everything as one public GitHub release.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      TAG: store-files
+    steps:
+      - name: Download latest shop artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p raw files
+          for wf in dust pump vox drumkilla halo throw chopper subkilla auraverb ghostdelay autokilla heat glow wide snap sweep; do
+            id=$(gh run list -R "$REPO" --workflow "$wf.yml" --branch plugins --status success -L 1 --json databaseId -q '.[0].databaseId')
+            if [ -z "$id" ]; then echo "::error::no successful run for $wf"; exit 1; fi
+            gh run download "$id" -R "$REPO" -p 'SHOP-*' -D "raw/$wf"
+            find "raw/$wf" -name '*.zip' | while read -r z; do
+              case "$z" in *UNSIGNED*) echo "::warning::$wf mac build is unsigned: $z";; esac
+              cp "$z" files/
+              echo "$wf $(basename "$z")" >> files.map
+            done
+          done
+          cat files.map
+
+      - name: Build bundle zips
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle() {
+            local name="$1"; shift
+            for plat in Windows macOS; do
+              rm -rf stage && mkdir stage
+              for wf in "$@"; do
+                f=$(awk -v w="$wf" -v p="$plat" '$1==w && $2 ~ p {print $2}' files.map | head -n1)
+                [ -n "$f" ] || { echo "::error::missing $wf $plat"; exit 1; }
+                cp "files/$f" stage/
+              done
+              (cd stage && zip -q0 "../files/TrapWin-$name-Bundle-$plat.zip" *.zip)
+            done
+          }
+          bundle ALL-IN dust pump vox drumkilla halo throw chopper subkilla auraverb ghostdelay autokilla heat glow wide snap sweep
+          bundle VOCAL-CHAIN autokilla vox throw ghostdelay auraverb
+          bundle BEAT-MACHINE subkilla drumkilla pump chopper heat snap
+          bundle FREE-PACK halo wide
+          ls -la files
+
+      - name: Publish release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release delete "$TAG" -R "$REPO" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" -R "$REPO" --target "$GITHUB_SHA" --title "TrapWin store files" \
+            --notes "Installer zips for the Shopify digital downloads (Windows + macOS) and bundle zips." files/*.zip
