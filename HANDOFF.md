@@ -72,5 +72,18 @@ Spec: `CLAUDE.md` (původní zadání „Effector Killa“), produkt je přejmen
   (generuje `Tools/make_cover.py <00_cover_ui.png> <out>` ve stylu TIMER).
 - Gross Beat Vault přepnut na koncept (neověřený); je ale ještě uveden v balíčcích FL Studio Complete a Sound & Visual – bundly předělat později.
 
+
+## Stav 14. 10. 2026 – co zbývá (chat lze smazat, vše je tady)
+- Poslední zelený build (podepsaný + notarizovaný Mac): run 38296339583, artefakt trapwin.com (GitHub artefakty po čase expirují –
+  při potřebě stačí pustit workflow znovu). Obsahuje opravu velikosti okna (velikost se pamatuje jen při změně uživatelem;
+  uložená velikost větší než obrazovka → Auto).
+- Shopify Effector: ACTIVE, Windows/macOS po 99 USD (bez přeškrtnutí), popis se srovnávací tabulkou „$299 vs $99“,
+  cover se štítkem „$299 VALUE · $99“ (načten z raw.githubusercontent.com). **Ověřit, že u obou variant jsou nahrané nejnovější zipy a staré smazané.**
+- Ověřit ve FL Studiu: zavření FL s otevřeným pluginem (oprava zasekávání), velikost okna (jednou SIZE → 100 %), mezerník jde do FL.
+- Volitelně: Windows code-signing (SmartScreen), AAX/Pro Tools (účet u Avidu + PACE), Tail Freeze, víc presetů,
+  bundly předělat (Gross Beat Vault je koncept, ale je v textech balíčků FL Studio Complete a Sound & Visual),
+  úklid 4 nepoužívaných Developer ID certifikátů na developer.apple.com.
+- Podpisové klíče: Dokumenty\TrapWin-signing (a kopie na Ploše) – zálohovat, NESDÍLET.
+
 ## Rozhodnutí, která lze změnit
 Cena 59 USD; macOS zdarma pro dřívější kupce (věta v popisu); factory presety srovnané na hlasitost (kromě CH 12).
