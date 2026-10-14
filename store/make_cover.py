@@ -34,7 +34,7 @@ PRODUCTS = {
                 ui="/home/claude/trapwin-vox/shots/vox_ui.png", out="vox-demon-cover.jpg",
                 bg_hue=(24, 10, 26)),
     "drum": dict(title="DRUM KILLA", subtitle="DRUM DAMAGE UNIT", accent=(255, 40, 40),
-                 price="$149 VALUE  •  $39", chips=["808 · KICK · SNARE · CLAP", "42 PRESETS", "CLIP · DRIVE · DUCK"],
+                 price="$149 VALUE  •  $29", chips=["808 · KICK · SNARE · CLAP", "42 PRESETS", "CLIP · DRIVE · DUCK"],
                  ui="/home/claude/dk-shots/dk_ui.png",
                  out="drum-killa-cover.jpg", bg_hue=(26, 8, 10)),
     "halo": dict(title="HALO", subtitle="LUSH REVERB · FREEZE · DUCK", accent=(95, 227, 255),
