@@ -4,6 +4,9 @@ name: Store files release (all plugins + bundles)
 # builds the bundle zips and publishes everything as one public GitHub release.
 on:
   workflow_dispatch:
+  push:
+    branches: [plugins]
+    paths: ['.github/workflows/store-release.yml', 'store/release-trigger.txt']
 
 permissions:
   contents: write
