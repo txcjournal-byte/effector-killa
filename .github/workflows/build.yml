@@ -1,0 +1,305 @@
+# TrapWin BEND DEMON - build, test, sign, package
+#  - Windows / macOS (universal) / Linux: build, engine unit tests, pluginval (strictness 5) on the VST3
+#  - Linux: end-to-end hosting test (BEND DEMON hosts the MPE Probe VST3) + shop cover rendered from the UI
+#  - Windows: Inno Setup installer
+#  - macOS: sign (hardened runtime + timestamp) + notarize + staple, when the signing secrets exist
+#  - package: one artefact "trapwin.com" with everything for the shop
+# Compiler errors and failing tests are also reported as ::error annotations (readable via the API).
+name: BEND DEMON build & test
+
+on:
+  push:
+    branches: [ bend-demon ]
+  workflow_dispatch:
+
+concurrency:
+  group: bend-demon-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Windows
+            pluginval: pluginval_Windows.zip
+            exe: pluginval.exe
+          - os: macos-latest
+            name: macOS
+            pluginval: pluginval_macOS.zip
+            exe: pluginval.app/Contents/MacOS/pluginval
+          - os: ubuntu-24.04
+            name: Linux
+            pluginval: pluginval_Linux.zip
+            exe: pluginval
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libxrandr-dev libxinerama-dev libxcursor-dev libxcomposite-dev \
+            libgl1-mesa-dev libxext-dev libfreetype-dev libfontconfig1-dev xvfb
+
+      - name: Configure
+        shell: bash
+        run: |
+          EXTRA=""
+          # macOS: universal binary (Apple Silicon + Intel)
+          if [ "$RUNNER_OS" == "macOS" ]; then EXTRA='-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64 -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15'; fi
+          # Linux: also build the dev tools (snapshot app, host test, MPE probe)
+          if [ "$RUNNER_OS" == "Linux" ]; then EXTRA='-DBEND_DEMON_BUILD_DEV_TOOLS=ON'; fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBEND_DEMON_BUILD_TESTS=ON $EXTRA
+
+      - name: Build
+        shell: bash
+        run: |
+          # compiler errors are also reported as annotations (readable without downloading the log)
+          set +e
+          cmake --build build --config Release --parallel 4 2>&1 | tee build.log
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then
+            grep -E "error( |:)|: fatal error|undefined reference|unresolved external" build.log | sort -u | head -40 | while IFS= read -r l; do echo "::error::${l//%/%25}"; done
+          fi
+          exit $rc
+
+      - name: Unit tests
+        shell: bash
+        run: |
+          T=$(find build -type f \( -name BendDemonTests -o -name BendDemonTests.exe \) -perm -u+x | head -n 1)
+          [ -z "$T" ] && T=$(find build -type f -name "BendDemonTests.exe" | head -n 1)
+          set +e
+          "$T" 2>&1 | tee test-output.txt
+          rc=${PIPESTATUS[0]}
+          set -e
+          # surface failing checks as annotations (job logs are not always reachable)
+          grep -E "FAILED|!!!|failure" test-output.txt | grep -v "0 failure" | head -n 20 | while read -r l; do echo "::error::$l"; done || true
+          S=$(grep -E "engine tests:" test-output.txt | tail -n 1)
+          if [ $rc -eq 0 ]; then echo "::notice::${{ matrix.name }} $S"; else echo "::error::${{ matrix.name }} $S"; fi
+          exit $rc
+
+      - name: End-to-end hosting test
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set +e
+          xvfb-run -a ./build/BendDemonHostTest_artefacts/Release/BendDemonHostTest "$PWD/build/MpeProbe_artefacts/Release/VST3/MPE Probe.vst3" 2>&1 | tee host-test.txt
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then tail -n 20 host-test.txt | while read -r l; do echo "::error::host test: $l"; done; fi
+          exit $rc
+
+      - name: Shop cover (render the UI)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p shop
+          set +e
+          timeout 120 xvfb-run -a -s "-screen 0 1600x1000x24" ./build/BendDemonSnapshot_artefacts/Release/BendDemonSnapshot "$PWD/snapshots"
+          set -e
+          if [ -s snapshots/bend-demon-flat.png ]; then
+            cp snapshots/bend-demon-flat.png shop/TrapWinBendDemon-cover.png
+            cp snapshots/*.png shop/ || true
+            echo "::notice::Shop cover rendered from the plugin UI"
+          else
+            echo "::warning::Snapshot render failed - using docs/screenshots/bend-demon-flat.png"
+            cp docs/screenshots/bend-demon-flat.png shop/TrapWinBendDemon-cover.png
+          fi
+          ls -la shop
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Linux'
+        with:
+          name: BendDemon-Shop
+          path: shop
+
+      - name: pluginval (strictness 5)
+        shell: bash
+        run: |
+          curl -sSL -o pv.zip "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval }}"
+          unzip -q pv.zip
+          VST3=$(find build -type d -name "BEND DEMON.vst3" | head -n 1)
+          if [ "$RUNNER_OS" == "Linux" ]; then PREFIX="xvfb-run -a"; fi
+          set +e
+          $PREFIX ./${{ matrix.exe }} --strictness-level 5 --validate-in-process --timeout-ms 600000 "$VST3" 2>&1 | tee pluginval.txt
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then
+            grep -E -B2 -A4 "FAILED|!!!|Error|failed" pluginval.txt | head -n 40 | while IFS= read -r l; do echo "::error::pluginval: ${l//%/%25}"; done
+          else
+            echo "::notice::${{ matrix.name }} pluginval strictness 5: SUCCESS"
+          fi
+          exit $rc
+
+      - name: Collect artefacts
+        shell: bash
+        run: |
+          mkdir -p dist
+          VST3=$(find build -type d -name "BEND DEMON.vst3" -path "*BendDemon_artefacts*" | head -n 1)
+          cp -R "$VST3" dist/
+          find build -path "*BendDemon_artefacts*Standalone*" \( -name "BEND DEMON" -o -name "BEND DEMON.exe" -o -name "BEND DEMON.app" \) -maxdepth 6 \
+            -exec cp -R {} dist/ \; || true
+          AU=$(find build -type d -name "BEND DEMON.component" | head -n 1)
+          [ -n "$AU" ] && cp -R "$AU" dist/ || true
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TrapWinBendDemon-${{ matrix.name }}
+          path: dist
+
+      # ---- Windows installer (Inno Setup) ---------------------------------------------------
+      - name: Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          $dist = (Resolve-Path dist).Path
+          $out = Join-Path $env:GITHUB_WORKSPACE "installer-out"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          $p = Start-Process -FilePath $iscc -NoNewWindow -Wait -PassThru `
+                 -ArgumentList @("/DAppVersion=1.0.0", "/DSourceDir=$dist", "/DOutputDir=$out", "scripts\installer\BendDemon.iss") `
+                 -RedirectStandardOutput iscc.log -RedirectStandardError iscc-err.log
+          Get-Content iscc.log, iscc-err.log
+          if ($p.ExitCode -ne 0) {
+            Get-Content iscc.log, iscc-err.log | Select-String -Pattern "Error|error|not found" | Select-Object -First 20 | ForEach-Object { Write-Output "::error::iscc: $_" }
+            exit $p.ExitCode
+          }
+          Get-ChildItem $out
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: TrapWinBendDemon-Windows-Installer
+          path: installer-out/*.exe
+
+      # ---- macOS code signing + notarisation (runs only when the secrets exist) -----------------
+      # Notarisation: either APPLE_API_KEY_P8 + APPLE_API_KEY_ID + APPLE_API_ISSUER_ID (App Store Connect key)
+      #               or APPLE_ID + APPLE_TEAM_ID + APPLE_APP_PASSWORD.
+      # Secrets: MACOS_CERT_P12 (base64 Developer ID Application .p12), MACOS_CERT_PASSWORD,
+      #          MACOS_SIGN_IDENTITY (optional, read from the .p12 when empty)
+      - name: macOS sign & notarise
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          if [ -z "$MACOS_CERT_P12" ]; then echo "::warning::macOS NOT signed - signing secrets missing (unsigned build)."; exit 0; fi
+          KC=build.keychain
+          echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p ci "$KC"
+          security default-keychain -s "$KC"
+          security unlock-keychain -p ci "$KC"
+          security import cert.p12 -k "$KC" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          curl -fsSL -o DeveloperIDG2CA.cer https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer \
+            && security import DeveloperIDG2CA.cer -k "$KC" || true
+          security list-keychains -d user -s "$KC" login.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KC"
+          security find-identity -v -p codesigning "$KC"
+          if [ -z "$MACOS_SIGN_IDENTITY" ]; then
+            MACOS_SIGN_IDENTITY=$(security find-identity -v -p codesigning "$KC" | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)
+          fi
+          [ -n "$MACOS_SIGN_IDENTITY" ] || { echo "::error::No Developer ID Application identity in the .p12"; exit 1; }
+          rm -rf signed; mkdir -p signed
+          ENT="scripts/installer/mac-entitlements.plist"
+          for b in "dist/BEND DEMON.vst3" "dist/BEND DEMON.component" "dist/BEND DEMON.app"; do
+            [ -d "$b" ] || { echo "::error::missing bundle $b"; exit 1; }
+            if [[ "$b" == *.app ]]; then
+              # the standalone app hosts third-party plugins -> needs library validation disabled
+              codesign --force --deep --options runtime --timestamp --entitlements "$ENT" -s "$MACOS_SIGN_IDENTITY" "$b"
+            else
+              codesign --force --deep --options runtime --timestamp -s "$MACOS_SIGN_IDENTITY" "$b"
+            fi
+            codesign --verify --deep --strict --verbose=2 "$b"
+            cp -R "$b" signed/
+          done
+          ditto -c -k --keepParent signed TrapWinBendDemon-macOS-signed.zip
+          if [ -n "$APPLE_API_KEY_P8" ]; then
+            # normalise the pasted key: drop CR/whitespace, rebuild a proper PEM with 64-char lines
+            P8="$APPLE_API_KEY_P8"
+            # accept a base64-encoded .p8 file as well (secret pasted from a "base64 AuthKey.p8" file)
+            if ! printf '%s' "$P8" | grep -q -- '-----BEGIN'; then
+              DEC=$(printf '%s' "$P8" | tr -d ' \r\n\t' | base64 --decode 2>/dev/null || true)
+              if printf '%s' "$DEC" | grep -q -- '-----BEGIN'; then P8="$DEC"; echo "APPLE_API_KEY_P8 was base64-encoded - decoded."; fi
+            fi
+            B64=$(printf '%s' "$P8" | tr -d '\r' | sed -e 's/-----[A-Z ]*-----//g' | tr -d ' \n\t')
+            { echo "-----BEGIN PRIVATE KEY-----"; echo "$B64" | fold -w 64; echo "-----END PRIVATE KEY-----"; } > AuthKey.p8
+            openssl pkey -in AuthKey.p8 -noout || { echo "::error::APPLE_API_KEY_P8 is not a valid private key (base64 length ${#B64})"; exit 1; }
+            APPLE_API_KEY_ID=$(printf '%s' "$APPLE_API_KEY_ID" | tr -d ' \r\n'); APPLE_API_ISSUER_ID=$(printf '%s' "$APPLE_API_ISSUER_ID" | tr -d ' \r\n')
+            NOTARY=(--key AuthKey.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID")
+          else
+            NOTARY=(--apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD")
+          fi
+          xcrun notarytool submit TrapWinBendDemon-macOS-signed.zip "${NOTARY[@]}" --wait --output-format json | tee notary.json
+          grep -q '"status" *: *"Accepted"' notary.json || { echo "::error::Notarization not accepted: $(cat notary.json)"; \
+            xcrun notarytool log "$(sed -n 's/.*"id" *: *"\([^"]*\)".*/\1/p' notary.json | head -1)" "${NOTARY[@]}" || true; exit 1; }
+          rm -f AuthKey.p8
+          for b in signed/*; do xcrun stapler staple "$b"; xcrun stapler validate "$b"; codesign --verify --deep --strict "$b"; done
+          spctl -a -vvv -t exec "signed/BEND DEMON.app" || true
+          rm TrapWinBendDemon-macOS-signed.zip
+          ditto -c -k --keepParent signed TrapWinBendDemon-macOS-signed.zip
+          echo "::notice::macOS signed ($MACOS_SIGN_IDENTITY), notarized and stapled: $(ls signed | tr '\n' ' ')"
+
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: TrapWinBendDemon-macOS-signed
+          path: TrapWinBendDemon-macOS-signed.zip
+          if-no-files-found: ignore
+
+  # ---- one release folder "trapwin.com" with everything for the shop ----------------------------
+  package:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefacts
+      - name: Assemble trapwin.com folder
+        shell: bash
+        run: |
+          set -e
+          D="trapwin.com/TrapWin BEND DEMON 1.0.0"
+          mkdir -p "$D/Windows" "$D/macOS" "$D/Docs" "$D/Shop"
+          N=scripts/installer/notes
+          # Shop downloads: one zip per platform with the installer / plugins, install notes and EULA
+          W=stage/win; M=stage/mac; mkdir -p "$W" "$M"
+          cp artefacts/TrapWinBendDemon-Windows-Installer/*.exe "$W/"
+          cp "$N/INSTALL - Windows.txt" EULA.txt "$W/"
+          (cd "$W" && zip -qry "$GITHUB_WORKSPACE/$D/Windows/TrapWinBendDemon-1.0.0-Windows.zip" .)
+          if [ -d artefacts/TrapWinBendDemon-macOS-signed ]; then
+            (cd "$M" && unzip -q ../../artefacts/TrapWinBendDemon-macOS-signed/*.zip)
+            # ditto --keepParent puts the bundles in a "signed" folder -> flatten
+            if [ -d "$M/signed" ]; then mv "$M"/signed/* "$M/"; rmdir "$M/signed"; fi
+            MZ="TrapWinBendDemon-1.0.0-macOS.zip"
+          else
+            cp -R artefacts/TrapWinBendDemon-macOS/. "$M/"
+            MZ="TrapWinBendDemon-1.0.0-macOS-UNSIGNED.zip"
+          fi
+          cp "$N/INSTALL - macOS.txt" EULA.txt "$M/"
+          (cd "$M" && zip -qry --symlinks "$GITHUB_WORKSPACE/$D/macOS/$MZ" .)
+          cp MANUAL.md "$D/Docs/TrapWin BEND DEMON Manual.md"
+          cp EULA.txt LICENSE-NOTES.md "$D/Docs/"
+          cp resources/fonts/*.txt "$D/Docs/"
+          if [ -d artefacts/BendDemon-Shop ]; then cp artefacts/BendDemon-Shop/*.png "$D/Shop/"; \
+          else cp docs/screenshots/bend-demon-flat.png "$D/Shop/TrapWinBendDemon-cover.png"; fi
+          ls -R trapwin.com
+          echo "::notice::trapwin.com: $(cd trapwin.com && find . -type f | sort | tr '\n' ' ')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trapwin.com
+          path: trapwin.com

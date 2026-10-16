@@ -1,0 +1,89 @@
+TRAPWIN BEND DEMON
+END USER LICENSE AGREEMENT (EULA)
+Version 1.0 – October 2026
+
+Please read this agreement before installing or using BEND DEMON. By installing, copying or
+using the software you agree to these terms. If you do not agree, do not install or use it.
+
+1. PARTIES AND SOFTWARE
+This agreement is between you (the "User") and TrapWin, Czech Republic ("TrapWin", "we").
+"Software" means TrapWin BEND DEMON in all its formats (VST3, AU, Standalone), its factory
+presets, manual, installers and any updates we provide.
+
+2. LICENCE GRANT
+When you buy BEND DEMON (or receive it legitimately from TrapWin) you get a personal,
+perpetual, non-exclusive, non-transferable licence to install and use the Software:
+  a) for one person – you;
+  b) on up to three (3) computers that you own or control, Windows and/or macOS;
+  c) for any commercial or non-commercial music production.
+No dongle, iLok or online activation is required.
+
+3. YOUR MUSIC IS YOURS
+Everything you create with the Software – melodies, MIDI, audio, beats, songs, stems and
+releases – belongs to you. You owe TrapWin no royalties and no credit. MIDI and audio rendered
+with BEND DEMON may be used and sold without restriction.
+
+4. WHAT YOU MAY NOT DO
+You may not:
+  a) share, sell, rent, lend, sublicense, upload or otherwise give the Software, its installers
+     or your licence to anyone else;
+  b) use the Software on more computers or by more people than this licence allows
+     (studios and schools with several users need one licence per user);
+  c) reverse engineer, decompile, disassemble or modify the Software, except where the law
+     explicitly allows it despite this restriction;
+  d) remove or change copyright notices, trademarks or this agreement;
+  e) use the Software, its presets or its user interface to build a competing product.
+
+5. THIRD-PARTY PLUGINS
+BEND DEMON can load instrument plugins made by others (for example Serum 2, Vital, Pigments or
+Phase Plant). Those products are not part of the Software, are not supplied by TrapWin and are
+used under their own licences. Product names are trademarks of their owners and are mentioned
+only to describe compatibility. Per-note expression needs a synth that supports MPE.
+
+6. UPDATES AND SUPPORT
+We may release updates and fixes. Updates of version 1.x are free for licence holders. Support
+is provided by e-mail via trapwin.com/pages/contact on a reasonable-effort basis.
+
+7. REFUNDS AND CONSUMER RIGHTS
+Refunds follow the TrapWin refund policy at trapwin.com/policies/refund-policy. Nothing in this
+agreement limits rights you have as a consumer under the mandatory law of the Czech Republic or
+the European Union.
+
+8. NO WARRANTY
+To the extent permitted by law, the Software is provided "as is". TrapWin does not guarantee
+that it is free of errors, works with every host, plugin or system, or runs without
+interruption. Always keep backups of your projects.
+
+9. LIMITATION OF LIABILITY
+To the extent permitted by law, TrapWin is not liable for indirect or consequential damage,
+lost data, lost projects, lost profits or business interruption arising from the use of or the
+inability to use the Software. TrapWin's total liability is limited to the price you paid for
+the Software. This limitation does not apply to damage caused intentionally or by gross
+negligence, or to injury to life or health.
+
+10. TERMINATION
+This licence ends automatically if you breach it. You must then delete all copies of the
+Software. Sections 3, 8, 9 and 11 survive termination.
+
+11. GOVERNING LAW
+This agreement is governed by the laws of the Czech Republic. If you are a consumer, you also
+keep the protection of the mandatory law of the country where you live.
+
+12. THIRD-PARTY NOTICES
+- Built with JUCE (https://juce.com), used under a commercial JUCE licence held by TrapWin.
+- VST is a registered trademark of Steinberg Media Technologies GmbH.
+- VST3 SDK: (c) 2024, Steinberg Media Technologies GmbH, All Rights Reserved.
+  THE SDK IS PROVIDED BY STEINBERG MEDIA TECHNOLOGIES GMBH "AS IS" AND ANY EXPRESS OR IMPLIED
+  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+  FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL STEINBERG MEDIA
+  TECHNOLOGIES GMBH BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE.
+- Audio Unit is a trademark of Apple Inc.
+- Fonts: Unbounded and JetBrains Mono, licensed under the SIL Open Font License 1.1.
+  The licence texts are installed with the Software.
+
+(c) 2026 TrapWin. All rights reserved. BEND DEMON and TrapWin are trademarks of TrapWin.

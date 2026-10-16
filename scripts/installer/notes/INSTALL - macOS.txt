@@ -1,0 +1,22 @@
+TrapWin BEND DEMON 1.0.0 - macOS installation (Apple Silicon & Intel)
+=====================================================================
+
+The plugin is signed and notarized by Apple.
+
+1. Unzip the download (double-click it).
+2. In Finder press Shift+Cmd+G and go to:  /Library/Audio/Plug-Ins/
+   - copy "BEND DEMON.vst3"      into  /Library/Audio/Plug-Ins/VST3/
+   - copy "BEND DEMON.component" into  /Library/Audio/Plug-Ins/Components/   (AU - Logic Pro, GarageBand)
+   (You can also use ~/Library/Audio/Plug-Ins/... for your user only.)
+3. Optional: copy "BEND DEMON.app" (standalone) into /Applications.
+4. Open your DAW and rescan plugins.
+   FL Studio: Options > Manage plugins > "Find installed plugins", then tick BEND DEMON (Generators).
+   Logic Pro checks AU plugins automatically on start.
+
+Getting started
+- BEND DEMON is a host: load an MPE-capable synth INSIDE it (synth browser in the plugin).
+- Enable MPE in that synth (e.g. Vital / Serum 2 / Pigments / Surge XT MPE switch).
+- Set the synth's pitch-bend range to +/-48 semitones (the MPE standard) so bends land on pitch.
+- Play MIDI into BEND DEMON as usual; it adds the glides, dives and vibrato.
+
+Support: trapwin.com

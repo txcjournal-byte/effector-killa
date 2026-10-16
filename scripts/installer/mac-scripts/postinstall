@@ -1,0 +1,4 @@
+#!/bin/bash
+# Make Logic / GarageBand / AU hosts notice the new component.
+killall -9 AudioComponentRegistrar >/dev/null 2>&1 || true
+exit 0

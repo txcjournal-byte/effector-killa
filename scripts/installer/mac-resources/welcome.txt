@@ -1,0 +1,9 @@
+TrapWin BEND DEMON
+
+Write plain melodies. Hear them bend.
+
+BEND DEMON hosts your MPE synth (Serum 2, Vital, Pigments, Phase Plant ...) and turns the
+notes of your piano roll into expressive MPE: glides, 808 dives, vibrato, trills and more.
+
+This installer copies the VST3, the Audio Unit and the standalone app. Restart your DAW and
+rescan plug-ins afterwards.
