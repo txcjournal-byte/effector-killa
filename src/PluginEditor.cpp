@@ -200,6 +200,13 @@ BendDemonEditor::BendDemonEditor (BendDemonProcessor& p)
     topBar.addMouseListener (this, false);
     topBar.setTooltip ("Right-click for window size. Or drag the bottom-right corner.");
 
+    // Keys belong to the host: clicking a pad, knob or button must not take keyboard focus,
+    // otherwise the space bar would press that button instead of starting/stopping FL Studio.
+    setWantsKeyboardFocus (false);
+    for (auto* child : getChildren())
+        if (child != browser.get())
+            releaseKeys (*child);
+
     sizeRestored = true;
     startMs = juce::Time::getMillisecondCounterHiRes();
     startTimerHz (60);
@@ -249,6 +256,17 @@ void BendDemonEditor::updateHint()
         voiceField.setHintText ("PLAY A MELODY\n" + host.getPluginName() + " is listening in MPE.");
 }
 
+void BendDemonEditor::releaseKeys (juce::Component& c)
+{
+    if (dynamic_cast<juce::TextEditor*> (&c) != nullptr)
+        return;   // text fields (preset name, synth search) still need typing
+
+    c.setWantsKeyboardFocus (false);
+    c.setMouseClickGrabsKeyboardFocus (false);
+    for (auto* child : c.getChildren())
+        releaseKeys (*child);
+}
+
 void BendDemonEditor::showSynthBrowser (bool show)
 {
     browser->setVisible (show);
@@ -256,6 +274,12 @@ void BendDemonEditor::showSynthBrowser (bool show)
     {
         browser->toFront (true);
         browser->grabKeyboardFocus();
+    }
+    else
+    {
+        // hand the keyboard straight back to the host (space = play/stop)
+        browser->giveAwayKeyboardFocus();
+        juce::Component::unfocusAllComponents();
     }
 }
 

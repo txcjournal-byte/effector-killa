@@ -48,6 +48,7 @@ private:
     void updateHint();
     int  fitWidthToScreen (int wantedWidth) const;
     void setEditorWidth (int width);
+    static void releaseKeys (juce::Component&);
 
     BendDemonProcessor& processor;
     bd::BendDemonLookAndFeel lnf;
