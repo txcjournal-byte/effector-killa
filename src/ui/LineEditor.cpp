@@ -110,9 +110,13 @@ LineEditController::Hit LineEditController::hitTest (juce::Point<float> pos) con
 
         h.id = l.id;
         h.part = Hit::body;
-        const float edge = juce::jmin (7.0f * s, (x1 - x0) * 0.3f);
-        if (pos.x - x0 < edge)      h.part = Hit::startEdge;
-        else if (x1 - pos.x < edge) h.part = Hit::endEdge;
+        // resize zones only on notes wide enough to also be grabbed in the middle
+        if (x1 - x0 > 24.0f * s)
+        {
+            const float edge = juce::jmin (7.0f * s, (x1 - x0) * 0.25f);
+            if (pos.x - x0 < edge)      h.part = Hit::startEdge;
+            else if (x1 - pos.x < edge) h.part = Hit::endEdge;
+        }
         return h;
     }
 

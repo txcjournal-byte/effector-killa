@@ -28,7 +28,7 @@ public:
         g.fillAll (pal::ground0);
         g.setColour (pal::hairline);
         g.fillRect (0, 0, getWidth(), 1);
-        auto r = getLocalBounds().reduced (juce::roundToInt (12 * s), 0);
+        auto r = getLocalBounds().reduced (juce::roundToInt (12 * s), 0).withTrimmedRight (16);   // resize corner
         g.setFont (fonts::ui (juce::jmax (10.0f, 12.5f * s)));
         g.setColour (pal::textDim);
         const int infoW = juce::roundToInt (330 * s);

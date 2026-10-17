@@ -73,11 +73,14 @@ void BendDemonProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     host->prepare (sampleRate, maxBlockSize);
 
     // Preallocate MIDI buffers so the audio thread never allocates.
-    mpeBuffer.ensureSize (8192);
-    chunkIn.ensureSize (2048);
-    chunkOut.ensureSize (8192);
-    hostedMidi.ensureSize (8192);
-    monoScratch.ensureSize (8192);
+    // Room for the densest case: 15 sequencer voices x (bend + pressure + CC74) every 32 samples,
+    // plus the live gestures (~10 bytes per event).
+    const size_t midiBytes = (size_t) 65536 + (size_t) maxBlockSize * 64;
+    mpeBuffer.ensureSize (midiBytes);
+    chunkIn.ensureSize (4096);
+    chunkOut.ensureSize (midiBytes);
+    hostedMidi.ensureSize (midiBytes);
+    monoScratch.ensureSize (midiBytes);
 
     gain.reset (sampleRate, 0.03);
     gain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (snapshot.outputGainDb()));
@@ -448,7 +451,7 @@ void BendDemonProcessor::setInternalSound (int index)
 juce::String BendDemonProcessor::getSynthSlotText() const
 {
     if (isUsingInternalSynth())
-        return juce::String (juce::CharPointer_UTF8 ("Built-in \xc2\xb7 ")) + bd::InternalSynth::getSoundName (getInternalSound());
+        return juce::String (juce::CharPointer_UTF8 ("Internal \xc2\xb7 ")) + bd::InternalSynth::getSoundName (getInternalSound());
     return host->getPluginName();
 }
 

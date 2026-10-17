@@ -256,10 +256,11 @@ void PillSlider::paint (juce::Graphics& g)
     auto t = r.reduced (7.0f, 0.0f).toNearestInt();
     g.setFont (fonts::mono (fs));
     g.setColour (isEnabled() ? pal::textDim : pal::textFaint);
-    g.drawFittedText (caption, t, Justification::centredLeft, 1, 0.7f);
+    if (getWidth() > 90)
+        g.drawFittedText (caption, t, Justification::centredLeft, 1, 0.7f);
     g.setFont (fonts::mono (fs, true));
     g.setColour (isEnabled() ? pal::text : pal::textFaint);
-    g.drawFittedText (String (roundToInt (value * 100.0f)) + "%", t, Justification::centredRight, 1, 0.7f);
+    g.drawFittedText (String (roundToInt (value * 100.0f)) + "%", t, getWidth() > 90 ? Justification::centredRight : Justification::centred, 1, 0.7f);
 }
 
 void PillSlider::mouseDown (const juce::MouseEvent&)            { dragStartValue = value; }
@@ -321,8 +322,8 @@ EditToolbar::EditToolbar (BendDemonProcessor& p, LineEditController& c, VoiceFie
     moreMenu.onClick = [this] { showMoreMenu(); };
 
     dragMidiButton.setLabel ("MIDI");
-    dragMidiButton.setTooltip ("DRAG this into FL Studio to get the pattern as a MIDI file (click to save)");
-    dragMidiButton.onDragOut = [this] (const juce::MouseEvent& e) { dragMidi (false, e); };
+    dragMidiButton.setTooltip ("MIDI - drag into FL Studio to get the pattern as an MPE MIDI file (Shift-drag: mono pitch-bend file, click: save as)");
+    dragMidiButton.onDragOut = [this] (const juce::MouseEvent& e) { dragMidi (e.mods.isShiftDown(), e); };
     dragMidiButton.onClick = [this] { if (! dragMidiButton.consumeDragged()) saveMidi (false); };
 
     lane.setTooltip ("LANE - show / hide the lane for loudness, brightness and velocity");
@@ -396,8 +397,8 @@ void EditToolbar::resized()
     snapCaption = r.removeFromLeft (juce::roundToInt (40 * s));
     take (snapBox, juce::roundToInt (72 * s));
     r.removeFromLeft (juce::roundToInt (6 * s));
-    take (*keyBox, juce::roundToInt (80 * s));
-    take (*scaleBox, juce::roundToInt (146 * s));
+    take (*keyBox, juce::roundToInt (92 * s));
+    take (*scaleBox, juce::roundToInt (134 * s));
     take (*scaleLock, juce::roundToInt (54 * s));
     sep();
     take (magnet, juce::roundToInt (112 * s));

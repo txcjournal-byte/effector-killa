@@ -1,154 +1,157 @@
-# BEND DEMON: User Manual
+# BEND DEMON 2.0: User Manual
 
 *TrapWin + AUDIO · UNDERGROUND +*
 
-BEND DEMON turns plain piano-roll melodies into expressive, bending performances. It plays
-**your** synth (Serum 2, Vital, Pigments, Phase Plant …) from inside itself and talks to it in
-**MPE**, so every note gets its own pitch bend, pressure and timbre. You write normal notes, and
-BEND DEMON adds the slides, dives and vibrato.
+BEND DEMON is an instrument you **draw** into. Each line you draw is **one note that can slide
+anywhere**: up, down, hold, dive, wobble. It plays in time with FL Studio, with its own built-in
+sounds or with your own synth.
 
 ---
 
 ## 1. Install
 
-* **Windows**: run `BEND-DEMON-x.y.z-win64-setup.exe`. The VST3 goes to
+* **Windows**: run `TrapWinBendDemon-2.0.0-Windows-Setup.exe`. The VST3 goes to
   `C:\Program Files\Common Files\VST3`.
-* **macOS**: run `BEND-DEMON-x.y.z-mac.pkg`. VST3 goes to `/Library/Audio/Plug-Ins/VST3`, the
-  Audio Unit to `/Library/Audio/Plug-Ins/Components`, the app to `/Applications`.
+* **macOS**: run the `.pkg`. VST3 → `/Library/Audio/Plug-Ins/VST3`, Audio Unit →
+  `/Library/Audio/Plug-Ins/Components`, the app → `/Applications`.
 
-Then in FL Studio: **Options → Manage plugins → Find plugins** (enable *Verify plugins*).
-BEND DEMON appears under **Generators** (it is an instrument).
+FL Studio: **Options → Manage plugins → Find installed plugins**. BEND DEMON is a **Generator**.
 
-## 2. Set it up in FL Studio
+## 2. Hear it in 10 seconds
 
-**New channel:** Channel Rack → **+** → *BEND DEMON*.
+1. Channel Rack → **+** → *TrapWin BEND DEMON*.
+2. It opens with a demo pattern (*Trap Glide Lead*) and a built-in sound.
+3. Press **play** in FL Studio (or the **PLAY** button in the plugin). You hear the slides.
+4. Route the channel to a mixer insert like any other instrument.
 
-**Replace an existing synth channel:** right-click the channel's button in the Channel Rack
-(for example your Serum channel) → **Replace** → *BEND DEMON*. The notes in that channel's
-patterns stay. Then load the same synth *inside* BEND DEMON (step 3).
+## 3. The screen
 
-> Route the BEND DEMON channel to a mixer insert like any other instrument. The hosted synth's
-> audio comes out of BEND DEMON.
+```
+ top bar   brand | DRAW / LIVE | SOUND [Built-in · Glide Lead] | LOOP [4 bars] | PLAY | preset | settings
+ tool bar  pencil line select eraser | Snap | Key Scale Lock | Magnet | undo redo | MORE | MIDI | lane
+ canvas    piano keys on the left, bar numbers on top, your lines           | inspector: NOTE
+ lane      pressure / brightness / velocity / release of the selected notes |            SHAPES / SOUND
+ status    what the thing under the mouse does
+```
 
-## 3. Load your synth
+Hover over anything: the **status line** at the bottom says in plain words what it does.
 
-1. Click **+ LOAD SYNTH** in the top bar. The first time, BEND DEMON scans your VST3 (and, on Mac,
-   AU) folders. The results are cached, so later it opens instantly. Use **SCAN** to find new
-   plugins and **FULL RESCAN** to start over.
-2. Type to search, then double-click a synth (or press Enter).
-   A **lime dot** marks synths known to support MPE.
-3. Click **EDIT** to open the synth's own window and choose a patch.
-4. **Turn on MPE inside the synth**, and set its pitch-bend range to **±48** (BEND DEMON's
-   default; you can change it under *Bend Range*, but both must match):
+## 4. Drawing
 
-| Synth | Where |
-|---|---|
-| **Serum 2** | Global/Settings → *MPE* on. Set the MPE pitch-bend range to 48 |
-| **Vital** | Click the *MPE* toggle (top-right of the keyboard area / settings). Bend range is set per patch (pitch bend range ±48) |
-| **Pigments** | *Settings* (gear) → *MPE* → enable, bend range 48 |
-| **Phase Plant** | Settings → MIDI → *MPE* enabled, bend range 48 |
-| **Serum 1 / non-MPE synths** | No MPE: every bend applies to **all** notes at once (whole-chord bends). Glides and dives on single-note lines still work. Set the synth's bend range to match BEND DEMON's *Bend Range* |
-
-BEND DEMON sends the MPE setup message (RPN 6 + bend range) automatically when the synth loads.
-If a synth ignores it, press the **!** (panic) button: it releases everything and resends the setup.
-
-The synth, its patch and all BEND DEMON settings are saved in your FL project.
-
-## 4. Write a melody
-
-Write notes in the piano roll as usual:
-
-* **Glide (legato slide):** make notes **touch or overlap**. The next note starts where the
-  previous one ends, or before it. Small gaps up to *Glide Window* (default 60 ms) also count.
-  The first note keeps sounding and slides into the new pitch instead of retriggering.
-* **808 slides:** write a long 808 note and overlap a second note → it glides. With **808 DIVE**
-  on, every note bends down when you release it.
-* **Chord melts:** turn on **CHORD GLIDE** and write chords that touch. Each voice slides to the
-  nearest note of the next chord.
-* A **gap** larger than the glide window starts a fresh note.
-* Very large jumps (more than the bend range, ±48 by default) retrigger instead of gliding.
-
-## 5. The gestures
-
-Click a **pad** to switch the gesture on or off. Its controls show up below. Right-click a pad to
-show its controls without toggling it, or use the tabs **GLIDE / VIBRATO / DIVE / MOTION / EXPRESSION**.
-
-| Pad | What it does | Main controls |
+| Tool | Key | What it does |
 |---|---|---|
-| **GLIDE** | Legato slides between touching/overlapping notes | Glide Time, Glide Window, Curve (Linear / Ease / S-Curve) |
-| **CHORD GLIDE** | Chord-to-chord voice slides (nearest pitch) | Chord Window (how close in time notes must start to count as one chord) |
-| **VIBRATO** | Vibrato fades in on held notes | Rate (Hz or Sync + division), Depth (cents), Delay |
-| **808 DIVE** | Each note dives down when released | Dive Amount (semitones), Dive Time (ms or Sync), Curve |
-| **RISE** | Same as dive but upwards | uses the Dive controls |
-| **WOBBLE** | Slow, wide, tempo-synced pitch LFO | Wobble depth (semitones), rate |
-| **SHAKE** | Fast, small, random jitter | Shake depth (cents), rate |
-| **TRILL** | Alternates with the next scale note | Trill rate (synced) |
+| **Pencil** | P or D | **Click** = a note on that row, one grid step long. **Drag** = draw a sliding note freehand. Hold **Shift** for whole semitones. **Right-click** a note = delete |
+| **Line** | L | **Click-drag** = a straight slide from A to B. **Click again further right** = add a corner and keep going. **Esc** / **Enter** = finish. **Alt** = free pitch (between semitones) |
+| **Select** | V or S | Click / **Shift-click** / drag a box. **Drag** = move (time on the grid, pitch in semitones; hold **Ctrl** for free). **Alt-drag** = copy. Drag the **ends** = make longer/shorter. Drag a **dot** (node) = reshape. **Double-click** a line = add a dot. Right-click a dot = remove it |
+| **Eraser** | E | Click or sweep over notes |
 
-**EXPRESSION** tab: **Pressure** (MPE channel pressure: loudness/brightness in most patches) and
-**Timbre** (CC74, the MPE "slide" dimension). Each has an amount, a time, a shape
-(*Attack*: quick rise; *Swell*: slow fade-in; *Decay*: starts high, falls) and a velocity
-amount. Map pressure/timbre to something in your synth patch to hear them.
+* **Snap** = the time grid (1/1 … 1/32, triplets, off).
+* **Key / Scale / Lock**: with **Lock** on, drawn notes and shapes land on your scale.
+* **Magnet** = how hard hand-drawn lines are pulled onto the notes. Slides between notes stay
+  smooth; only the places where the line rests are pulled.
+* Keys: **Ctrl+Z / Ctrl+Shift+Z** undo / redo, **Ctrl+C / X / V / D** copy / cut / paste /
+  duplicate, **Delete**, **Ctrl+A**, **Up / Down** = ±1 semitone (**Shift** = octave),
+  **Left / Right** = nudge by the grid, **Q** = quantize starts, **M** = smooth out.
+* The keyboard works after you click into the canvas and stops when the mouse leaves it.
+  **The space bar always goes to FL Studio** (play / stop).
+* Mouse wheel = scroll up/down, **Shift**+wheel = scroll in time, **Ctrl**+wheel = zoom in time,
+  **Alt**+wheel = zoom pitch. Double-click the piano keys or the bar numbers = fit the view.
+* **LOOP** (top bar) = pattern length, 1 to 64 bars. The pattern loops while FL plays.
 
-**SCALE LOCK:** pick the **Key** and **Scale** (Major, Minor, Harmonic Minor, Phrygian, Dorian,
-Major/Minor Pentatonic, Chromatic). Dive/rise targets and trills then land on scale notes.
-**Quantize In** also snaps the notes you write to the scale.
+## 5. Make it slide: the inspector
 
-**Voices** = how many MPE channels/notes can sound at once (1–15). **Bend Range** must match the
-synth. **Output** = output gain.
+**NOTE** tab (select some notes first):
 
-### Presets
+* **Make the selected notes…** one click each:
+  * **Slide**: joins the selected notes into one voice that slides from note to note
+  * **Chord Slide**: every voice of a chord slides to the nearest note of the next chord
+  * **Vibrato**: adds a vibrato that fades in
+  * **Dive**: the pitch falls at the end of the notes
+  * **Rise**: the pitch climbs at the end of the notes
+  * **Wobble**: slow pitch wobble in time with the beat
+  * **Shake**: fast, small, nervous pitch shake
+  * **Trill**: rapidly alternates with the next scale note
+  
+  Every action can be undone. How far / how fast each one goes is set in the **SHAPES** tab.
+* **Velocity** / **Release**: how hard the notes are hit and let go.
+* **Smooth / Straight**: soft curves or straight lines between the dots.
+* **Pitch mod**: a per-note LFO on the pitch: shape (sine, triangle, square, saw), bipolar or
+  only up (unipolar), amount, speed (in note values, follows the tempo), fade-in.
+* **Transpose** −12 / −1 / +1 / +12.
 
-The preset box (top right) holds **gesture presets**. They change only BEND DEMON's gestures,
-never the synth patch, so you can audition *808 Dive*, *Liquid Lead*, *Chord Melt*, *Vibrato Soul*,
-*Trill Hook*, *Wobble Bass*, *Shaky Pluck* and *Phrygian Rise* against any sound.
-**Save preset as…** stores your own (`.bdpreset` files in
-`%APPDATA%\TrapWin\BEND DEMON\Presets` or `~/Library/Application Support/TrapWin/BEND DEMON/Presets`).
+**Lane** (under the canvas): draw **Pressure** (how loud / intense the note gets over time) or
+**Brightness** (CC74, MPE "slide"/timbre) of the selected notes, or set **Velocity** / **Release**.
+Nothing selected = it edits the notes under the mouse. Right-click resets. The thickness of each
+line on the canvas shows its pressure.
 
-## 6. The Voice Field
+## 6. Sound
 
-The big display shows the last few bars passing through BEND DEMON:
+**SOUND** (top bar or the SOUND tab): six built-in sounds made for slides: *Glide Lead, Pluck,
+808, Pad, Bell, Sub Bass*. Or **Load plugin…** to play your own synth inside BEND DEMON
+(**EDIT** opens its window, **USE** switches between it and the built-in sound).
 
-* each **ribbon** is one voice. **Thickness** = pressure, **colour** = timbre + time
-* the **bright core line** is the real pitch, including every bend
-* **lime nodes** = note starts, **amber nodes** = glide points, **violet rings** = key releases
-  (where dives start)
-* the **light beam** is the playhead, synced to FL's song position while playing
-* click the field to show **1 / 2 / 4 / 8 bars**. **DIMENSION** tilts it into 3D, with one depth layer per voice
+* **Synths with MPE** (Serum 2, Vital, Pigments, Phase Plant, Surge XT, Equator …) slide every
+  note on its own, chords included. They are listed first with an **MPE** badge. Turn MPE on in
+  the synth and set its MPE pitch-bend range to **48** (the default in BEND DEMON).
+* **Synths without MPE** (Serum 1 and most older synths): BEND DEMON switches to **mono slides**
+  automatically and shows a notice. One note at a time slides (last note wins). Set the synth's
+  pitch-bend range to the value in the settings menu (default 48; for synths that can't do 48,
+  pick 24 or 12 in *settings → Pitch-bend range*).
 
-## 7. Render / export
+## 7. Settings menu (gear, top right)
 
-Nothing special: BEND DEMON is a normal instrument, so **File → Export** renders it like any synth.
-For best results, render with the same buffer settings you mix with. BEND DEMON reports its
-latency to FL (only non-zero while CHORD GLIDE is on), and FL compensates it.
+Mono slides on/off · Pitch-bend range (±2 … ±96) · Voices (how many notes can slide at once) ·
+MIDI out (send everything to another FL channel instead of playing a synth) · Snap piano-roll
+notes to the scale · Panic (stop all notes, resend the MPE setup) · Window size.
 
-## 8. Alternative: MIDI-out routing
+## 8. Presets
 
-If you want the hosted synth on its own FL channel (for example to use FL's own plugin wrapper
-features), turn on **MIDI Out** in BEND DEMON:
+* **Patterns**: *Trap Glide Lead, 808 Slide Bassline, Chord Glide Pad, Vocal Vibrato Lead,
+  Bell Bends, Pluck Runs, Sub Wobble, Dark Rise, Unison Melt*: a pattern + a sound + shape settings.
+  Loading one replaces your pattern (undoable).
+* **Gestures**: the 1.x presets. They only change the shape settings, never your pattern.
+* **Save preset as…** stores everything including the pattern (`.bdpreset` in
+  `%APPDATA%\TrapWin\BEND DEMON\Presets` or `~/Library/Application Support/TrapWin/BEND DEMON/Presets`).
 
-1. In BEND DEMON's FL wrapper settings (the gear icon of the plugin window), set **MIDI → Output
-   port** to a free number, e.g. **10**.
-2. Add your MPE synth as a normal channel and set its **MIDI → Input port** to the same number (10).
-3. Enable MPE in that synth as in step 3.
-4. BEND DEMON now sends the generated MPE to that synth instead of playing a hosted synth, and
-   makes no audio itself.
+## 9. Get the pattern out, or in
 
-> Check that your FL version passes all 16 MIDI channels between ports. If the synth bends all
-> notes together, it is getting merged channels: use the hosted mode instead.
+* **MIDI** button: **drag** it into FL Studio's playlist or a pattern to get a `.mid` file
+  (MPE: every note on its own channel with its bends, pressure and CC74). Click = save as.
+  **MORE → Save as MIDI file (mono pitch bend)** for non-MPE synths.
+* **MORE → Open pattern or MIDI file…** imports a `.mid` (piano roll, MPE or pitch-bend MIDI)
+  or a `.bdpattern`. **MORE → Save pattern…** writes a `.bdpattern`.
 
-## 9. Troubleshooting
+## 10. Capture: from the piano roll into lines
+
+Write or play notes in FL's piano roll as in 1.x (LIVE mode, or DRAW mode: piano-roll notes always
+play live through the shapes that are switched on in the SHAPES tab).
+
+* **MORE → Capture from the piano roll → Record the next N bars**: starts at the next loop start,
+  records one pass, and turns it into lines, including every slide and dive the shapes added.
+* **… → Grab the last 1 / 2 / 4 / 8 / 16 bars**: takes what was just played.
+
+Then mute or delete the piano-roll notes so they don't play twice, and refine the lines.
+
+## 11. LIVE mode (the 1.x way)
+
+**LIVE** (top bar): BEND DEMON turns your piano-roll notes into bending notes, like version 1:
+touching / overlapping notes **slide**, notes **dive** or **rise** when they end, vibrato, wobble,
+shake, trill. Switch each one on with **Use on piano-roll notes** in the **SHAPES** tab and set
+how it behaves there. **Live feel** = loudness / brightness envelopes for those notes.
+In DRAW mode the piano roll still plays live on a few channels, so you can jam over the pattern.
+
+## 12. Troubleshooting
 
 | Problem | Fix |
 |---|---|
-| No sound | Synth loaded? Is the BEND DEMON channel routed to a mixer insert? Open **EDIT** and check the synth gets notes. Press **!** |
-| All notes bend together | MPE is off in the synth, or the synth has no MPE (Serum 1) |
-| Glides go to the wrong pitch | Synth bend range ≠ BEND DEMON *Bend Range* (default 48) |
-| Notes don't glide | Notes must touch/overlap (or gap < Glide Window), and GLIDE must be on. Jumps larger than the bend range retrigger |
-| Stuck notes | Press **!** (panic). Stopping the transport also releases everything |
-| Synth shows "MISSING: …" | The project was saved with a synth that isn't installed on this computer |
-| Scan crashed | Restart FL. The plugin that crashed is skipped on the next scan |
+| No sound | Is the channel routed to a mixer insert? Is FL playing (or PLAY pressed)? Try a built-in sound. Press **settings → Panic** |
+| Slides land on the wrong note | The synth's pitch-bend range ≠ BEND DEMON's (settings → Pitch-bend range, default 48) |
+| All notes bend together | The synth has no MPE (or MPE is off in it). Turn MPE on, or use mono slides / a built-in sound |
+| Space bar doesn't start FL | Move the mouse out of the canvas once (it gives the keyboard back), or click FL's window |
+| Notes play twice after Capture | Mute or delete the piano-roll notes |
+| "MISSING: …" in the sound slot | The project was saved with a synth that isn't installed here |
 
 ---
 © TrapWin. VST is a registered trademark of Steinberg Media Technologies GmbH. Serum, Vital,
-Pigments and Phase Plant are trademarks of their respective owners. BEND DEMON is not affiliated
-with them.
+Pigments, Phase Plant and other product names are trademarks of their respective owners. BEND DEMON
+is not affiliated with them.

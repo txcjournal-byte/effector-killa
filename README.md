@@ -1,22 +1,27 @@
-# TrapWin BEND DEMON
+# TrapWin BEND DEMON 2.0
 
-**Write plain melodies. Hear them bend.**
+**Draw a line. It slides.**
 
-BEND DEMON is an instrument plugin (VST3 / AU / Standalone) that **hosts another instrument
-plugin inside itself** (Serum 2, Vital, Pigments, Phase Plant ...) and turns the plain MIDI from
-your piano roll into **MPE** with automatic per-note gestures: legato glides, chord glides,
-808 dives and rises, vibrato, wobble, shake, trills, pressure and timbre envelopes. Every note
-gets its own MIDI channel, so every note can bend on its own.
+BEND DEMON is an instrument plugin (VST3 / AU / Standalone) with a **line sequencer**: every line
+you draw is one note whose pitch can slide anywhere (MPE: own channel, own 14-bit pitch bend,
+pressure and CC74 per note). It plays in sync with the host, with **six built-in sounds** or with a
+synth it **hosts inside itself** (Serum 2, Vital, Pigments …, or any non-MPE synth in mono-slide
+mode). The 1.x gesture engine is still there: piano-roll notes are turned into slides, dives,
+vibrato … live (LIVE mode, or alongside the pattern in DRAW mode), and the same gesture shapes are
+one-click actions on drawn notes.
 
 ```
-FL piano roll ──► BEND DEMON (gesture engine → MPE) ──► hosted synth ──► FL mixer
+pattern (drawn lines) ──► PatternPlayer ──┐
+                                          ├─► built-in synth | hosted synth | MIDI out
+FL piano roll ──► GestureEngine (live) ───┘
 ```
 
-![Voice field](docs/screenshots/bend-demon-flat.png)
-![Dimension mode](docs/screenshots/bend-demon-dimension.png)
+![DRAW mode](docs/screenshots/bend-demon-flat.png)
+![Selection, inspector and expression lane](docs/screenshots/bend-demon-select.png)
+![DIMENSION (3D view)](docs/screenshots/bend-demon-dimension.png)
 
-*(Screenshots are rendered by the `BendDemonSnapshot` dev tool, headless under Xvfb on Linux,
-while a scripted melody plays through the real engine. The fonts are the embedded ones.)*
+*(Screenshots are rendered by the `BendDemonSnapshot` dev tool, headless under Xvfb, from the real
+editor and engine. The fonts are the embedded ones.)*
 
 ---
 
@@ -25,15 +30,16 @@ while a scripted melody plays through the real engine. The fonts are the embedde
 | Path | What |
 |---|---|
 | `CMakeLists.txt` | JUCE 8 project. JUCE **8.0.9** is fetched from GitHub with FetchContent (or `-DJUCE_DIR=`). |
-| `src/engine/` | Real-time engine, no GUI dependencies: `GestureEngine`, `VoiceAllocator`, `MpeOutput`, `ScaleLock`, `EngineTypes.h` |
+| `src/engine/` | Real-time engine, no GUI dependencies: `GestureEngine`, `VoiceAllocator`, `MpeOutput`, `ScaleLock`, `EngineTypes.h`; 2.0: `Pattern` (data model, curves, XML), `PatternPlayer` (sequencer), `PatternExchange` (lock-free hand-off), `PatternTools` (edit commands, gesture baking, capture conversion, MIDI import/export), `PatternFactory` (demo patterns), `CaptureFifo` / `CaptureRecorder`, `InternalSynth` |
 | `src/host/HostedPluginManager.*` | Scanning (cached), async loading, atomic hot-swap, hosted editor window, state |
-| `src/PluginProcessor.*` | Glue: parameters → engine → hosted synth → audio, MIDI-out mode, state, latency |
-| `src/PluginEditor.*`, `src/ui/` | `TopBar`, `VoiceField`, `GesturePad`, `GlowKnob`, `LookAndFeel`, `SynthBrowser`, `Fonts`, `Palette` |
-| `src/presets/PresetManager.*` | 9 factory gesture presets + user presets (`.bdpreset` XML) |
+| `src/PluginProcessor.*` | Glue: parameters → gesture engine + sequencer → built-in / hosted synth / MIDI out, state, latency, capture |
+| `src/PatternStore.*` | Message-thread owner of the pattern: undo (`juce::UndoManager`), selection, publishing to the audio thread |
+| `src/PluginEditor.*`, `src/ui/` | `TopBar`, `EditToolbar`, `VoiceField` (+ `VoiceFieldDraw`: the DRAW canvas), `LineEditor` (tools), `ExpressionLane`, `Inspector`, `StatusBar`, `GesturePad`, `GlowKnob`, `LookAndFeel`, `SynthBrowser`, `Fonts`, `Palette` |
+| `src/presets/PresetManager.*` | 9 factory pattern presets + 9 gesture presets + user presets (`.bdpreset` XML incl. the pattern) |
 | `src/VisualFifo.h` | Lock-free audio → UI event queue (`juce::AbstractFifo`) + transport anchor |
-| `tests/` | Engine unit tests (`juce::UnitTest`): 7 suites, ~29k checks |
-| `tools/` | Dev tools (off by default): UI snapshot app, end-to-end host test, "MPE Probe" test synth |
-| `resources/fonts/` | Unbounded + Inter (SIL OFL 1.1, licences included), embedded as BinaryData |
+| `tests/` | Engine unit tests (`juce::UnitTest`): 15 suites, ~35k checks |
+| `tools/` | Dev tools (off by default): UI snapshot app (+ UI interaction checks), end-to-end host test, "MPE Probe" test synth |
+| `resources/fonts/` | Unbounded (product name) + Inter (UI) (SIL OFL 1.1, licences included), embedded as BinaryData |
 | `scripts/` | `build-mac.sh`, `build-win.ps1`, installer files (pkg distribution, Inno Setup `.iss`) |
 | `.github/workflows/build.yml` | CI: Linux tests + host test, macOS universal pkg, Windows installer. Signing gated on secrets |
 | `MANUAL.md` | User manual (FL Studio workflow) |
@@ -46,7 +52,7 @@ while a scripted melody plays through the real engine. The fonts are the embedde
 | Company / Manufacturer | TrapWin, code `Trwn` |
 | Product / Plugin code | BEND DEMON, `BdDm` |
 | Bundle id | `com.trapwin.benddemon` |
-| Version | 1.0.1 |
+| Version | 2.0.0 |
 | Formats | VST3 + Standalone (Windows), VST3 + AU + Standalone (macOS universal arm64/x86_64) |
 | Type | Synth/instrument (`IS_SYNTH`), needs MIDI in, produces MIDI out (MIDI-out mode), VST3 category `Instrument\|Synth`, AU `aumu` |
 
@@ -84,7 +90,7 @@ The script:
    AU → `/Library/Audio/Plug-Ins/Components`, app → `/Applications`) and `productbuild` a
    distribution package with choices, signs it with the installer identity, notarizes and staples it
 
-Output: `dist/mac/BEND-DEMON-1.0.1-mac.pkg`. Leave the variables unset to get an unsigned build.
+Output: `dist/mac/BEND-DEMON-2.0.0-mac.pkg`. Leave the variables unset to get an unsigned build.
 
 Manual equivalent:
 ```bash
@@ -107,7 +113,7 @@ $env:BD_SIGN_CERT_SHA1 = "<thumbprint of your code-signing cert>"   # or BD_SIGN
 Builds VST3 + Standalone (x64, static MSVC runtime), runs the tests, signs the `.vst3` and `.exe`
 with `signtool /fd sha256 /tr <timestamp>`, then compiles `scripts/installer/BendDemon.iss`, which
 installs the VST3 to `C:\Program Files\Common Files\VST3\TrapWin BEND DEMON.vst3` and the standalone app
-to `C:\Program Files\TrapWin\BEND DEMON`. Output: `dist\win\TrapWinBendDemon-1.0.1-Windows-Setup.exe`
+to `C:\Program Files\TrapWin\BEND DEMON`. Output: `dist\win\TrapWinBendDemon-2.0.0-Windows-Setup.exe`
 (signed too, if a certificate is configured).
 
 ### Linux (development only)
@@ -156,6 +162,44 @@ Without the secrets, unsigned artefacts are still uploaded.
 
 ---
 
+## 2.0: the line sequencer (design notes)
+
+* **Model** (`Pattern.h`). A pattern is 1–64 bars. A line = start, length, pitch points (beats,
+  MIDI pitch with free fractional part) interpolated with a **monotone cubic** (Steffen: passes
+  through every point, never overshoots, a hold stays a hold) or **straight segments**; pressure and
+  CC74 curves; velocity and release velocity; a per-line pitch LFO (sine / triangle / square / saws,
+  bipolar or unipolar, tempo-relative rate, fade-in). Stored as XML in the project and in presets
+  (exact float round trip, unit tested).
+* **Playback** (`PatternPlayer`). Each block is cut at 32-sample control ticks. Note starts and ends
+  are placed sample-accurately, across loop boundaries (end of the old pass before the start of the
+  new one). Each sounding line gets its own member channel; note-on = nearest semitone of the
+  line's pitch at that moment, then 14-bit bend relative to it, pressure and CC74 at control rate.
+  Transport stop → note-offs. A ppq jump (seek, FL pattern loop) → note-offs, then **chase**: lines
+  already under the new position start immediately. Small forward jitter (< 1/64 beat) is tolerated.
+* **Channel plan.** One MPE lower zone. LIVE: the gesture engine owns every member channel.
+  DRAW: the gesture engine keeps channels 2–5 for live piano-roll notes, the sequencer uses the rest
+  (2+live … 1+Voices). A release-all of the gesture engine makes the sequencer re-chase.
+* **Mono / legacy** (non-MPE synths). Sequencer on channel 1, last-note priority (returns to the
+  older line when the newer ends), new note-on before the old note-off (legato), retrigger when the
+  curve leaves the bend range; live gesture output is folded onto channel 1 too. Switched on
+  automatically when a synth that is not on the known-MPE list is loaded (with a notice).
+* **Audio-thread safety.** Every edit creates an immutable snapshot published through
+  `PatternExchange` (atomic pointer exchange; the message thread frees only snapshots older than the
+  one the audio thread reports in use). The audio thread never locks, allocates or frees.
+* **Undo.** `PatternStore` + `juce::UndoManager`: one undo step per command or per mouse gesture
+  (drags are previewed live and committed as one step).
+* **Capture.** The gesture engine's MPE output (not the sequencer's) is queued with ppq stamps
+  (`CaptureFifo`) into a rolling buffer split at clock jumps (`CaptureRecorder`), then converted to
+  lines (per-channel bends → pitch curves, simplified). *Record the next pass* starts at the next
+  pattern boundary or right after the host loops back.
+* **MIDI export** runs the real `PatternPlayer` offline (1 sample = 1 tick at 960 ppq, 96 control
+  updates per beat): MPE (zone setup + per-channel notes, bend, pressure, CC74) or mono pitch bend.
+  **Import** reads plain, MPE or pitch-bend MIDI back into lines.
+* **Built-in synth** (`InternalSynth`). 16 voices, polyBLEP saw/square, sine, 3-voice unison,
+  2-op FM, TPT state-variable low-pass, amp + filter ADSR, drive, pitch punch; pressure → level and
+  cutoff, CC74 → cutoff; stereo chorus, `juce::Reverb`, tanh soft clip. Pitch follows the channel
+  bend through a 1.5 ms smoother. It plays whenever no hosted synth is selected.
+
 ## How the engine works (design notes)
 
 * **MPE lower zone.** Master channel 1, member channels 2 … 1+N (N = *Voices*, 1–15). On load,
@@ -191,7 +235,7 @@ Without the secrets, unsigned artefacts are still uploaded.
   plugin latency**, which the DAW compensates (FL Studio PDC). Old voices are matched to new notes
   by repeatedly taking the globally nearest (new note, old voice) pair. Matched voices bend, extra
   notes start new voices, and unmatched old voices release normally.
-* **808 DIVE / RISE.** On key-up the voice stays alive for *Dive Time* (ms, or tempo-synced),
+* **DIVE / RISE.** On key-up the voice stays alive for *Dive Time* (ms, or tempo-synced),
   bends by *Dive Amount* semitones with the dive curve (target snapped to the scale when SCALE LOCK
   is on), lands exactly on the target, then sends the real note-off. With GLIDE also on, the dive
   starts after the glide window, so legato lines don't dive between notes. If DIVE and RISE are
@@ -227,7 +271,7 @@ Without the secrets, unsigned artefacts are still uploaded.
 * Scanning runs on the message thread one file per timer tick, with a dead-man's-pedal file:
   a plugin that crashes the scan is skipped next time. The list is cached in
   `%APPDATA%\TrapWin\BEND DEMON\PluginList.xml` / `~/Library/Application Support/TrapWin/BEND DEMON/PluginList.xml`.
-* Only instruments are listed, and BEND DEMON never lists itself. Known MPE-capable synths get a lime dot.
+* Only instruments are listed, and BEND DEMON never lists itself. Known MPE-capable synths are listed first with an MPE badge.
 * Main output set to stereo, other buses disabled. A mono synth is copied to both channels.
 * The host's `AudioPlayHead` is forwarded (tempo, ppq, bar, play state, loop).
 * Latency = chord-glide lookahead + hosted plugin latency, re-reported when it changes.
@@ -274,11 +318,12 @@ Verified in a Linux container (Ubuntu 24.04, GCC 13, JUCE 8.0.9):
   once (it is then skipped). An out-of-process scanner would be the next step.
 * **Hosted plugins that require asynchronous instantiation** (some AUv3) are not included in
   the scan.
-* **DRAG MIDI** (exporting the generated MPE as a MIDI clip) was **not implemented** to keep the
-  scope manageable. Its usefulness is also unclear, because a 16-channel MPE clip dropped into a
-  piano roll usually loses its per-channel meaning. MIDI-out mode covers routing the MPE elsewhere.
-  It would be the natural next feature: record the engine output into a `juce::MidiFile` and
-  start an external drag with `DragAndDropContainer::performExternalDragDropOfFiles`.
+* **MIDI drag-out** writes a single-track MPE file. FL Studio's piano roll shows the per-channel
+  notes, but whether a dropped MPE clip keeps its per-note bends depends on how the target channel
+  is set up (an MPE synth on that channel); the mono variant always works with plain synths.
+* **Known-MPE list.** MPE support can't be queried reliably from VST3/AU, so a name list decides
+  (`HostedPluginManager::isKnownMpeSynth`). A synth not on it gets mono slides (always works); the
+  user can switch mono off in the settings menu.
 * **Bypass in FL Studio**: FL may stop calling the plugin instead of calling
   `processBlockBypassed`. In that case notes are released on the next transport stop or panic.
 * **FL Studio MIDI out**: in MIDI-out mode, FL routes plugin MIDI output through the *MIDI out*

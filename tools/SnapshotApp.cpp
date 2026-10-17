@@ -10,6 +10,8 @@
         bend-demon-banner-1040.png      the "no MPE" notice
         bend-demon-draw-800x500.png     the small size
         bend-demon-sound-800x500.png    SOUND tab at the small size
+        bend-demon-min-640x400.png      the minimum size
+    then drives the canvas with synthetic mouse / key events (UI CHECK lines, exit code 1 on failure).
     Usage:  BendDemonSnapshot <output-dir>
 */
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -163,11 +165,102 @@ private:
             { 11.7, [this] { processor->dismissNonMpeNotice(); editor->setSize (800, 500); } },
             { 12.5, [this] { shoot ("bend-demon-draw-800x500.png"); } },
             { 12.6, [this] { editor->getInspector().setTab (bd::Inspector::Tab::sound); } },
-            { 13.1, [this] { shoot ("bend-demon-sound-800x500.png"); quit(); } },
+            { 13.1, [this] { shoot ("bend-demon-sound-800x500.png"); editor->setSize (640, 400);
+                             editor->getInspector().setTab (bd::Inspector::Tab::note); selectSome (0, 1); } },
+            { 13.7, [this] { shoot ("bend-demon-min-640x400.png"); editor->setSize (1040, 650); } },
+            { 13.9, [this] { runUiChecks(); quit(); } },
         };
 
         while (stage < (int) std::size (steps) && elapsed > steps[stage].at)
             steps[stage++].fn();
+    }
+
+    //==============================================================================
+    // UI smoke test: drives the canvas with synthetic mouse / key events like a user would.
+    juce::MouseEvent mouseAt (juce::Component& c, juce::Point<float> pos, juce::Point<float> downPos, juce::ModifierKeys mods, bool dragged)
+    {
+        auto src = juce::Desktop::getInstance().getMainMouseSource();
+        const auto now = juce::Time::getCurrentTime();
+        return juce::MouseEvent (src, pos, mods, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, &c, &c, now, downPos, now, 1, dragged);
+    }
+
+    void drag (juce::Component& c, juce::Point<float> a, juce::Point<float> b, juce::ModifierKeys mods = {})
+    {
+        const auto down = mods.withFlags (juce::ModifierKeys::leftButtonModifier);
+        c.mouseDown (mouseAt (c, a, a, down, false));
+        for (int i = 1; i <= 12; ++i)
+            c.mouseDrag (mouseAt (c, a + (b - a) * ((float) i / 12.0f), a, down, true));
+        c.mouseUp (mouseAt (c, b, a, mods, a != b));
+    }
+
+    void check (bool ok, const char* what)
+    {
+        std::printf ("UI CHECK %s: %s\n", ok ? "ok  " : "FAIL", what);
+        if (! ok) ++uiFailures;
+    }
+
+    void runUiChecks()
+    {
+        auto& vf = editor->getVoiceField();
+        auto& ctl = editor->getController();
+        auto& store = processor->getPatternStore();
+        store.clearSelection();
+        vf.setPatternView ({ 0.0, 16.0, 48.0f, 84.0f });
+        const auto f = vf.getFieldBounds();
+        auto at = [&] (double beat, float pitch) { return juce::Point<float> (vf.beatToX (beat), vf.pitchToY (pitch)); };
+        const auto n0 = store.get().lines.size();
+
+        ctl.setTool (bd::LineEditController::Tool::pencil);
+        drag (vf, at (0.5, 50.0f), at (2.0, 54.3f));
+        check (store.get().lines.size() == n0 + 1, "pencil drag draws a line");
+        const auto* drawn = store.get().lines.empty() ? nullptr : &store.get().lines.back();
+        for (auto& l : store.get().lines) if (std::abs (l.start - 0.5) < 1.0e-6) drawn = &l;
+        check (drawn != nullptr && std::abs (drawn->curvePitchAt (drawn->length) - 54.3f) < 0.5f, "the drawn curve ends where the mouse ended");
+
+        drag (vf, at (3.0, 49.0f), at (3.0, 49.0f));
+        check (store.get().lines.size() == n0 + 2, "pencil click places a note");
+
+        store.undo();
+        check (store.get().lines.size() == n0 + 1, "undo removes it");
+        store.redo();
+        check (store.get().lines.size() == n0 + 2, "redo brings it back");
+
+        ctl.setTool (bd::LineEditController::Tool::line);
+        drag (vf, at (5.0, 50.0f), at (7.0, 55.0f));
+        check (store.get().lines.size() == n0 + 3, "line tool draws a glide");
+        bool glide = false;
+        for (auto& l : store.get().lines)
+            if (std::abs (l.start - 5.0) < 1.0e-6 && ! l.smooth && std::abs (l.curvePitchAt (l.length) - 55.0f) < 0.01f) glide = true;
+        check (glide, "glide goes from A to B in straight segments");
+        ctl.finishLine();
+
+        ctl.setTool (bd::LineEditController::Tool::select);
+        const auto before = store.get();
+        drag (vf, at (3.125, 49.0f), at (4.125, 51.0f));
+        bool moved = false;
+        for (auto& l : store.get().lines)
+            if (std::abs (l.start - 4.0) < 1.0e-6 && std::abs (l.startPitch() - 51.0f) < 0.01f) moved = true;
+        check (moved, "select tool drags a note in time (grid) and pitch (semitones)");
+
+        drag (vf, juce::Point<float> (f.getX() + 2.0f, f.getY() + 2.0f), juce::Point<float> (f.getRight() - 2.0f, f.getBottom() - 2.0f));
+        check (store.getSelection().size() == store.get().lines.size(), "box select selects everything");
+
+        const auto countBefore = store.get().lines.size();
+        vf.grabKeyboardFocus();
+        check (! vf.keyPressed (juce::KeyPress (juce::KeyPress::spaceKey)), "space bar is NOT consumed (goes to the host)");
+        vf.keyPressed (juce::KeyPress ('d', juce::ModifierKeys::commandModifier, 'd'));
+        check (store.get().lines.size() == countBefore * 2, "Ctrl+D duplicates the selection");
+        vf.keyPressed (juce::KeyPress ('z', juce::ModifierKeys::commandModifier, 'z'));
+        check (store.get().lines.size() == countBefore, "Ctrl+Z undoes it");
+
+        ctl.setTool (bd::LineEditController::Tool::eraser);
+        store.clearSelection();
+        drag (vf, at (4.125, 51.0f), at (4.125, 51.0f));
+        check (store.get().lines.size() == countBefore - 1, "eraser deletes the note under the mouse");
+
+        std::printf (uiFailures == 0 ? "UI CHECKS PASSED\n" : "UI CHECKS FAILED (%d)\n", uiFailures);
+        setApplicationReturnValue (uiFailures == 0 ? 0 : 1);
+        juce::ignoreUnused (before);
     }
 
     static juce::Button* findButton (juce::Component* c, const juce::String& text)
@@ -188,6 +281,7 @@ private:
     double startTime = 0.0;
     int stage = 0;
     bool playMelody = false;
+    int uiFailures = 0;
 };
 
 START_JUCE_APPLICATION (SnapshotApp)

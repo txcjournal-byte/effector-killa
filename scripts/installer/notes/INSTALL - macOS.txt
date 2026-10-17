@@ -1,4 +1,4 @@
-TrapWin BEND DEMON 1.0.1 - macOS installation (Apple Silicon & Intel)
+TrapWin BEND DEMON 2.0.0 - macOS installation (Apple Silicon & Intel)
 =====================================================================
 
 The plugin is signed and notarized by Apple.
@@ -14,10 +14,13 @@ The plugin is signed and notarized by Apple.
    FL Studio: Options > Manage plugins > "Find installed plugins", then tick TrapWin BEND DEMON (Generators).
    Logic Pro checks AU plugins automatically on start.
 
-Getting started
-- BEND DEMON is a host: load an MPE-capable synth INSIDE it (synth browser in the plugin).
-- Enable MPE in that synth (e.g. Vital / Serum 2 / Pigments / Surge XT MPE switch).
-- Set the synth's pitch-bend range to +/-48 semitones (the MPE standard) so bends land on pitch.
-- Play MIDI into BEND DEMON as usual; it adds the glides, dives and vibrato.
+Getting started (2.0)
+- Add BEND DEMON to a channel. It already has a demo pattern and a built-in sound:
+  press play in your DAW (or the PLAY button in the plugin) and you hear slides right away.
+- Draw your own lines with the pencil: one line = one note that can slide anywhere.
+- Pick a sound at the top (SOUND), or load your own synth. Synths with MPE (Serum 2, Vital,
+  Pigments, Phase Plant, Surge XT ...) slide every note on its own; other synths get mono slides
+  automatically (set their pitch-bend range to the value in the settings menu, default 48).
+- LIVE mode (top bar) = the 1.x behaviour: your piano-roll notes are bent by the gestures.
 
 Support: trapwin.com
