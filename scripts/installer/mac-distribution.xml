@@ -19,7 +19,7 @@
     <choice id="au" title="Audio Unit" description="Installs to /Library/Audio/Plug-Ins/Components (Logic, GarageBand, FL Studio)">
         <pkg-ref id="com.trapwin.benddemon.au"/>
     </choice>
-    <choice id="app" title="Standalone app" description="Installs BEND DEMON.app to /Applications">
+    <choice id="app" title="Standalone app" description="Installs TrapWin BEND DEMON.app to /Applications">
         <pkg-ref id="com.trapwin.benddemon.app"/>
     </choice>
 

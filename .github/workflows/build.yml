@@ -123,7 +123,7 @@ jobs:
         run: |
           curl -sSL -o pv.zip "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval }}"
           unzip -q pv.zip
-          VST3=$(find build -type d -name "BEND DEMON.vst3" | head -n 1)
+          VST3=$(find build -type d -name "TrapWin BEND DEMON.vst3" | head -n 1)
           if [ "$RUNNER_OS" == "Linux" ]; then PREFIX="xvfb-run -a"; fi
           set +e
           $PREFIX ./${{ matrix.exe }} --strictness-level 5 --validate-in-process --timeout-ms 600000 "$VST3" 2>&1 | tee pluginval.txt
@@ -139,11 +139,11 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          VST3=$(find build -type d -name "BEND DEMON.vst3" -path "*BendDemon_artefacts*" | head -n 1)
+          VST3=$(find build -type d -name "TrapWin BEND DEMON.vst3" -path "*BendDemon_artefacts*" | head -n 1)
           cp -R "$VST3" dist/
-          find build -path "*BendDemon_artefacts*Standalone*" \( -name "BEND DEMON" -o -name "BEND DEMON.exe" -o -name "BEND DEMON.app" \) -maxdepth 6 \
+          find build -path "*BendDemon_artefacts*Standalone*" \( -name "TrapWin BEND DEMON" -o -name "TrapWin BEND DEMON.exe" -o -name "TrapWin BEND DEMON.app" \) -maxdepth 6 \
             -exec cp -R {} dist/ \; || true
-          AU=$(find build -type d -name "BEND DEMON.component" | head -n 1)
+          AU=$(find build -type d -name "TrapWin BEND DEMON.component" | head -n 1)
           [ -n "$AU" ] && cp -R "$AU" dist/ || true
           ls -la dist
 
@@ -215,7 +215,7 @@ jobs:
           [ -n "$MACOS_SIGN_IDENTITY" ] || { echo "::error::No Developer ID Application identity in the .p12"; exit 1; }
           rm -rf signed; mkdir -p signed
           ENT="scripts/installer/mac-entitlements.plist"
-          for b in "dist/BEND DEMON.vst3" "dist/BEND DEMON.component" "dist/BEND DEMON.app"; do
+          for b in "dist/TrapWin BEND DEMON.vst3" "dist/TrapWin BEND DEMON.component" "dist/TrapWin BEND DEMON.app"; do
             [ -d "$b" ] || { echo "::error::missing bundle $b"; exit 1; }
             if [[ "$b" == *.app ]]; then
               # the standalone app hosts third-party plugins -> needs library validation disabled
@@ -248,7 +248,7 @@ jobs:
             xcrun notarytool log "$(sed -n 's/.*"id" *: *"\([^"]*\)".*/\1/p' notary.json | head -1)" "${NOTARY[@]}" || true; exit 1; }
           rm -f AuthKey.p8
           for b in signed/*; do xcrun stapler staple "$b"; xcrun stapler validate "$b"; codesign --verify --deep --strict "$b"; done
-          spctl -a -vvv -t exec "signed/BEND DEMON.app" || true
+          spctl -a -vvv -t exec "signed/TrapWin BEND DEMON.app" || true
           rm TrapWinBendDemon-macOS-signed.zip
           ditto -c -k --keepParent signed TrapWinBendDemon-macOS-signed.zip
           echo "::notice::macOS signed ($MACOS_SIGN_IDENTITY), notarized and stapled: $(ls signed | tr '\n' ' ')"

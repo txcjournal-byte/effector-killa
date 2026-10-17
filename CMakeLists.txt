@@ -116,7 +116,7 @@ if(BEND_DEMON_BUILD_PLUGIN)
     endif()
 
     juce_add_plugin(BendDemon
-        PRODUCT_NAME                "BEND DEMON"
+        PRODUCT_NAME                "TrapWin BEND DEMON"
         COMPANY_NAME                "TrapWin"
         COMPANY_WEBSITE             "https://trapwin.com"
         COMPANY_EMAIL               ""
@@ -233,7 +233,7 @@ if(BEND_DEMON_BUILD_DEV_TOOLS AND BEND_DEMON_BUILD_PLUGIN)
         target_include_directories(${tool} PRIVATE src)
         target_compile_definitions(${tool} PRIVATE ${BD_COMMON_DEFS}
             BEND_DEMON_USE_OPENGL=0
-            JucePlugin_Name="BEND DEMON"
+            JucePlugin_Name="TrapWin BEND DEMON"
             JucePlugin_VersionString="${PROJECT_VERSION}")
         target_link_libraries(${tool} PRIVATE
             BendDemonBinaryData

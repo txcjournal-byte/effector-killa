@@ -1,7 +1,7 @@
 ; =====================================================================================
 ;  TrapWin BEND DEMON - Inno Setup 6 installer script
 ;  Built by scripts\build-win.ps1:
-;     iscc /DAppVersion=1.0.1 /DSourceDir=<dir with BEND DEMON.vst3 + BEND DEMON.exe> /DOutputDir=<out> BendDemon.iss
+;     iscc /DAppVersion=1.0.1 /DSourceDir=<dir with TrapWin BEND DEMON.vst3 + TrapWin BEND DEMON.exe> /DOutputDir=<out> BendDemon.iss
 ; =====================================================================================
 
 #ifndef AppVersion
@@ -45,15 +45,20 @@ Name: "vst3"; Description: "VST3 plug-in  (C:\Program Files\Common Files\VST3)";
 Name: "app";  Description: "Standalone app"; Types: full
 
 [Files]
-; VST3 bundle -> C:\Program Files\Common Files\VST3\BEND DEMON.vst3\...
-Source: "{#SourceDir}\BEND DEMON.vst3\*"; DestDir: "{commoncf64}\VST3\BEND DEMON.vst3"; Components: vst3; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#SourceDir}\BEND DEMON.exe";    DestDir: "{app}"; Components: app; Flags: ignoreversion
+; VST3 bundle -> C:\Program Files\Common Files\VST3\TrapWin BEND DEMON.vst3\...
+Source: "{#SourceDir}\TrapWin BEND DEMON.vst3\*"; DestDir: "{commoncf64}\VST3\TrapWin BEND DEMON.vst3"; Components: vst3; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\TrapWin BEND DEMON.exe";    DestDir: "{app}"; Components: app; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\TrapWin\BEND DEMON"; Filename: "{app}\BEND DEMON.exe"; Components: app
+Name: "{autoprograms}\TrapWin\BEND DEMON"; Filename: "{app}\TrapWin BEND DEMON.exe"; Components: app
+
+[InstallDelete]
+; 1.0.0 used the bundle name "BEND DEMON" - remove it so FL Studio doesn't list the plugin twice
+Type: filesandordirs; Name: "{commoncf64}\VST3\BEND DEMON.vst3"
+Type: files; Name: "{app}\BEND DEMON.exe"
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{commoncf64}\VST3\BEND DEMON.vst3"
+Type: filesandordirs; Name: "{commoncf64}\VST3\TrapWin BEND DEMON.vst3"
 
 [Messages]
-FinishedLabel=BEND DEMON is installed.%n%nIn FL Studio: Options > Manage plugins > Find plugins, then add BEND DEMON from the plugin database (Generators).
+FinishedLabel=BEND DEMON is installed.%n%nIn FL Studio: Options > Manage plugins > Find plugins, then add TrapWin BEND DEMON from the plugin database (Generators).

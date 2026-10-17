@@ -4,11 +4,12 @@ TrapWin BEND DEMON 1.0.1 - Windows installation (Windows 10/11, 64-bit)
 1. Unzip this file and run "TrapWinBendDemon-1.0.1-Windows-Setup.exe".
    (If Windows SmartScreen appears: "More info" > "Run anyway".)
 2. The installer puts the VST3 plugin here:
-       C:\Program Files\Common Files\VST3\BEND DEMON.vst3
+       C:\Program Files\Common Files\VST3\TrapWin BEND DEMON.vst3
    and optionally the standalone app in C:\Program Files\TrapWin\BEND DEMON.
 3. FL Studio: Options > Manage plugins > "Find installed plugins" (rescan),
-   then tick BEND DEMON (Generators) and add it to a channel.
+   then tick TrapWin BEND DEMON (Generators) and add it to a channel.
    Other DAWs: rescan your VST3 folder.
+   Updating from 1.0.0: the installer removes the old "BEND DEMON" plugin for you.
 
 Getting started
 - BEND DEMON is a host: load an MPE-capable synth INSIDE it (synth browser in the plugin).

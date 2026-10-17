@@ -1,0 +1,6 @@
+#!/bin/bash
+# 1.0.0 shipped as "BEND DEMON.*" - remove it so hosts don't list the plugin twice.
+rm -rf "/Library/Audio/Plug-Ins/VST3/BEND DEMON.vst3" \
+       "/Library/Audio/Plug-Ins/Components/BEND DEMON.component" \
+       "/Applications/BEND DEMON.app" 2>/dev/null
+exit 0

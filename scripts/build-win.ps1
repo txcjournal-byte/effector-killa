@@ -52,8 +52,8 @@ if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 $Art = Join-Path $BuildDir "BendDemon_artefacts\Release"
 if (Test-Path $Dist) { Remove-Item -Recurse -Force $Dist }
 New-Item -ItemType Directory -Force -Path "$Dist\bundles" | Out-Null
-Copy-Item -Recurse "$Art\VST3\BEND DEMON.vst3"         "$Dist\bundles\"
-Copy-Item          "$Art\Standalone\BEND DEMON.exe"    "$Dist\bundles\"
+Copy-Item -Recurse "$Art\VST3\TrapWin BEND DEMON.vst3"         "$Dist\bundles\"
+Copy-Item          "$Art\Standalone\TrapWin BEND DEMON.exe"    "$Dist\bundles\"
 
 # ---------------------------------------------------------------------------- sign
 function Find-SignTool {

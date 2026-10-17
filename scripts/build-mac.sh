@@ -51,9 +51,9 @@ cmake --build "$BUILD_DIR" --config Release --target BendDemon_VST3 BendDemon_AU
 
 ART="$BUILD_DIR/BendDemon_artefacts/Release"
 rm -rf "$DIST"; mkdir -p "$BUNDLES"
-cp -R "$ART/VST3/BEND DEMON.vst3"     "$BUNDLES/"
-cp -R "$ART/AU/BEND DEMON.component"  "$BUNDLES/"
-cp -R "$ART/Standalone/BEND DEMON.app" "$BUNDLES/"
+cp -R "$ART/VST3/TrapWin BEND DEMON.vst3"     "$BUNDLES/"
+cp -R "$ART/AU/TrapWin BEND DEMON.component"  "$BUNDLES/"
+cp -R "$ART/Standalone/TrapWin BEND DEMON.app" "$BUNDLES/"
 
 for b in "$BUNDLES"/*; do
     echo "    $(basename "$b"): $(lipo -archs "$b/Contents/MacOS/"* 2>/dev/null | head -1)"
@@ -62,14 +62,14 @@ done
 # ---------------------------------------------------------------------------- sign
 if [[ -n "${BD_APP_SIGN_ID:-}" ]]; then
     echo "==> Signing with: $BD_APP_SIGN_ID"
-    for b in "$BUNDLES/BEND DEMON.vst3" "$BUNDLES/BEND DEMON.component"; do
+    for b in "$BUNDLES/TrapWin BEND DEMON.vst3" "$BUNDLES/TrapWin BEND DEMON.component"; do
         codesign --force --deep --timestamp --options runtime \
                  --sign "$BD_APP_SIGN_ID" "$b"
     done
     # The standalone app hosts third-party plugins -> needs library-validation disabled.
     codesign --force --deep --timestamp --options runtime \
              --entitlements "$ENTITLEMENTS" \
-             --sign "$BD_APP_SIGN_ID" "$BUNDLES/BEND DEMON.app"
+             --sign "$BD_APP_SIGN_ID" "$BUNDLES/TrapWin BEND DEMON.app"
     for b in "$BUNDLES"/*; do codesign --verify --strict --verbose=1 "$b"; done
 else
     echo "==> BD_APP_SIGN_ID not set: skipping code signing (bundles are ad-hoc signed by Xcode)"
@@ -98,9 +98,9 @@ rm -rf "$PKGROOT" "$PKGS"; mkdir -p "$PKGS"
 mkdir -p "$PKGROOT/vst3/Library/Audio/Plug-Ins/VST3" \
          "$PKGROOT/au/Library/Audio/Plug-Ins/Components" \
          "$PKGROOT/app/Applications"
-cp -R "$BUNDLES/BEND DEMON.vst3"      "$PKGROOT/vst3/Library/Audio/Plug-Ins/VST3/"
-cp -R "$BUNDLES/BEND DEMON.component" "$PKGROOT/au/Library/Audio/Plug-Ins/Components/"
-cp -R "$BUNDLES/BEND DEMON.app"       "$PKGROOT/app/Applications/"
+cp -R "$BUNDLES/TrapWin BEND DEMON.vst3"      "$PKGROOT/vst3/Library/Audio/Plug-Ins/VST3/"
+cp -R "$BUNDLES/TrapWin BEND DEMON.component" "$PKGROOT/au/Library/Audio/Plug-Ins/Components/"
+cp -R "$BUNDLES/TrapWin BEND DEMON.app"       "$PKGROOT/app/Applications/"
 
 pkgbuild --root "$PKGROOT/vst3" --identifier com.trapwin.benddemon.vst3 --version "$VERSION" \
          --install-location / "$PKGS/BendDemon-VST3.pkg"

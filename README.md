@@ -106,7 +106,7 @@ $env:BD_SIGN_CERT_SHA1 = "<thumbprint of your code-signing cert>"   # or BD_SIGN
 
 Builds VST3 + Standalone (x64, static MSVC runtime), runs the tests, signs the `.vst3` and `.exe`
 with `signtool /fd sha256 /tr <timestamp>`, then compiles `scripts/installer/BendDemon.iss`, which
-installs the VST3 to `C:\Program Files\Common Files\VST3\BEND DEMON.vst3` and the standalone app
+installs the VST3 to `C:\Program Files\Common Files\VST3\TrapWin BEND DEMON.vst3` and the standalone app
 to `C:\Program Files\TrapWin\BEND DEMON`. Output: `dist\win\TrapWinBendDemon-1.0.1-Windows-Setup.exe`
 (signed too, if a certificate is configured).
 
