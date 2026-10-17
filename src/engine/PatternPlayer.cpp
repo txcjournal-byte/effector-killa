@@ -287,7 +287,7 @@ void PatternPlayer::endVoice (juce::MidiBuffer& out, Voice& v, int pos, double n
 
     // The channel's bend is NOT recentred: the release tail keeps its pitch. The next note-on on
     // this channel sends its own bend first.
-    out.addEvent (juce::MidiMessage::noteOff (v.channel, v.sentNote, (juce::uint8) 0), pos);
+    out.addEvent (juce::MidiMessage::noteOff (v.channel, v.sentNote, (juce::uint8) releaseVelocity (v)), pos);
     allocator.free (v.channel);
 }
 
@@ -408,7 +408,7 @@ void PatternPlayer::releaseAll (juce::MidiBuffer& out, int pos)
     for (auto& v : voices)
         if (v.active)
         {
-            out.addEvent (juce::MidiMessage::noteOff (v.channel, v.sentNote, (juce::uint8) 0), pos);
+            out.addEvent (juce::MidiMessage::noteOff (v.channel, v.sentNote, (juce::uint8) releaseVelocity (v)), pos);
             v.active = v.kill = false;
         }
 

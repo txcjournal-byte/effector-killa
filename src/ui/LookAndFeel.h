@@ -1,6 +1,6 @@
 /*
     TrapWin BEND DEMON
-    LookAndFeel.h - custom look: glowing arc-ring knobs, dark glass combo boxes and popup menus.
+    LookAndFeel.h - 2.0 look: flat graphite controls, 1 px borders, accent only for active states.
 */
 #pragma once
 
@@ -14,9 +14,11 @@ class BendDemonLookAndFeel final : public juce::LookAndFeel_V4
 public:
     BendDemonLookAndFeel();
 
-    // knobs
+    // knobs + bar sliders
     void drawRotarySlider (juce::Graphics&, int x, int y, int w, int h, float pos,
                            float startAngle, float endAngle, juce::Slider&) override;
+    void drawLinearSlider (juce::Graphics&, int x, int y, int w, int h, float pos, float minPos, float maxPos,
+                           juce::Slider::SliderStyle, juce::Slider&) override;
 
     // combo boxes + menus
     void drawComboBox (juce::Graphics&, int w, int h, bool down, int, int, int, int, juce::ComboBox&) override;
@@ -32,6 +34,7 @@ public:
 
     // buttons
     void drawButtonBackground (juce::Graphics&, juce::Button&, const juce::Colour&, bool over, bool down) override;
+    void drawButtonText (juce::Graphics&, juce::TextButton&, bool over, bool down) override;
     juce::Font getTextButtonFont (juce::TextButton&, int buttonHeight) override;
     void drawToggleButton (juce::Graphics&, juce::ToggleButton&, bool over, bool down) override;
 

@@ -233,10 +233,10 @@ const char* gestureName (Gesture g)
 {
     switch (g)
     {
-        case Gesture::glide:      return "Glide";
-        case Gesture::chordGlide: return "Chord Glide";
+        case Gesture::glide:      return "Slide";
+        case Gesture::chordGlide: return "Chord Slide";
         case Gesture::vibrato:    return "Vibrato";
-        case Gesture::dive:       return "808 Dive";
+        case Gesture::dive:       return "Dive";
         case Gesture::rise:       return "Rise";
         case Gesture::wobble:     return "Wobble";
         case Gesture::shake:      return "Shake";
@@ -401,6 +401,8 @@ IdList bakeGesture (Pattern& p, const IdList& ids, Gesture g, const EngineSettin
                 l.vibDepth = s.vibDepthCents * 0.01f;
                 l.vibRate  = (float) (s.vibSync ? 1.0 / syncDivisionBeats (s.vibDiv) : (double) s.vibRateHz * 60.0 / bpm);
                 l.vibFade  = (float) msToBeats (s.vibDelayMs + 350.0, bpm);
+                l.vibShape = PatternLine::sine;
+                l.vibUnipolar = false;
                 break;
             }
 
@@ -501,13 +503,16 @@ std::vector<PatternLine> linesFromCapture (const std::vector<CapturedEvent>& evs
     struct Open
     {
         bool active = false;
+        int channel = 1;
         int note = 60;
         float velocity = 0.8f;
         double start = 0.0;
         Curve1D pitch, pressure, timbre;
     };
 
-    std::array<Open, 17> open {};
+    // open notes (several per channel: plain MIDI files play chords on one channel; bends and
+    // pressure of a channel apply to all of its notes, which is exactly MPE when there is one)
+    std::vector<Open> open;
     std::array<float, 17> bend {}, pres {}, timb {};
     pres.fill (PatternLine::defaultPressure);
     timb.fill (PatternLine::defaultTimbre);
@@ -516,9 +521,8 @@ std::vector<PatternLine> linesFromCapture (const std::vector<CapturedEvent>& evs
     const double endPpq = startPpq + len;
     const float range = (float) juce::jmax (1, bendRange);
 
-    auto close = [&] (int ch, double at)
+    auto close = [&] (Open& o, double at)
     {
-        auto& o = open[(size_t) ch];
         if (! o.active) return;
         o.active = false;
 
@@ -572,51 +576,107 @@ std::vector<PatternLine> linesFromCapture (const std::vector<CapturedEvent>& evs
     {
         const int ch = juce::jlimit (1, 16, (int) e.channel);
         if (ch == 1 && ! includeChannel1) continue;
-        auto& o = open[(size_t) ch];
         const double t = e.ppq;
 
         switch (e.type)
         {
             case CapturedEvent::noteOn:
-                close (ch, t);
-                o = Open{};
+            {
+                for (auto& o : open)
+                    if (o.active && o.channel == ch && (o.note == e.note || ch != 1))
+                        close (o, t);   // MPE: one note per member channel
+                Open o;
                 o.active = true;
+                o.channel = ch;
                 o.note = e.note;
                 o.velocity = juce::jlimit (0.01f, 1.0f, (float) e.velocity / 127.0f);
                 o.start = t;
                 o.pitch.push_back ({ 0.0, (float) e.note + bend[(size_t) ch] });
                 o.pressure.push_back ({ 0.0, pres[(size_t) ch] });
                 o.timbre.push_back ({ 0.0, timb[(size_t) ch] });
+                open.push_back (std::move (o));
                 break;
+            }
 
             case CapturedEvent::noteOff:
-                if (o.active && o.note == e.note) close (ch, t);
+                for (auto& o : open)
+                    if (o.active && o.channel == ch && o.note == e.note) { close (o, t); break; }
                 break;
 
             case CapturedEvent::bend:
                 bend[(size_t) ch] = MpeOutput::pitchWheelToSemitones (e.value, range);
-                if (o.active) o.pitch.push_back ({ t - o.start, (float) o.note + bend[(size_t) ch] });
+                for (auto& o : open)
+                    if (o.active && o.channel == ch) o.pitch.push_back ({ t - o.start, (float) o.note + bend[(size_t) ch] });
                 break;
 
             case CapturedEvent::pressure:
                 pres[(size_t) ch] = (float) e.value / 127.0f;
-                if (o.active) o.pressure.push_back ({ t - o.start, pres[(size_t) ch] });
+                for (auto& o : open)
+                    if (o.active && o.channel == ch) o.pressure.push_back ({ t - o.start, pres[(size_t) ch] });
                 break;
 
             case CapturedEvent::timbre:
                 timb[(size_t) ch] = (float) e.value / 127.0f;
-                if (o.active) o.timbre.push_back ({ t - o.start, timb[(size_t) ch] });
+                for (auto& o : open)
+                    if (o.active && o.channel == ch) o.timbre.push_back ({ t - o.start, timb[(size_t) ch] });
                 break;
 
             default: break;
         }
+
+        open.erase (std::remove_if (open.begin(), open.end(), [] (const Open& o) { return ! o.active; }), open.end());
     }
 
-    for (int ch = 1; ch <= 16; ++ch)
-        close (ch, endPpq);
+    for (auto& o : open)
+        close (o, endPpq);
 
     std::sort (out.begin(), out.end(), [] (const PatternLine& a, const PatternLine& b) { return a.start < b.start; });
     return out;
+}
+
+//==============================================================================
+bool importMidi (const juce::MidiFile& file, int bendRange, Pattern& out)
+{
+    const int tpq = file.getTimeFormat();
+    if (tpq <= 0)
+        return false;   // SMPTE time: not supported
+
+    std::vector<CapturedEvent> evs;
+    for (int t = 0; t < file.getNumTracks(); ++t)
+        for (auto* me : *file.getTrack (t))
+        {
+            const auto& m = me->message;
+            CapturedEvent e;
+            e.ppq = m.getTimeStamp() / (double) tpq;
+            e.channel = (uint8_t) juce::jlimit (1, 16, m.getChannel());
+            if (m.isNoteOn())                   { e.type = CapturedEvent::noteOn; e.note = (uint8_t) m.getNoteNumber(); e.velocity = m.getVelocity(); }
+            else if (m.isNoteOff())             { e.type = CapturedEvent::noteOff; e.note = (uint8_t) m.getNoteNumber(); }
+            else if (m.isPitchWheel())          { e.type = CapturedEvent::bend; e.value = (int16_t) m.getPitchWheelValue(); }
+            else if (m.isChannelPressure())     { e.type = CapturedEvent::pressure; e.value = (int16_t) m.getChannelPressureValue(); }
+            else if (m.isControllerOfType (74)) { e.type = CapturedEvent::timbre; e.value = (int16_t) m.getControllerValue(); }
+            else continue;
+            evs.push_back (e);
+        }
+
+    // note-offs before note-ons at the same time
+    std::stable_sort (evs.begin(), evs.end(), [] (const CapturedEvent& a, const CapturedEvent& b)
+    {
+        if (! juce::exactlyEqual (a.ppq, b.ppq)) return a.ppq < b.ppq;
+        return (a.type == CapturedEvent::noteOff) && (b.type == CapturedEvent::noteOn);
+    });
+
+    double last = 0.0;
+    for (auto& e : evs) last = std::max (last, e.ppq);
+    if (evs.empty()) return false;
+
+    Pattern p;
+    p.beatsPerBar = 4;
+    p.bars = juce::jlimit (Pattern::minBars, Pattern::maxBars, (int) std::ceil (last / 4.0 - 1.0e-6));
+    for (auto& l : linesFromCapture (evs, 0.0, p.lengthBeats(), bendRange, true))
+        p.add (std::move (l));
+    p.normalise();
+    out = std::move (p);
+    return true;
 }
 
 //==============================================================================

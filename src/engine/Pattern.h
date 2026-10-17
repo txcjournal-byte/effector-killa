@@ -12,8 +12,10 @@
                          false = straight segments (what the LINE tool draws)
         velocity         0..1
         pressure, timbre optional (t, 0..1) curves, linear; empty = a constant default
-        vibrato          depth (semitones), rate (cycles per beat, so it follows the tempo),
-                         fade-in (beats)
+        pitch mod        a per-note LFO on pitch ("vibrato"): shape (sine / triangle / square /
+                         saw up / saw down), depth (semitones), rate (cycles per beat, so it follows
+                         the tempo), fade-in (beats), bipolar or unipolar (only upwards)
+        releaseVelocity  note-off velocity 0..1
 
     Everything here is plain value types (copyable, comparable) so the UI can keep undo copies and
     the audio thread can read an immutable snapshot. Evaluation functions never allocate.
@@ -71,9 +73,17 @@ struct PatternLine
     Curve1D  pressure;           // empty = defaultPressure
     Curve1D  timbre;             // empty = defaultTimbre
 
+    float    releaseVelocity = 0.5f;   // 0..1 (note-off velocity)
+
+    enum LfoShape : int { sine = 0, triangle, square, sawUp, sawDown, numLfoShapes };
     float    vibDepth = 0.0f;    // semitones (0 = off)
     float    vibRate  = 2.5f;    // cycles per beat
     float    vibFade  = 0.5f;    // beats until full depth
+    int      vibShape = sine;
+    bool     vibUnipolar = false;
+
+    /** LFO value -1..1 (bipolar) or 0..1 (unipolar) for a phase in cycles. */
+    float lfoValue (double cycles) const noexcept;
 
     double end() const noexcept  { return start + length; }
 
@@ -97,7 +107,7 @@ struct PatternLine
 //==============================================================================
 struct Pattern
 {
-    static constexpr int minBars = 1, maxBars = 16, defaultBars = 4;
+    static constexpr int minBars = 1, maxBars = 64, defaultBars = 4;
 
     int bars        = defaultBars;
     int beatsPerBar = 4;            // quarter-note beats per bar (4/4)

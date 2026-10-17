@@ -1,10 +1,14 @@
 /*
     TrapWin BEND DEMON
-    PresetManager.h - factory gesture presets + user presets (XML files).
+    PresetManager.h - factory presets + user presets (XML files).
 
-    A gesture preset stores ONLY BEND DEMON's parameters (the gesture recipe), never the hosted
-    synth: you can flip through presets while keeping your Serum patch. The host project state
-    (getStateInformation) stores everything, including the hosted synth.
+    Presets never store the hosted synth: you can flip through presets while keeping your Serum
+    patch. The host project state (getStateInformation) stores everything, including the hosted
+    synth.
+
+    2.0: PATTERN presets (factory) also load a drawn pattern, the internal sound and DRAW mode.
+    GESTURE presets (the 1.x ones) only change the gesture recipe and leave the pattern alone.
+    User presets store the parameters AND the pattern (undoable when loaded).
 
     User presets live in:
       Windows: %APPDATA%\TrapWin\BEND DEMON\Presets\<name>.bdpreset
@@ -14,19 +18,25 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
+namespace bd { class PatternStore; }
+
 namespace bd
 {
 
 class PresetManager
 {
 public:
-    explicit PresetManager (juce::AudioProcessorValueTreeState&);
+    PresetManager (juce::AudioProcessorValueTreeState&, PatternStore&);
 
     struct FactoryPreset
     {
         juce::String name;
         std::vector<std::pair<juce::String, float>> values;   // param id -> plain value
+        int pattern = -1;                                     // tools::makeFactoryPattern index, -1 = gesture preset
     };
+
+    /** Factory presets 0 .. numPatternPresets()-1 carry a pattern. */
+    static int numPatternPresets();
 
     static const std::vector<FactoryPreset>& getFactoryPresets();
 
@@ -48,6 +58,7 @@ private:
     void setPlain (const juce::String& id, float value);
 
     juce::AudioProcessorValueTreeState& state;
+    PatternStore& patterns;
     juce::String currentName { "Init" };
 };
 

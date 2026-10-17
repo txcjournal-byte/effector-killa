@@ -150,6 +150,22 @@ float PatternLine::curvePitchAt (double tRel) const noexcept
     return smooth ? curves::evalMonotone (pitch, tRel) : curves::evalLinear (pitch, tRel);
 }
 
+float PatternLine::lfoValue (double cycles) const noexcept
+{
+    const double ph = cycles - std::floor (cycles);   // 0..1
+    double v = 0.0;
+    switch (vibShape)
+    {
+        case triangle: v = ph < 0.25 ? ph * 4.0 : (ph < 0.75 ? 2.0 - ph * 4.0 : ph * 4.0 - 4.0); break;
+        case square:   v = ph < 0.5 ? 1.0 : -1.0; break;
+        case sawUp:    v = ph < 0.5 ? ph * 2.0 : ph * 2.0 - 2.0; break;     // starts at 0, rises
+        case sawDown:  v = ph < 0.5 ? -ph * 2.0 : 2.0 - ph * 2.0; break;
+        case sine:
+        default:       v = std::sin (juce::MathConstants<double>::twoPi * ph); break;
+    }
+    return vibUnipolar ? (float) (0.5 * (v + 1.0)) : (float) v;
+}
+
 float PatternLine::pitchAt (double tRel) const noexcept
 {
     float p = curvePitchAt (tRel);
@@ -157,7 +173,7 @@ float PatternLine::pitchAt (double tRel) const noexcept
     if (vibDepth > 0.0001f && tRel > 0.0)
     {
         const double fade = vibFade > 0.0001f ? juce::jlimit (0.0, 1.0, tRel / (double) vibFade) : 1.0;
-        p += (float) (std::sin (juce::MathConstants<double>::twoPi * (double) vibRate * tRel) * fade) * vibDepth;
+        p += (float) ((double) lfoValue ((double) vibRate * tRel) * fade) * vibDepth;
     }
 
     return p;
@@ -188,6 +204,8 @@ void PatternLine::normalise()
     start  = std::max (0.0, start);
     length = std::max (1.0 / 256.0, length);
     velocity = juce::jlimit (0.01f, 1.0f, std::isfinite (velocity) ? velocity : 0.8f);
+    releaseVelocity = juce::jlimit (0.0f, 1.0f, std::isfinite (releaseVelocity) ? releaseVelocity : 0.5f);
+    vibShape = juce::jlimit (0, (int) numLfoShapes - 1, vibShape);
     vibDepth = juce::jlimit (0.0f, 12.0f, vibDepth);
     vibRate  = juce::jlimit (0.05f, 32.0f, vibRate);
     vibFade  = juce::jlimit (0.0f, 64.0f, vibFade);
@@ -214,7 +232,8 @@ bool PatternLine::operator== (const PatternLine& o) const noexcept
     using juce::exactlyEqual;
     return id == o.id && exactlyEqual (start, o.start) && exactlyEqual (length, o.length) && smooth == o.smooth
         && exactlyEqual (velocity, o.velocity) && pitch == o.pitch && pressure == o.pressure && timbre == o.timbre
-        && exactlyEqual (vibDepth, o.vibDepth) && exactlyEqual (vibRate, o.vibRate) && exactlyEqual (vibFade, o.vibFade);
+        && exactlyEqual (vibDepth, o.vibDepth) && exactlyEqual (vibRate, o.vibRate) && exactlyEqual (vibFade, o.vibFade)
+        && exactlyEqual (releaseVelocity, o.releaseVelocity) && vibShape == o.vibShape && vibUnipolar == o.vibUnipolar;
 }
 
 //==============================================================================
@@ -314,11 +333,14 @@ std::unique_ptr<juce::XmlElement> Pattern::toXml() const
         e->setAttribute ("length", l.length);
         e->setAttribute ("smooth", l.smooth ? 1 : 0);
         e->setAttribute ("velocity", (double) l.velocity);
+        e->setAttribute ("releaseVelocity", (double) l.releaseVelocity);
         if (l.vibDepth > 0.0f)
         {
             e->setAttribute ("vibDepth", (double) l.vibDepth);
             e->setAttribute ("vibRate",  (double) l.vibRate);
             e->setAttribute ("vibFade",  (double) l.vibFade);
+            e->setAttribute ("vibShape", l.vibShape);
+            e->setAttribute ("vibUnipolar", l.vibUnipolar ? 1 : 0);
         }
         e->setAttribute ("pitch", curveToString (l.pitch));
         if (! l.pressure.empty()) e->setAttribute ("pressure", curveToString (l.pressure));
@@ -346,6 +368,9 @@ Pattern Pattern::fromXml (const juce::XmlElement& xml)
         l.vibDepth = (float) e->getDoubleAttribute ("vibDepth", 0.0);
         l.vibRate  = (float) e->getDoubleAttribute ("vibRate", 2.5);
         l.vibFade  = (float) e->getDoubleAttribute ("vibFade", 0.5);
+        l.vibShape = e->getIntAttribute ("vibShape", PatternLine::sine);
+        l.vibUnipolar = e->getIntAttribute ("vibUnipolar", 0) != 0;
+        l.releaseVelocity = (float) e->getDoubleAttribute ("releaseVelocity", 0.5);
         l.pitch    = curveFromString (e->getStringAttribute ("pitch"));
         l.pressure = curveFromString (e->getStringAttribute ("pressure"));
         l.timbre   = curveFromString (e->getStringAttribute ("timbre"));

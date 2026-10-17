@@ -106,6 +106,9 @@ public:
 
     static juce::File getAppDataDirectory();
 
+    /** True for synths known to support MPE (per-note pitch bend). Others get mono slides. */
+    static bool isKnownMpeSynth (const juce::PluginDescription&);
+
 private:
     class EditorWindow;
 

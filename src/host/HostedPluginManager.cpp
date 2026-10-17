@@ -439,4 +439,19 @@ void HostedPluginManager::closeEditorWindow()
     sendChangeMessage();
 }
 
+bool HostedPluginManager::isKnownMpeSynth (const juce::PluginDescription& d)
+{
+    // Conservative list: a synth that is NOT on it gets mono slides (always works), a wrong
+    // entry would give broken polyphonic slides.
+    static const char* const names[] = { "serum 2", "vital", "pigments", "phase plant", "surge", "equator",
+                                         "falcon", "omnisphere", "audio modeling", "swam", "osmose", "strobe2",
+                                         "cypher2", "thorn", "bitwig", "seaboard", "zebra", "hive", "massive x",
+                                         "mpe", nullptr };
+    const auto n = d.name.toLowerCase();
+    for (int i = 0; names[i] != nullptr; ++i)
+        if (n.contains (names[i]))
+            return true;
+    return false;
+}
+
 } // namespace bd

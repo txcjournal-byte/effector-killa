@@ -1,6 +1,16 @@
 /*
     TrapWin BEND DEMON
-    PluginEditor.h - top bar, VOICE FIELD, gesture dock.
+    PluginEditor.h - the 2.0 editor:
+
+        +--------------------------------------------------------------------+
+        | top bar: brand, DRAW/LIVE, synth slot, bars, play, presets, 3D     |
+        | tool bar: tools, snap, magnet, key/scale, undo, edit, capture, .mid|
+        +----------------------------------------------------+---------------+
+        |  canvas (Voice Field): piano keys | ruler | lines   |  INSPECTOR    |
+        |                                                    |  line /       |
+        +----------------------------------------------------+  gestures /   |
+        |  expression lane (collapsible)                     |  sound        |
+        +----------------------------------------------------+---------------+
 */
 #pragma once
 
@@ -14,9 +24,12 @@
 #include "ui/LookAndFeel.h"
 #include "ui/TopBar.h"
 #include "ui/VoiceField.h"
-#include "ui/GesturePad.h"
-#include "ui/GlowKnob.h"
+#include "ui/LineEditor.h"
+#include "ui/EditToolbar.h"
+#include "ui/ExpressionLane.h"
+#include "ui/Inspector.h"
 #include "ui/SynthBrowser.h"
+#include "ui/StatusBar.h"
 
 class BendDemonEditor final : public juce::AudioProcessorEditor,
                               private juce::Timer,
@@ -27,25 +40,31 @@ public:
     ~BendDemonEditor() override;
 
     void paint (juce::Graphics&) override;
-    void paintOverChildren (juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int defaultWidth  = 1280;
-    static constexpr int defaultHeight = 800;
+    static constexpr int defaultWidth  = 1040;
+    static constexpr int defaultHeight = 650;
     static constexpr int minWidth      = 640;
     static constexpr int minHeight     = 400;
 
     void mouseDown (const juce::MouseEvent&) override;
 
-private:
-    enum class Section { glide, vibrato, dive, motion, expression };
+    // used by the snapshot tool
+    bd::LineEditController& getController() noexcept { return *controller; }
+    bd::Inspector& getInspector() noexcept           { return *inspector; }
+    bd::VoiceField& getVoiceField() noexcept         { return voiceField; }
+    void setLaneOpen (bool);
+    void setInspectorOpen (bool);
 
+private:
     void timerCallback() override;
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
-    void showSection (Section);
-    void layoutDock (juce::Rectangle<int>);
     void showSynthBrowser (bool);
+    void showWindowSizeMenu();
+    void updateStatus();
     void updateHint();
+    void applyMode (bool draw);
+    void saveUiState();
     int  fitWidthToScreen (int wantedWidth) const;
     void setEditorWidth (int width);
     static void releaseKeys (juce::Component&);
@@ -57,36 +76,20 @@ private:
     juce::OpenGLContext glContext;
    #endif
 
-    bd::TopBar topBar;
     bd::VoiceField voiceField;
-
-    // gesture pads
-    std::vector<std::unique_ptr<bd::GesturePad>> pads;
-
-    // per-section controls
-    struct SectionControls
-    {
-        Section section;
-        juce::String title;
-        std::vector<juce::Component*> items;
-    };
-
-    std::vector<std::unique_ptr<juce::Component>> owned;
-    std::vector<SectionControls> sections;
-    Section currentSection = Section::glide;
-
-    // always-visible controls
-    std::unique_ptr<bd::ChoiceBox> scaleKey, scaleType, bendRange;
-    std::unique_ptr<bd::PillToggle> scaleLock, quantize, midiOut;
-    std::unique_ptr<bd::GlowKnob> voicesKnob, gainKnob;
-
-    juce::OwnedArray<juce::TextButton> tabs;   // GLIDE / VIBRATO / DIVE / MOTION / EXPRESSION
+    std::unique_ptr<bd::LineEditController> controller;
+    bd::TopBar topBar;
+    std::unique_ptr<bd::EditToolbar> toolbar;
+    std::unique_ptr<bd::ExpressionLane> lane;
+    std::unique_ptr<bd::Inspector> inspector;
     std::unique_ptr<bd::SynthBrowser> browser;
+    bd::StatusBar statusBar;
+    bd::NoticeBanner banner;
     juce::TooltipWindow tooltips { this, 600 };
 
-    juce::Rectangle<int> dockArea, sectionArea, globalArea;
+    bool laneOpen = true, inspectorOpen = true, drawModeShown = true;
+    uint32_t lastLoadCount = 0;
     double startMs = 0.0;
-    float lastFrameTime = 0.0f;
     bool sizeRestored = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BendDemonEditor)

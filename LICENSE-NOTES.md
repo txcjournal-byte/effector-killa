@@ -21,7 +21,7 @@
 | Steinberg VST3 SDK (bundled inside JUCE 8.0.9 at `modules/juce_audio_processors/format_types/VST3_SDK`) | BSD-style 3-clause licence (`LICENSE.txt` in that folder, "(c) 2024 Steinberg") | Binary distributions must **reproduce Steinberg's copyright notice + licence text** in the documentation. Add it to the installer licence screen / an About box. "VST" is a Steinberg trademark: follow Steinberg's VST logo/usage guidelines on packaging and the website. |
 | Apple Audio Unit SDK | Part of macOS SDK / Xcode | – |
 | Unbounded font (Medium, Bold, Black) | SIL Open Font License 1.1 | Embedded; licence text in `resources/fonts/OFL-Unbounded.txt` |
-| JetBrains Mono font (Regular, Bold) | SIL Open Font License 1.1 | Embedded; licence text in `resources/fonts/OFL-JetBrainsMono.txt` |
+| Inter font (Medium, SemiBold) | SIL Open Font License 1.1 | Embedded; licence text in `resources/fonts/OFL-Inter.txt` |
 
 The OFL allows embedding the fonts in commercial software. Keep the licence texts with the
 distribution (they are in the source tree; an "About / Licences" note in the installer covers the

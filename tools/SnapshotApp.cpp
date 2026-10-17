@@ -1,7 +1,16 @@
 /*
-    TrapWin BEND DEMON - dev tool: renders the editor to PNG files while a scripted melody plays
-    through the engine (no audio device, no hosted synth). Used to check the UI headlessly (Xvfb)
-    and in CI.  Usage:  BendDemonSnapshot <output-dir>
+    TrapWin BEND DEMON - dev tool: renders the editor to PNG files (headless under Xvfb / CI).
+
+    2.0: loads the factory pattern "Trap Glide Lead" and renders
+        bend-demon-draw-1040.png        DRAW mode, flat, host playing (playhead + active notes)
+        bend-demon-select-1040.png      a selection + the NOTE inspector + the expression lane
+        bend-demon-shapes-1040.png      the SHAPES inspector tab
+        bend-demon-dimension-1040.png   DIMENSION (3D view)
+        bend-demon-live-1040.png        LIVE mode while a melody plays through the gestures
+        bend-demon-banner-1040.png      the "no MPE" notice
+        bend-demon-draw-800x500.png     the small size
+        bend-demon-sound-800x500.png    SOUND tab at the small size
+    Usage:  BendDemonSnapshot <output-dir>
 */
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -35,7 +44,7 @@ class SnapshotApp final : public juce::JUCEApplication, private juce::Timer
 {
 public:
     const juce::String getApplicationName() override    { return "BendDemonSnapshot"; }
-    const juce::String getApplicationVersion() override { return "1.0"; }
+    const juce::String getApplicationVersion() override { return "2.0"; }
 
     void initialise (const juce::String& args) override
     {
@@ -46,13 +55,12 @@ public:
         processor->setPlayHead (&playHead);
         processor->setRateAndBufferSizeDetails (48000.0, 512);
         processor->prepareToPlay (48000.0, 512);
+        processor->getPresets().loadFactory (0);    // Trap Glide Lead (pattern + sound)
 
         auto& s = processor->getAPVTS();
         auto set = [&s] (const char* id, float v) { if (auto* p = s.getParameter (id)) p->setValueNotifyingHost (p->convertTo0to1 (v)); };
-        set (bd::ids::glideOn, 1); set (bd::ids::diveOn, 1); set (bd::ids::vibratoOn, 1);
-        set (bd::ids::diveTime, 300); set (bd::ids::vibDelay, 150);
+        set (bd::ids::scaleLockOn, 1);
 
-        // A trap-style melody: legato runs (glide), a held note (vibrato), short stabs with dives, a chord.
         const NoteEv m[] = {
             { 0.0, 60, 0.5, 110 }, { 0.5, 63, 0.5, 100 }, { 1.0, 67, 1.0, 120 }, { 2.0, 65, 0.5, 90 },
             { 2.5, 63, 1.5, 100 }, { 4.5, 48, 0.25, 127 }, { 5.0, 48, 0.25, 110 }, { 5.75, 51, 0.5, 120 },
@@ -61,12 +69,13 @@ public:
             { 13.75, 43, 0.25, 127 }, { 14.25, 43, 0.5, 120 } };
         for (auto& e : m) melody.push_back (e);
 
-        editor.reset (processor->createEditor());
+        editor.reset (dynamic_cast<BendDemonEditor*> (processor->createEditor()));
         window = std::make_unique<juce::DocumentWindow> ("BEND DEMON snapshot", juce::Colours::black, 0);
         window->setUsingNativeTitleBar (false);
         window->setTitleBarHeight (0);
         window->setContentNonOwned (editor.get(), true);
         window->setVisible (true);
+        editor->setSize (1040, 650);
 
         startTime = juce::Time::getMillisecondCounterHiRes();
         startTimer (5);
@@ -84,81 +93,101 @@ public:
     void systemRequestedQuit() override { quit(); }
 
 private:
-    void timerCallback() override
+    void runAudio (double elapsed)
     {
-        const double elapsed = (juce::Time::getMillisecondCounterHiRes() - startTime) * 0.001;
         const double sr = 48000.0;
         const int block = 512;
-
-        // Run the engine in "real time".
         while ((double) playHead.samples < elapsed * sr)
         {
             juce::AudioBuffer<float> audio (2, block);
             juce::MidiBuffer midi;
-            const double b0 = (double) playHead.samples / sr * playHead.bpm / 60.0;
-            const double b1 = (double) (playHead.samples + block) / sr * playHead.bpm / 60.0;
-            const double loop = 16.0;
-
-            for (auto& e : melody)
+            if (playMelody)
             {
-                for (double base = std::floor (b0 / loop) * loop; base <= b1; base += loop)
-                {
-                    const double on = base + e.beat, off = base + e.beat + e.lenBeats;
-                    auto pos = [&] (double beat) { return juce::jlimit (0, block - 1, (int) ((beat - b0) * 60.0 / playHead.bpm * sr)); };
-                    if (on >= b0 && on < b1)   midi.addEvent (juce::MidiMessage::noteOn (1, e.note, (juce::uint8) e.vel), pos (on));
-                    if (off >= b0 && off < b1) midi.addEvent (juce::MidiMessage::noteOff (1, e.note), pos (off));
-                }
+                const double b0 = (double) playHead.samples / sr * playHead.bpm / 60.0;
+                const double b1 = (double) (playHead.samples + block) / sr * playHead.bpm / 60.0;
+                const double loop = 16.0;
+                for (auto& e : melody)
+                    for (double base = std::floor (b0 / loop) * loop; base <= b1; base += loop)
+                    {
+                        const double on = base + e.beat, off = base + e.beat + e.lenBeats;
+                        auto pos = [&] (double beat) { return juce::jlimit (0, block - 1, (int) ((beat - b0) * 60.0 / playHead.bpm * sr)); };
+                        if (on >= b0 && on < b1)   midi.addEvent (juce::MidiMessage::noteOn (1, e.note, (juce::uint8) e.vel), pos (on));
+                        if (off >= b0 && off < b1) midi.addEvent (juce::MidiMessage::noteOff (1, e.note), pos (off));
+                    }
             }
-
             processor->processBlock (audio, midi);
             playHead.samples += block;
         }
-
-        auto shoot = [this] (const juce::String& name)
-        {
-            auto img = editor->createComponentSnapshot (editor->getLocalBounds(), true, 1.0f);
-            juce::PNGImageFormat png;
-            auto f = outDir.getChildFile (name);
-            f.deleteFile();
-            juce::FileOutputStream os (f);
-            png.writeImageToStream (img, os);
-            std::printf ("wrote %s\n", f.getFullPathName().toRawUTF8());
-        };
-
-        if (stage == 0 && elapsed > 5.6)  { shoot ("bend-demon-flat.png"); ++stage; }
-        if (stage == 1 && elapsed > 5.7)
-        {
-            processor->getUiState().setProperty ("dimension", true, nullptr);
-            // toggle DIMENSION through the button so the editor animates it
-            if (auto* b = findDimensionButton (editor.get())) b->triggerClick();
-            ++stage;
-        }
-        if (stage == 2 && elapsed > 8.2)  { shoot ("bend-demon-dimension.png"); ++stage; }
-        if (stage == 3 && elapsed > 8.3)
-        {
-            editor->setSize (800, 500);
-            ++stage;
-        }
-        if (stage == 4 && elapsed > 9.0)  { shoot ("bend-demon-800x500.png"); ++stage; quit(); }
     }
 
-    static juce::Button* findDimensionButton (juce::Component* c)
+    void shoot (const juce::String& name)
+    {
+        auto img = editor->createComponentSnapshot (editor->getLocalBounds(), true, 1.0f);
+        juce::PNGImageFormat png;
+        auto f = outDir.getChildFile (name);
+        f.deleteFile();
+        juce::FileOutputStream os (f);
+        png.writeImageToStream (img, os);
+        std::printf ("wrote %s (%dx%d)\n", f.getFullPathName().toRawUTF8(), img.getWidth(), img.getHeight());
+    }
+
+    void selectSome (int from, int count)
+    {
+        auto& store = processor->getPatternStore();
+        std::vector<uint32_t> ids;
+        for (int i = from; i < from + count && i < (int) store.get().lines.size(); ++i)
+            ids.push_back (store.get().lines[(size_t) i].id);
+        store.setSelection (ids);
+    }
+
+    void timerCallback() override
+    {
+        const double elapsed = (juce::Time::getMillisecondCounterHiRes() - startTime) * 0.001;
+        runAudio (elapsed);
+
+        struct Step { double at; std::function<void()> fn; };
+        const Step steps[] = {
+            { 3.4,  [this] { shoot ("bend-demon-draw-1040.png"); } },
+            { 3.5,  [this] { selectSome (2, 2); editor->getController().setTool (bd::LineEditController::Tool::select); } },
+            { 4.2,  [this] { shoot ("bend-demon-select-1040.png"); } },
+            { 4.3,  [this] { editor->getInspector().setTab (bd::Inspector::Tab::shapes); editor->getInspector().showShape (3); } },
+            { 4.8,  [this] { shoot ("bend-demon-shapes-1040.png"); } },
+            { 4.9,  [this] { editor->getInspector().setTab (bd::Inspector::Tab::note); processor->getPatternStore().clearSelection();
+                             if (auto* b = findButton (editor.get(), "3D")) b->triggerClick(); } },
+            { 7.2,  [this] { shoot ("bend-demon-dimension-1040.png"); } },
+            { 7.3,  [this] { if (auto* b = findButton (editor.get(), "3D")) b->triggerClick();
+                             playMelody = true; processor->setDrawMode (false); } },
+            { 11.0, [this] { shoot ("bend-demon-live-1040.png"); } },
+            { 11.1, [this] { playMelody = false; processor->setDrawMode (true); processor->showNonMpeNoticeForTest(); } },
+            { 11.6, [this] { shoot ("bend-demon-banner-1040.png"); } },
+            { 11.7, [this] { processor->dismissNonMpeNotice(); editor->setSize (800, 500); } },
+            { 12.5, [this] { shoot ("bend-demon-draw-800x500.png"); } },
+            { 12.6, [this] { editor->getInspector().setTab (bd::Inspector::Tab::sound); } },
+            { 13.1, [this] { shoot ("bend-demon-sound-800x500.png"); quit(); } },
+        };
+
+        while (stage < (int) std::size (steps) && elapsed > steps[stage].at)
+            steps[stage++].fn();
+    }
+
+    static juce::Button* findButton (juce::Component* c, const juce::String& text)
     {
         if (auto* b = dynamic_cast<juce::TextButton*> (c))
-            if (b->getButtonText() == "DIMENSION") return b;
+            if (b->getButtonText() == text) return b;
         for (auto* child : c->getChildren())
-            if (auto* f = findDimensionButton (child)) return f;
+            if (auto* f = findButton (child, text)) return f;
         return nullptr;
     }
 
     std::unique_ptr<BendDemonProcessor> processor;
-    std::unique_ptr<juce::AudioProcessorEditor> editor;
+    std::unique_ptr<BendDemonEditor> editor;
     std::unique_ptr<juce::DocumentWindow> window;
     FakePlayHead playHead;
     std::vector<NoteEv> melody;
     juce::File outDir;
     double startTime = 0.0;
     int stage = 0;
+    bool playMelody = false;
 };
 
 START_JUCE_APPLICATION (SnapshotApp)

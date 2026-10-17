@@ -70,6 +70,11 @@ namespace bd::ids
     inline constexpr auto midiOutMode   = "midiOutMode";
     inline constexpr auto bypassGestures= "bypassGestures";
     inline constexpr auto outputGain    = "outputGain";
+
+    // 2.0 line sequencer + internal synth
+    inline constexpr auto mode          = "mode";            // 0 = LIVE (1.x), 1 = DRAW
+    inline constexpr auto seqMono       = "seqMono";         // Mono/Legacy output for non-MPE synths
+    inline constexpr auto internalSound = "internalSound";
 }
 
 namespace bd
@@ -86,6 +91,9 @@ public:
     EngineSettings read() const noexcept;
     bool  midiOutMode() const noexcept    { return p.midiOut->load() > 0.5f; }
     float outputGainDb() const noexcept   { return p.gain->load(); }
+    bool  drawMode() const noexcept       { return p.mode->load() > 0.5f; }
+    bool  monoMode() const noexcept       { return p.seqMono->load() > 0.5f; }
+    int   internalSound() const noexcept  { return (int) std::lround (p.sound->load()); }
 
 private:
     struct Ptrs
@@ -99,6 +107,7 @@ private:
         std::atomic<float>* pressureOn{}, *pressure{}, *pressureTime{}, *pressureShape{}, *velToPressure{};
         std::atomic<float>* timbreOn{}, *timbre{}, *timbreTime{}, *timbreShape{}, *velToTimbre{};
         std::atomic<float>* bendRange{}, *voices{}, *midiOut{}, *bypass{}, *gain{};
+        std::atomic<float>* mode{}, *seqMono{}, *sound{};
     } p;
 };
 

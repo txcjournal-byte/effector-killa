@@ -1,11 +1,21 @@
 #include "PresetManager.h"
 #include "../Parameters.h"
 #include "../host/HostedPluginManager.h"
+#include "../PatternStore.h"
+#include "../engine/PatternTools.h"
+#include "../engine/InternalSynth.h"
 
 namespace bd
 {
 
-PresetManager::PresetManager (juce::AudioProcessorValueTreeState& s) : state (s) {}
+PresetManager::PresetManager (juce::AudioProcessorValueTreeState& s, PatternStore& p) : state (s), patterns (p) {}
+
+int PresetManager::numPatternPresets()
+{
+    int n = 0;
+    for (auto& p : getFactoryPresets()) if (p.pattern >= 0) ++n;
+    return n;
+}
 
 juce::File PresetManager::getUserPresetDirectory()
 {
@@ -19,10 +29,30 @@ const std::vector<PresetManager::FactoryPreset>& PresetManager::getFactoryPreset
     using namespace ids;
 
     // Only values that differ from the parameter defaults are listed; everything else is reset.
+    using S = InternalSynth;
+    auto pat = [] (int index, int sound, std::vector<std::pair<juce::String, float>> v)
+    {
+        // C minor so the magnet / scale tools match the pattern; DRAW mode; the sound
+        v.insert (v.begin(), { { mode, 1 }, { internalSound, (float) sound }, { scaleKey, 0 }, { scaleType, 1 } });
+        return FactoryPreset { tools::factoryPatternName (index), std::move (v), index };
+    };
+
     static const std::vector<FactoryPreset> presets {
+        // --- 2.0 pattern presets (pattern + sound + gesture recipe used by APPLY GESTURE)
+        pat (0, S::glideLead,    { { glideTime, 90 }, { vibDepth, 30 }, { diveAmount, 5 } }),
+        pat (1, S::eightOhEight, { { glideTime, 80 }, { diveAmount, 12 }, { diveTime, 450 } }),
+        pat (2, S::pad,          { { chordGlideOn, 1 }, { glideOn, 0 }, { glideTime, 400 }, { glideCurve, 2 } }),
+        pat (3, S::glideLead,    { { vibDepth, 40 }, { vibRate, 5.5f } }),
+        pat (4, S::bell,         { { riseOn, 0 }, { diveAmount, 2 } }),
+        pat (5, S::pluck,        { { glideTime, 40 } }),
+        pat (6, S::subBass,      { { wobbleDepth, 0.5f }, { wobbleDiv, 6 } }),
+        pat (7, S::pad,          { { glideTime, 600 } }),
+        pat (8, S::pad,          { { glideTime, 500 }, { glideCurve, 2 } }),
+
+        // --- gesture presets (1.x): change the gestures only, never the pattern
         { "Init", {} },
 
-        { "808 Dive", {
+        { "Dive Bass", {
             { glideOn, 1 }, { glideTime, 90 }, { glideWindow, 40 },
             { diveOn, 1 }, { diveAmount, 12 }, { diveTime, 450 }, { diveCurve, 1 },
             { pressure, 0.9f }, { pressureShape, 0 }, { timbre, 0.35f }, { timbreShape, 2 } } },
@@ -97,9 +127,11 @@ void PresetManager::resetToDefaults()
     for (auto* p : state.processor.getParameters())
         if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (p))
         {
-            // Routing-related settings are not part of a gesture recipe.
+            // Routing-related settings are not part of a gesture recipe (and gesture presets keep
+            // the mode / sound; pattern presets set them explicitly).
             const auto id = rp->getParameterID();
-            if (id == ids::midiOutMode || id == ids::voices || id == ids::bendRange || id == ids::outputGain)
+            if (id == ids::midiOutMode || id == ids::voices || id == ids::bendRange || id == ids::outputGain
+                || id == ids::mode || id == ids::seqMono || id == ids::internalSound)
                 continue;
 
             rp->beginChangeGesture();
@@ -114,11 +146,18 @@ void PresetManager::loadFactory (int index)
     if (! juce::isPositiveAndBelow (index, (int) all.size()))
         return;
 
+    const auto& preset = all[(size_t) index];
     resetToDefaults();
-    for (auto& [id, v] : all[(size_t) index].values)
+    for (auto& [id, v] : preset.values)
         setPlain (id, v);
 
-    currentName = all[(size_t) index].name;
+    if (preset.pattern >= 0)
+    {
+        patterns.perform (tools::makeFactoryPattern (preset.pattern), "Load pattern: " + preset.name, true);
+        patterns.clearSelection();
+    }
+
+    currentName = preset.name;
 }
 
 bool PresetManager::saveUser (const juce::String& rawName)
@@ -143,6 +182,8 @@ bool PresetManager::saveUser (const juce::String& rawName)
             e->setAttribute ("value", (double) rp->convertFrom0to1 (rp->getValue()));
         }
 
+    xml.addChildElement (patterns.createXml().release());
+
     const bool ok = xml.writeTo (getUserPresetDirectory().getChildFile (name + ".bdpreset"));
     if (ok) currentName = name;
     return ok;
@@ -157,6 +198,9 @@ bool PresetManager::loadUser (const juce::String& name)
     resetToDefaults();
     for (auto* e : xml->getChildWithTagNameIterator ("PARAM"))
         setPlain (e->getStringAttribute ("id"), (float) e->getDoubleAttribute ("value"));
+
+    if (auto* pe = xml->getChildByName (Pattern::xmlTag))
+        patterns.perform (Pattern::fromXml (*pe), "Load preset: " + name, true);
 
     currentName = name;
     return true;

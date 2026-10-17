@@ -1,5 +1,6 @@
 #include "Parameters.h"
 #include "engine/ScaleLock.h"
+#include "engine/InternalSynth.h"
 
 namespace bd
 {
@@ -59,7 +60,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     layout.add (std::make_unique<APB> (pid (ids::glideOn),      "Glide",       true));
     layout.add (std::make_unique<APB> (pid (ids::chordGlideOn), "Chord Glide", false));
     layout.add (std::make_unique<APB> (pid (ids::vibratoOn),    "Vibrato",     false));
-    layout.add (std::make_unique<APB> (pid (ids::diveOn),       "808 Dive",    false));
+    layout.add (std::make_unique<APB> (pid (ids::diveOn),       "Dive",        false));
     layout.add (std::make_unique<APB> (pid (ids::riseOn),       "Rise",        false));
     layout.add (std::make_unique<APB> (pid (ids::wobbleOn),     "Wobble",      false));
     layout.add (std::make_unique<APB> (pid (ids::shakeOn),      "Shake",       false));
@@ -127,7 +128,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
     layout.add (std::make_unique<APB> (pid (ids::midiOutMode),    "MIDI Out Mode", false));
     layout.add (std::make_unique<APB> (pid (ids::bypassGestures), "Bypass Gestures", false));
     layout.add (std::make_unique<APF> (pid (ids::outputGain), "Output Gain", NR (-24.0f, 12.0f, 0.1f), 0.0f,
-                                       juce::AudioParameterFloatAttributes().withLabel ("dB")));
+                                       juce::AudioParameterFloatAttributes().withLabel ("dB")
+                                           .withStringFromValueFunction ([] (float v, int) { return juce::String (v, 1) + " dB"; })));
+
+    // --- 2.0: line sequencer + internal synth
+    layout.add (std::make_unique<APC> (pid (ids::mode), "Mode", juce::StringArray { "Live", "Draw" }, 1));
+    layout.add (std::make_unique<APB> (pid (ids::seqMono), "Mono Mode", false));
+    {
+        juce::StringArray sounds;
+        for (int i = 0; i < InternalSynth::numSounds; ++i) sounds.add (InternalSynth::getSoundName (i));
+        layout.add (std::make_unique<APC> (pid (ids::internalSound), "Internal Sound", sounds, 0));
+    }
 
     return layout;
 }
@@ -161,6 +172,7 @@ ParameterSnapshot::ParameterSnapshot (juce::AudioProcessorValueTreeState& s)
     p.timbreShape = get (ids::timbreShape); p.velToTimbre = get (ids::velToTimbre);
     p.bendRange = get (ids::bendRange);   p.voices = get (ids::voices);
     p.midiOut = get (ids::midiOutMode);   p.bypass = get (ids::bypassGestures); p.gain = get (ids::outputGain);
+    p.mode = get (ids::mode);             p.seqMono = get (ids::seqMono);       p.sound = get (ids::internalSound);
 }
 
 EngineSettings ParameterSnapshot::read() const noexcept

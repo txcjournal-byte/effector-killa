@@ -55,17 +55,18 @@ ChoiceBox::ChoiceBox (juce::AudioProcessorValueTreeState& state, const juce::Str
 
 void ChoiceBox::resized()
 {
+    // 2.0: caption on the left, combo on the right (one row)
     auto r = getLocalBounds();
-    r.removeFromTop (juce::jmax (11, getHeight() / 3));
+    r.removeFromLeft (juce::roundToInt ((float) getWidth() * captionFraction));
     combo.setBounds (r);
 }
 
 void ChoiceBox::paint (juce::Graphics& g)
 {
-    auto r = getLocalBounds().removeFromTop (juce::jmax (11, getHeight() / 3));
+    auto r = getLocalBounds().withWidth (juce::roundToInt ((float) getWidth() * captionFraction)).reduced (2, 0);
     g.setColour (pal::textDim);
-    g.setFont (fonts::mono (juce::jlimit (8.5f, 11.0f, (float) r.getHeight() * 0.8f), true));
-    g.drawFittedText (caption.toUpperCase(), r, juce::Justification::centredLeft, 1);
+    g.setFont (fonts::ui (juce::jlimit (10.0f, 13.5f, (float) getHeight() * 0.46f)));
+    g.drawFittedText (caption, r, juce::Justification::centredLeft, 1, 0.8f);
 }
 
 //==============================================================================
@@ -76,30 +77,25 @@ PillToggle::PillToggle (juce::AudioProcessorValueTreeState& state, const juce::S
     attachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (state, paramId, *this);
 }
 
-void PillToggle::paintButton (juce::Graphics& g, bool over, bool)
+void PillToggle::paintButton (juce::Graphics& g, bool over, bool down)
 {
-    auto r = getLocalBounds().toFloat().reduced (1.0f);
-    const float corner = r.getHeight() * 0.5f;
+    auto r = getLocalBounds().toFloat().reduced (0.5f);
+    const float corner = pal::metric::corner;
     const bool on = getToggleState();
 
+    g.setColour (down ? pal::ground1 : (over ? pal::raised : pal::panel));
+    g.fillRoundedRectangle (r, corner);
     if (on)
     {
-        g.setColour (pal::lime.withAlpha (0.18f));
-        g.fillRoundedRectangle (r.expanded (1.0f), corner);
-        g.setColour (pal::lime);
-        g.drawRoundedRectangle (r, corner, 1.2f);
-    }
-    else
-    {
-        g.setColour (pal::panel);
+        g.setColour (pal::cyan.withAlpha (0.16f));
         g.fillRoundedRectangle (r, corner);
-        g.setColour (over ? pal::cyan.withAlpha (0.6f) : pal::hairline.withAlpha (0.5f));
-        g.drawRoundedRectangle (r, corner, 1.0f);
     }
+    g.setColour (on ? pal::cyan.withAlpha (0.75f) : (over ? pal::textFaint : pal::hairline));
+    g.drawRoundedRectangle (r, corner, 1.0f);
 
-    g.setColour (on ? pal::lime : pal::textDim);
-    g.setFont (fonts::mono (juce::jlimit (8.5f, 11.5f, r.getHeight() * 0.55f), true));
-    g.drawFittedText (getButtonText().toUpperCase(), r.toNearestInt(), juce::Justification::centred, 1, 0.7f);
+    g.setColour (on ? pal::text : pal::textDim);
+    g.setFont (fonts::ui (juce::jlimit (10.0f, 13.5f, r.getHeight() * 0.44f), true));
+    g.drawFittedText (getButtonText().toUpperCase(), r.reduced (4.0f, 0.0f).toNearestInt(), juce::Justification::centred, 1, 0.7f);
 }
 
 } // namespace bd

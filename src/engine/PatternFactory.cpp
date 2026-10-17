@@ -238,6 +238,21 @@ namespace
         return p;
     }
 
+    Pattern unisonMelt()
+    {
+        // a minor chord whose three voices slide together into one unison note, then fan out again
+        Pattern p;
+        const float chordA[3] = { 60, 63, 67 }, unison = 67, chordB[3] = { 63, 67, 70 };
+        for (int v = 0; v < 3; ++v)
+        {
+            auto l = legato (0.0, 16.0, { { 0.0, chordA[v], 0 }, { 6.0, unison, 2.0 }, { 12.0, chordB[v], 1.5 } }, 0.75f);
+            l.pressure = { { 0.0, 0.35f }, { 6.0, 0.8f }, { 8.0, 1.0f }, { 12.0, 0.7f }, { 16.0, 0.4f } };
+            brighten (l, 0.3f, 0.75f);
+            p.add (l);
+        }
+        return p;
+    }
+
     struct Entry { const char* name; Pattern (*make)(); };
     const Entry entries[] = {
         { "Trap Glide Lead",    trapGlideLead },
@@ -248,6 +263,7 @@ namespace
         { "Pluck Runs",         pluckRuns },
         { "Sub Wobble",         subWobble },
         { "Dark Rise",          darkRise },
+        { "Unison Melt",        unisonMelt },
     };
 }
 

@@ -12,12 +12,12 @@ GesturePad::GesturePad (juce::AudioProcessorValueTreeState& state, const juce::S
 {
     setClickingTogglesState (true);
     attachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (state, paramId, *this);
-    setTooltip ("Click: toggle " + title + "   |   Right-click: show its controls");
+    setTooltip ("Click: switch " + title + " on/off for live notes  |  Right-click: show its controls");
 }
 
 void GesturePad::mouseDown (const juce::MouseEvent& e)
 {
-    if (e.mods.isPopupMenu())
+    if (e.mods.isPopupMenu() || selectOnly)
     {
         if (onSelect) onSelect();
         return;
@@ -27,7 +27,7 @@ void GesturePad::mouseDown (const juce::MouseEvent& e)
     if (onSelect) onSelect();
 }
 
-juce::Path GesturePad::makeIcon (juce::Rectangle<float> r) const
+juce::Path GesturePad::iconPath (Icon icon, juce::Rectangle<float> r)
 {
     using namespace juce;
     Path p;
@@ -116,74 +116,37 @@ void GesturePad::paintButton (juce::Graphics& g, bool over, bool down)
 {
     using namespace juce;
 
-    auto r = getLocalBounds().toFloat().reduced (3.0f);
-    const float corner = jmin (14.0f, r.getHeight() * 0.22f);
+    // 2.0: compact tile  [icon  NAME            o]
+    auto r = getLocalBounds().toFloat().reduced (0.5f);
+    const float corner = pal::metric::corner;
     const bool on = getToggleState();
-    const float breathe = on ? 0.5f + 0.5f * std::sin (phase * MathConstants<float>::twoPi) : 0.0f;
 
-    // outer glow
+    g.setColour (down ? pal::ground1 : ((over || selected) ? pal::raised : pal::panel));
+    g.fillRoundedRectangle (r, corner);
     if (on)
     {
-        for (int i = 3; i >= 1; --i)
-        {
-            g.setColour (accent.withAlpha (0.05f + 0.035f * breathe));
-            g.fillRoundedRectangle (r.expanded ((float) i * 2.5f), corner + (float) i * 2.5f);
-        }
-    }
-
-    // glass body
-    {
-        ColourGradient body (on ? accent.withAlpha (0.22f) : pal::ground1.withAlpha (0.75f), r.getTopLeft(),
-                             pal::ground0.withAlpha (0.92f), r.getBottomRight(), false);
-        g.setGradientFill (body);
+        g.setColour (accent.withAlpha (0.12f));
         g.fillRoundedRectangle (r, corner);
     }
+    g.setColour (selected ? pal::text.withAlpha (0.9f) : (on ? accent.withAlpha (0.5f) : (over ? pal::textFaint : pal::hairline)));
+    g.drawRoundedRectangle (r, corner, selected ? 1.5f : 1.0f);
 
-    // border
-    g.setColour (on ? accent.withAlpha (0.85f) : (over ? pal::cyan.withAlpha (0.45f) : pal::hairline.withAlpha (0.35f)));
-    g.drawRoundedRectangle (r, corner, on ? 1.4f : 1.0f);
+    auto content = r.reduced (r.getHeight() * 0.22f, r.getHeight() * 0.2f);
+    auto iconArea = content.removeFromLeft (content.getHeight() * 1.5f);
+    const auto iconPath = makeIcon (iconArea.reduced (0.0f, iconArea.getHeight() * 0.08f));
+    g.setColour (on ? accent : pal::textDim);
+    g.strokePath (iconPath, PathStrokeType (jmax (1.2f, r.getHeight() * 0.05f), PathStrokeType::curved, PathStrokeType::rounded));
 
-    if (selected)
-    {
-        g.setColour (pal::lime.withAlpha (0.9f));
-        const auto bar = Rectangle<float> (r.getWidth() * 0.32f, 2.5f).withCentre ({ r.getCentreX(), r.getBottom() - 4.0f });
-        g.fillRoundedRectangle (bar, 1.2f);
-    }
+    // on/off indicator
+    auto dot = content.removeFromRight (content.getHeight() * 0.7f);
+    g.setColour (on ? accent : pal::hairline);
+    g.fillEllipse (Rectangle<float> (6.0f, 6.0f).withCentre (dot.getCentre()));
 
-    // icon
-    auto content = r.reduced (r.getWidth() * 0.14f, r.getHeight() * 0.14f);
-    auto iconArea = content.removeFromTop (content.getHeight() * 0.56f).reduced (content.getWidth() * 0.08f, 2.0f);
-    const auto iconPath = makeIcon (iconArea);
-    const auto iconCol = on ? accent.interpolatedWith (pal::text, 0.25f) : pal::textDim.withAlpha (0.65f);
-
-    if (on)
-        BendDemonLookAndFeel::strokeGlow (g, iconPath, iconCol, 2.0f, 9.0f + 4.0f * breathe, 4);
-    else
-    {
-        g.setColour (iconCol);
-        g.strokePath (iconPath, PathStrokeType (1.6f, PathStrokeType::curved, PathStrokeType::rounded));
-    }
-
-    // node on icon end
-    if (on)
-    {
-        const auto end = iconPath.getCurrentPosition();
-        g.setColour (pal::lime.withAlpha (0.35f));
-        g.fillEllipse (Rectangle<float> (10.0f, 10.0f).withCentre (end));
-        g.setColour (pal::lime);
-        g.fillEllipse (Rectangle<float> (4.5f, 4.5f).withCentre (end));
-    }
-
-    // title
-    g.setColour (on ? pal::text : pal::textDim);
-    g.setFont (fonts::display (jlimit (9.0f, 14.0f, r.getHeight() * 0.14f), on ? 2 : 1));
-    g.drawFittedText (getButtonText(), content.toNearestInt(), Justification::centred, 1, 0.6f);
-
-    if (down)
-    {
-        g.setColour (Colours::white.withAlpha (0.06f));
-        g.fillRoundedRectangle (r, corner);
-    }
+    content.removeFromLeft (r.getHeight() * 0.2f);
+    g.setColour (on || selected ? pal::text : pal::textDim);
+    g.setFont (fonts::ui (jlimit (10.0f, 13.5f, r.getHeight() * 0.42f), true));
+    g.drawFittedText (getButtonText(), content.toNearestInt(), Justification::centredLeft, 1, 0.7f);
+    ignoreUnused (phase);
 }
 
 } // namespace bd

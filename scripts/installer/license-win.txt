@@ -83,7 +83,7 @@ keep the protection of the mandatory law of the country where you live.
   OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE.
 - Audio Unit is a trademark of Apple Inc.
-- Fonts: Unbounded and JetBrains Mono, licensed under the SIL Open Font License 1.1.
+- Fonts: Unbounded and Inter, licensed under the SIL Open Font License 1.1.
   The licence texts are installed with the Software.
 
 (c) 2026 TrapWin. All rights reserved. BEND DEMON and TrapWin are trademarks of TrapWin.

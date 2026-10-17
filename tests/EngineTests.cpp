@@ -18,6 +18,7 @@
 #include "engine/PatternPlayer.h"
 #include "engine/PatternTools.h"
 #include "engine/InternalSynth.h"
+#include "engine/CaptureRecorder.h"
 
 #include <map>
 #include <set>
@@ -1433,6 +1434,39 @@ public:
             expectWithinAbsoluteError (lastTime, p.lengthBeats() * 960.0, 1.0);
         }
 
+        beginTest ("MIDI import: our own MPE export comes back as the same lines");
+        {
+            const auto p = tools::makeFactoryPattern (2);
+            const auto file = tools::exportMidi (p, false, 48, 120.0);
+            Pattern back;
+            expect (tools::importMidi (file, 48, back));
+            expectEquals (back.lines.size(), p.lines.size());
+            expectEquals (back.bars, p.bars);
+            for (size_t i = 0; i < juce::jmin (back.lines.size(), p.lines.size()); ++i)
+                for (double t = 0.1; t < p.lines[i].length - 0.1; t += 0.25)
+                    expectWithinAbsoluteError (back.lines[i].curvePitchAt (t), p.lines[i].pitchAt (t), 0.12f);
+        }
+
+        beginTest ("MIDI import: a plain piano-roll chord on channel 1 becomes three lines");
+        {
+            juce::MidiMessageSequence seq;
+            for (int n : { 60, 64, 67 })
+            {
+                auto on = juce::MidiMessage::noteOn (1, n, (juce::uint8) 100);  on.setTimeStamp (0.0);
+                auto off = juce::MidiMessage::noteOff (1, n);                   off.setTimeStamp (960.0 * 2);
+                seq.addEvent (on); seq.addEvent (off);
+            }
+            seq.updateMatchedPairs();
+            juce::MidiFile f;
+            f.setTicksPerQuarterNote (960);
+            f.addTrack (seq);
+            Pattern back;
+            expect (tools::importMidi (f, 48, back));
+            expectEquals ((int) back.lines.size(), 3);
+            expectEquals (back.bars, 1);
+            for (auto& l : back.lines) expectWithinAbsoluteError (l.length, 2.0, 1.0e-6);
+        }
+
         beginTest ("MIDI export (mono): channel 1 only");
         {
             const auto p = tools::makeFactoryPattern (0);
@@ -1458,7 +1492,7 @@ public:
     {
         EngineSettings s = plainSettings();
 
-        beginTest ("808 Dive extends the line and bends down by the dive amount");
+        beginTest ("Dive extends the line and bends down by the dive amount");
         {
             Pattern p;
             const auto id = p.add (lineOf (0.0, 1.0, { { 0.0, 60.0f } }));
@@ -1701,6 +1735,83 @@ public:
     }
 };
 
+class CaptureRecorderTests final : public juce::UnitTest
+{
+public:
+    CaptureRecorderTests() : juce::UnitTest ("Line sequencer: capture recorder", "BendDemon") {}
+
+    static tools::CapturedEvent ev (double ppq, uint8_t type, uint8_t note, uint8_t ch = 2)
+    {
+        tools::CapturedEvent e; e.ppq = ppq; e.type = type; e.channel = ch; e.note = note; e.velocity = 100;
+        return e;
+    }
+
+    void runTest() override
+    {
+        beginTest ("Capture last N bars uses the newest pass, bar aligned");
+        {
+            CaptureRecorder rec;
+            // pass 1 (0..16), then the host loops back and plays 0..9.5
+            rec.add (ev (1.0, tools::CapturedEvent::noteOn, 60));
+            rec.add (ev (2.0, tools::CapturedEvent::noteOff, 60));
+            rec.add (ev (15.0, tools::CapturedEvent::noteOn, 62));
+            rec.add (ev (15.9, tools::CapturedEvent::noteOff, 62));
+            rec.add (ev (0.5, tools::CapturedEvent::noteOn, 64));
+            rec.add (ev (1.5, tools::CapturedEvent::noteOff, 64));
+            rec.add (ev (9.0, tools::CapturedEvent::noteOn, 67));
+            rec.add (ev (9.5, tools::CapturedEvent::noteOff, 67));
+
+            std::vector<PatternLine> lines;
+            double len = 0.0;
+            expect (rec.captureLast (2, 4, 48, lines, len));
+            expectWithinAbsoluteError (len, 8.0, 1.0e-9);   // bars 1..2 of the running pass (ends at bar 3 = beat 8)
+            expectEquals ((int) lines.size(), 1);
+            expectWithinAbsoluteError (lines[0].startPitch(), 64.0f, 1.0e-4f);
+            expectWithinAbsoluteError (lines[0].start, 0.5, 1.0e-9);
+
+            expect (rec.captureLast (4, 4, 48, lines, len));
+            expectWithinAbsoluteError (len, 8.0, 1.0e-9);   // the pass only covers 2 full bars so far
+        }
+
+        beginTest ("Armed capture records exactly one pass from the next boundary");
+        {
+            CaptureRecorder rec;
+            std::vector<PatternLine> out;
+            rec.arm (4.0);
+            expect (! rec.poll (1.0, true, 48, out));
+            expectWithinAbsoluteError (rec.getRecordStart(), 4.0, 1.0e-9);
+            rec.add (ev (2.0, tools::CapturedEvent::noteOn, 50));     // before the pass: ignored
+            rec.add (ev (3.0, tools::CapturedEvent::noteOff, 50));
+            expect (! rec.poll (4.05, true, 48, out));
+            expect (rec.isRecording());
+            rec.add (ev (4.5, tools::CapturedEvent::noteOn, 60));
+            rec.add (ev (6.0, tools::CapturedEvent::noteOff, 60));
+            expect (! rec.poll (7.0, true, 48, out));
+            expect (rec.poll (8.2, true, 48, out));
+            expect (! rec.isArmed());
+            expectEquals ((int) out.size(), 1);
+            expectWithinAbsoluteError (out[0].start, 0.5, 1.0e-9);
+            expectWithinAbsoluteError (out[0].length, 1.5, 1.0e-9);
+        }
+
+        beginTest ("Armed capture finishes on a host loop back to the start");
+        {
+            CaptureRecorder rec;
+            std::vector<PatternLine> out;
+            rec.arm (4.0);
+            expect (! rec.poll (0.0, true, 48, out));
+            expect (! rec.poll (0.1, true, 48, out));
+            expect (rec.isRecording());
+            rec.add (ev (1.0, tools::CapturedEvent::noteOn, 61));
+            rec.add (ev (3.95, tools::CapturedEvent::noteOff, 61));
+            expect (! rec.poll (3.9, true, 48, out));
+            expect (rec.poll (0.05, true, 48, out));      // FL wrapped to 0
+            expectEquals ((int) out.size(), 1);
+        }
+    }
+};
+
+static CaptureRecorderTests captureRecorderTests;
 static CurveTests          curveTests;
 static PatternStateTests   patternStateTests;
 static PlaybackTests       playbackTests;

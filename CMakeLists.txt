@@ -70,8 +70,8 @@ juce_add_binary_data(BendDemonBinaryData
         resources/fonts/Unbounded-Medium.ttf
         resources/fonts/Unbounded-Bold.ttf
         resources/fonts/Unbounded-Black.ttf
-        resources/fonts/JetBrainsMono-Regular.ttf
-        resources/fonts/JetBrainsMono-Bold.ttf)
+        resources/fonts/Inter-Medium.ttf
+        resources/fonts/Inter-SemiBold.ttf)
 
 if(UNIX AND NOT APPLE)
     set_target_properties(BendDemonBinaryData PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -111,6 +111,7 @@ set(BD_ENGINE_SOURCES
     src/engine/PatternTools.h       src/engine/PatternTools.cpp
     src/engine/PatternFactory.cpp
     src/engine/CaptureFifo.h
+    src/engine/CaptureRecorder.h    src/engine/CaptureRecorder.cpp
     src/engine/InternalSynth.h      src/engine/InternalSynth.cpp)
 
 # -------------------------------------------------------------------------------------
@@ -156,6 +157,7 @@ if(BEND_DEMON_BUILD_PLUGIN)
         src/Parameters.h                src/Parameters.cpp
         src/PluginProcessor.h           src/PluginProcessor.cpp
         src/PluginEditor.h              src/PluginEditor.cpp
+        src/PatternStore.h              src/PatternStore.cpp
         src/VisualFifo.h
         src/host/HostedPluginManager.h  src/host/HostedPluginManager.cpp
         src/presets/PresetManager.h     src/presets/PresetManager.cpp
@@ -166,6 +168,11 @@ if(BEND_DEMON_BUILD_PLUGIN)
         src/ui/GesturePad.h             src/ui/GesturePad.cpp
         src/ui/TopBar.h                 src/ui/TopBar.cpp
         src/ui/VoiceField.h             src/ui/VoiceField.cpp
+        src/ui/VoiceFieldDraw.cpp
+        src/ui/LineEditor.h             src/ui/LineEditor.cpp
+        src/ui/ExpressionLane.h         src/ui/ExpressionLane.cpp
+        src/ui/EditToolbar.h            src/ui/EditToolbar.cpp
+        src/ui/Inspector.h              src/ui/Inspector.cpp
         src/ui/SynthBrowser.h           src/ui/SynthBrowser.cpp)
 
     target_sources(BendDemon PRIVATE ${BD_PLUGIN_SOURCES})

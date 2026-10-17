@@ -16,30 +16,30 @@ BendDemonLookAndFeel::BendDemonLookAndFeel()
     setColour (ComboBox::backgroundColourId,        pal::panel);
     setColour (ComboBox::textColourId,              pal::text);
     setColour (ComboBox::outlineColourId,           pal::hairline);
-    setColour (ComboBox::arrowColourId,             pal::cyan);
-    setColour (PopupMenu::backgroundColourId,       pal::panel);
+    setColour (ComboBox::arrowColourId,             pal::textDim);
+    setColour (PopupMenu::backgroundColourId,       pal::ground1);
     setColour (PopupMenu::textColourId,             pal::text);
-    setColour (PopupMenu::highlightedBackgroundColourId, pal::violet.withAlpha (0.25f));
+    setColour (PopupMenu::highlightedBackgroundColourId, pal::cyan.withAlpha (0.14f));
     setColour (PopupMenu::highlightedTextColourId,  pal::text);
-    setColour (PopupMenu::headerTextColourId,       pal::cyan);
+    setColour (PopupMenu::headerTextColourId,       pal::textDim);
     setColour (TextButton::buttonColourId,          pal::panel);
     setColour (TextButton::textColourOffId,         pal::text);
-    setColour (TextButton::textColourOnId,          pal::ground0);
+    setColour (TextButton::textColourOnId,          pal::text);
     setColour (TextEditor::backgroundColourId,      pal::panel);
     setColour (TextEditor::textColourId,            pal::text);
-    setColour (TextEditor::highlightColourId,       pal::violet.withAlpha (0.4f));
+    setColour (TextEditor::highlightColourId,       pal::cyan.withAlpha (0.3f));
     setColour (TextEditor::outlineColourId,         pal::hairline);
     setColour (TextEditor::focusedOutlineColourId,  pal::cyan.withAlpha (0.6f));
     setColour (CaretComponent::caretColourId,       pal::cyan);
     setColour (ListBox::backgroundColourId,         Colours::transparentBlack);
     setColour (ListBox::textColourId,               pal::text);
-    setColour (ScrollBar::thumbColourId,            pal::violet.withAlpha (0.5f));
-    setColour (AlertWindow::backgroundColourId,     pal::panel);
+    setColour (ScrollBar::thumbColourId,            pal::hairline);
+    setColour (AlertWindow::backgroundColourId,     pal::ground1);
     setColour (AlertWindow::textColourId,           pal::text);
-    setColour (AlertWindow::outlineColourId,        pal::violet);
+    setColour (AlertWindow::outlineColourId,        pal::hairline);
     setColour (DocumentWindow::textColourId,        pal::text);
     setColour (ToggleButton::textColourId,          pal::text);
-    setColour (ToggleButton::tickColourId,          pal::lime);
+    setColour (ToggleButton::tickColourId,          pal::cyan);
     setColour (ProgressBar::foregroundColourId,     pal::cyan);
     setColour (ProgressBar::backgroundColourId,     pal::panel);
 }
@@ -50,7 +50,7 @@ void BendDemonLookAndFeel::strokeGlow (juce::Graphics& g, const juce::Path& p, j
     for (int i = layers; i >= 1; --i)
     {
         const float t = (float) i / (float) layers;
-        g.setColour (c.withMultipliedAlpha (0.10f * (1.0f - t) + 0.035f));
+        g.setColour (c.withMultipliedAlpha (0.07f * (1.0f - t) + 0.025f));
         g.strokePath (p, juce::PathStrokeType (coreWidth + glowWidth * t, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
     }
 
@@ -64,103 +64,120 @@ void BendDemonLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, in
 {
     using namespace juce;
 
-    auto bounds = Rectangle<float> ((float) x, (float) y, (float) w, (float) h).reduced (4.0f);
+    auto bounds = Rectangle<float> ((float) x, (float) y, (float) w, (float) h).reduced (3.0f);
     const float size   = jmin (bounds.getWidth(), bounds.getHeight());
     const auto  centre = bounds.getCentre();
     const float radius = size * 0.5f;
-    const float ringW  = jmax (2.5f, radius * 0.10f);
-    const float arcR   = radius - ringW * 1.6f;
+    const float ringW  = jmax (2.0f, radius * 0.09f);
+    const float arcR   = radius - ringW;
     const float angle  = a0 + pos * (a1 - a0);
-    const bool  enabled = s.isEnabled();
-    const auto  accent = s.findColour (Slider::rotarySliderFillColourId) == Colour()
-                            ? pal::cyan : s.findColour (Slider::rotarySliderFillColourId);
+    const auto  accent = s.findColour (Slider::rotarySliderFillColourId) == Colour() ? pal::cyan
+                                                                                     : s.findColour (Slider::rotarySliderFillColourId);
 
-    // body: dark glass disc with a faint inner gradient
-    {
-        ColourGradient body (pal::ground1.brighter (0.15f), centre.translated (-arcR * 0.4f, -arcR * 0.6f),
-                             pal::ground0, centre.translated (arcR * 0.5f, arcR * 0.8f), true);
-        g.setGradientFill (body);
-        g.fillEllipse (Rectangle<float> (arcR * 1.6f, arcR * 1.6f).withCentre (centre));
-        g.setColour (pal::hairline);
-        g.drawEllipse (Rectangle<float> (arcR * 1.6f, arcR * 1.6f).withCentre (centre), 1.0f);
-    }
+    g.setColour (pal::panel);
+    g.fillEllipse (Rectangle<float> (arcR * 1.5f, arcR * 1.5f).withCentre (centre));
+    g.setColour (s.isMouseOverOrDragging() ? pal::textFaint : pal::hairline);
+    g.drawEllipse (Rectangle<float> (arcR * 1.5f, arcR * 1.5f).withCentre (centre), 1.0f);
 
-    // track
     Path track;
     track.addCentredArc (centre.x, centre.y, arcR, arcR, 0.0f, a0, a1, true);
-    g.setColour (pal::textFaint.withMultipliedAlpha (0.45f));
+    g.setColour (pal::hairline);
     g.strokePath (track, PathStrokeType (ringW, PathStrokeType::curved, PathStrokeType::rounded));
 
-    // glowing value arc (gradient from cyan to the accent)
     if (pos > 0.001f)
     {
         Path arc;
         arc.addCentredArc (centre.x, centre.y, arcR, arcR, 0.0f, a0, angle, true);
-
-        const auto col = enabled ? accent : pal::textDim;
-        for (int i = 4; i >= 1; --i)
-        {
-            g.setColour (col.withAlpha (0.06f + 0.03f * (4 - i)));
-            g.strokePath (arc, PathStrokeType (ringW + (float) i * ringW * 0.9f, PathStrokeType::curved, PathStrokeType::rounded));
-        }
-
-        ColourGradient grad (pal::cyan, centre.translated (-arcR, arcR), col, centre.translated (arcR, -arcR), false);
-        g.setGradientFill (grad);
+        g.setColour (s.isEnabled() ? accent : pal::textDim);
         g.strokePath (arc, PathStrokeType (ringW, PathStrokeType::curved, PathStrokeType::rounded));
     }
 
-    // indicator node (lime dot at the arc tip)
-    const auto tip = centre.getPointOnCircumference (arcR, angle);
-    g.setColour (pal::lime.withAlpha (enabled ? 0.25f : 0.08f));
-    g.fillEllipse (Rectangle<float> (ringW * 3.6f, ringW * 3.6f).withCentre (tip));
-    g.setColour (enabled ? pal::lime : pal::textDim);
-    g.fillEllipse (Rectangle<float> (ringW * 1.5f, ringW * 1.5f).withCentre (tip));
+    const auto tip = centre.getPointOnCircumference (arcR * 0.72f, angle);
+    g.setColour (pal::text);
+    g.drawLine ({ centre.getPointOnCircumference (arcR * 0.35f, angle), tip }, jmax (1.5f, ringW * 0.8f));
+}
 
-    // centre value text
-    g.setColour (enabled ? pal::text : pal::textDim);
-    g.setFont (fonts::mono (jlimit (9.0f, 15.0f, radius * 0.30f), true));
-    g.drawFittedText (s.getTextFromValue (s.getValue()),
-                      Rectangle<float> (arcR * 1.5f, arcR * 0.7f).withCentre (centre).toNearestInt(),
-                      Justification::centred, 1, 0.8f);
+void BendDemonLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, int w, int h, float pos, float, float,
+                                             juce::Slider::SliderStyle style, juce::Slider& s)
+{
+    using namespace juce;
+
+    if (style != Slider::LinearBar)
+    {
+        LookAndFeel_V4::drawLinearSlider (g, x, y, w, h, pos, 0.0f, 0.0f, style, s);
+        return;
+    }
+
+    // Bar slider: [caption ......... value], the fill shows the value. Used for every parameter
+    // row in the inspector.
+    auto r = Rectangle<float> ((float) x, (float) y, (float) w, (float) h).reduced (0.5f);
+    const float corner = pal::metric::corner;
+    const bool hot = s.isMouseOverOrDragging() && s.isEnabled();
+
+    g.setColour (hot ? pal::raised : pal::panel);
+    g.fillRoundedRectangle (r, corner);
+
+    const float norm = (float) s.valueToProportionOfLength (s.getValue());
+    auto fill = r.reduced (1.0f).withWidth (jmax (0.0f, (r.getWidth() - 2.0f) * norm));
+    const auto accent = s.findColour (Slider::trackColourId) == Colour() ? pal::cyan : s.findColour (Slider::trackColourId);
+    g.setColour (accent.withAlpha (s.isEnabled() ? 0.20f : 0.08f));
+    g.fillRoundedRectangle (fill, corner - 1.0f);
+    if (norm > 0.0f)
+    {
+        g.setColour (accent.withAlpha (s.isEnabled() ? 0.9f : 0.3f));
+        g.fillRect (Rectangle<float> (fill.getRight() - 1.0f, fill.getY() + 2.0f, 2.0f, fill.getHeight() - 4.0f));
+    }
+
+    g.setColour (hot ? pal::textFaint : pal::hairline);
+    g.drawRoundedRectangle (r, corner, 1.0f);
+
+    const float fs = jlimit (10.0f, 13.5f, r.getHeight() * 0.46f);
+    auto text = r.reduced (8.0f, 0.0f);
+    g.setFont (fonts::ui (fs));
+    g.setColour (s.isEnabled() ? pal::textDim : pal::textFaint);
+    g.drawFittedText (s.getName(), text.toNearestInt(), Justification::centredLeft, 1, 0.8f);
+    g.setColour (s.isEnabled() ? pal::text : pal::textFaint);
+    g.setFont (fonts::mono (fs, true));
+    g.drawFittedText (s.getTextFromValue (s.getValue()), text.toNearestInt(), Justification::centredRight, 1, 0.8f);
 }
 
 //==============================================================================
-void BendDemonLookAndFeel::drawComboBox (juce::Graphics& g, int w, int h, bool, int, int, int, int, juce::ComboBox& box)
+void BendDemonLookAndFeel::drawComboBox (juce::Graphics& g, int w, int h, bool down, int, int, int, int, juce::ComboBox& box)
 {
     using namespace juce;
     auto r = Rectangle<float> (0, 0, (float) w, (float) h).reduced (0.5f);
-    const float corner = jmin (8.0f, r.getHeight() * 0.35f);
+    const bool hot = box.isMouseOver (true) || down;
 
-    g.setColour (pal::panel.withAlpha (0.85f));
-    g.fillRoundedRectangle (r, corner);
-    g.setColour (box.hasKeyboardFocus (true) || box.isMouseOver (true) ? pal::cyan.withAlpha (0.55f) : pal::hairline.withAlpha (0.35f));
-    g.drawRoundedRectangle (r, corner, 1.0f);
+    g.setColour (hot ? pal::raised : pal::panel);
+    g.fillRoundedRectangle (r, pal::metric::corner);
+    g.setColour (hot ? pal::textFaint : pal::hairline);
+    g.drawRoundedRectangle (r, pal::metric::corner, 1.0f);
 
-    // chevron
-    const float cx = (float) w - 12.0f, cy = (float) h * 0.5f;
+    const float cx = (float) w - 10.0f, cy = (float) h * 0.5f;
     Path chev;
-    chev.startNewSubPath (cx - 4.0f, cy - 2.0f);
-    chev.lineTo (cx, cy + 2.5f);
-    chev.lineTo (cx + 4.0f, cy - 2.0f);
-    g.setColour (pal::cyan);
-    g.strokePath (chev, PathStrokeType (1.6f, PathStrokeType::curved, PathStrokeType::rounded));
+    chev.startNewSubPath (cx - 3.5f, cy - 1.5f);
+    chev.lineTo (cx, cy + 2.0f);
+    chev.lineTo (cx + 3.5f, cy - 1.5f);
+    g.setColour (hot ? pal::text : pal::textDim);
+    g.strokePath (chev, PathStrokeType (1.4f, PathStrokeType::curved, PathStrokeType::rounded));
 }
 
 juce::Font BendDemonLookAndFeel::getComboBoxFont (juce::ComboBox& box)
 {
-    return fonts::mono (juce::jlimit (10.0f, 14.0f, (float) box.getHeight() * 0.48f));
+    return fonts::ui (juce::jlimit (10.0f, 13.5f, (float) box.getHeight() * 0.46f));
 }
 
 void BendDemonLookAndFeel::positionComboBoxText (juce::ComboBox& box, juce::Label& label)
 {
-    label.setBounds (6, 1, box.getWidth() - 24, box.getHeight() - 2);
+    label.setBounds (4, 0, box.getWidth() - 18, box.getHeight());
     label.setFont (getComboBoxFont (box));
+    label.setMinimumHorizontalScale (0.75f);
 }
 
 void BendDemonLookAndFeel::drawPopupMenuBackground (juce::Graphics& g, int w, int h)
 {
-    g.fillAll (pal::panel);
-    g.setColour (pal::violet.withAlpha (0.35f));
+    g.fillAll (pal::ground1);
+    g.setColour (pal::hairline);
     g.drawRect (0, 0, w, h, 1);
 }
 
@@ -178,31 +195,29 @@ void BendDemonLookAndFeel::drawPopupMenuItem (juce::Graphics& g, const juce::Rec
         return;
     }
 
-    auto r = area.reduced (3, 1);
+    auto r = area.reduced (4, 1);
     if (isHighlighted && isActive)
     {
-        ColourGradient grad (pal::cyan.withAlpha (0.22f), r.getTopLeft().toFloat(),
-                             pal::magenta.withAlpha (0.12f), r.getTopRight().toFloat(), false);
-        g.setGradientFill (grad);
-        g.fillRoundedRectangle (r.toFloat(), 4.0f);
+        g.setColour (pal::raised);
+        g.fillRoundedRectangle (r.toFloat(), 3.0f);
     }
 
     if (isTicked)
     {
-        g.setColour (pal::lime);
-        g.fillEllipse (Rectangle<float> (6.0f, 6.0f).withCentre ({ (float) r.getX() + 9.0f, (float) r.getCentreY() }));
+        g.setColour (pal::cyan);
+        g.fillRoundedRectangle (Rectangle<float> (3.0f, 12.0f).withCentre ({ (float) r.getX() + 8.0f, (float) r.getCentreY() }), 1.5f);
     }
 
     g.setColour (textColour != nullptr ? *textColour : (isActive ? pal::text : pal::textFaint));
     g.setFont (getPopupMenuFont());
-    g.drawFittedText (text, r.withTrimmedLeft (20).withTrimmedRight (hasSubMenu ? 16 : 6), Justification::centredLeft, 1);
+    g.drawFittedText (text, r.withTrimmedLeft (18).withTrimmedRight (hasSubMenu ? 16 : 6), Justification::centredLeft, 1);
 
     if (hasSubMenu)
     {
         const float x = (float) r.getRight() - 9.0f, y = (float) r.getCentreY();
         Path p; p.startNewSubPath (x - 2, y - 4); p.lineTo (x + 2, y); p.lineTo (x - 2, y + 4);
-        g.setColour (pal::cyan);
-        g.strokePath (p, PathStrokeType (1.5f));
+        g.setColour (pal::textDim);
+        g.strokePath (p, PathStrokeType (1.4f));
     }
 
     if (shortcut.isNotEmpty())
@@ -218,8 +233,8 @@ juce::Font BendDemonLookAndFeel::getPopupMenuFont()                       { retu
 
 void BendDemonLookAndFeel::drawPopupMenuSectionHeader (juce::Graphics& g, const juce::Rectangle<int>& area, const juce::String& text)
 {
-    g.setColour (pal::cyan);
-    g.setFont (fonts::display (10.5f, 1));
+    g.setColour (pal::textDim);
+    g.setFont (fonts::mono (11.0f, true));
     g.drawFittedText (text.toUpperCase(), area.reduced (12, 0), juce::Justification::bottomLeft, 1);
 }
 
@@ -228,53 +243,55 @@ void BendDemonLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button
 {
     using namespace juce;
     auto r = b.getLocalBounds().toFloat().reduced (0.5f);
-    const float corner = jmin (9.0f, r.getHeight() * 0.4f);
+    const float corner = pal::metric::corner;
     const bool on = b.getToggleState();
+    const bool enabled = b.isEnabled();
 
-    if (on)
-    {
-        ColourGradient grad (pal::cyan, r.getTopLeft(), pal::magenta, r.getBottomRight(), false);
-        grad.addColour (0.5, pal::violet);
-        g.setGradientFill (grad);
-        g.fillRoundedRectangle (r, corner);
-    }
-    else
-    {
-        g.setColour (pal::panel.withAlpha (down ? 1.0f : 0.8f));
-        g.fillRoundedRectangle (r, corner);
-    }
+    Colour fill = pal::panel;
+    if (on)                     fill = pal::cyan.withAlpha (0.16f);
+    if (enabled && over)        fill = on ? pal::cyan.withAlpha (0.22f) : pal::raised;
+    if (enabled && down)        fill = pal::ground1;
 
-    g.setColour (over ? pal::cyan.withAlpha (0.7f) : pal::hairline.withAlpha (0.4f));
+    g.setColour (pal::panel);
+    g.fillRoundedRectangle (r, corner);
+    g.setColour (fill);
+    g.fillRoundedRectangle (r, corner);
+
+    g.setColour (on ? pal::cyan.withAlpha (0.75f) : (enabled && over ? pal::textFaint : pal::hairline));
     g.drawRoundedRectangle (r, corner, 1.0f);
+}
+
+void BendDemonLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& b, bool, bool)
+{
+    g.setFont (getTextButtonFont (b, b.getHeight()));
+    g.setColour (! b.isEnabled() ? pal::textFaint : (b.getToggleState() ? pal::text : pal::text.withAlpha (0.9f)));
+    g.drawFittedText (b.getButtonText(), b.getLocalBounds().reduced (6, 0), juce::Justification::centred, 1, 0.75f);
 }
 
 juce::Font BendDemonLookAndFeel::getTextButtonFont (juce::TextButton&, int h)
 {
-    return fonts::mono (juce::jlimit (10.0f, 14.0f, (float) h * 0.45f), true);
+    return fonts::ui (juce::jlimit (10.0f, 13.5f, (float) h * 0.44f), true);
 }
 
 void BendDemonLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleButton& b, bool over, bool)
 {
     using namespace juce;
     auto r = b.getLocalBounds().toFloat();
-    const float d = jmin (14.0f, r.getHeight() - 4.0f);
-    auto dot = Rectangle<float> (d, d).withCentre ({ r.getX() + d * 0.5f + 2.0f, r.getCentreY() });
+    const float d = jmin (14.0f, r.getHeight() - 6.0f);
+    auto box = Rectangle<float> (d, d).withCentre ({ r.getX() + d * 0.5f + 2.0f, r.getCentreY() });
 
-    g.setColour (pal::panel);
-    g.fillEllipse (dot);
-    g.setColour (over ? pal::cyan : pal::hairline.withAlpha (0.6f));
-    g.drawEllipse (dot, 1.0f);
-
+    g.setColour (b.getToggleState() ? pal::cyan.withAlpha (0.2f) : pal::panel);
+    g.fillRoundedRectangle (box, 3.0f);
+    g.setColour (b.getToggleState() ? pal::cyan : (over ? pal::textFaint : pal::hairline));
+    g.drawRoundedRectangle (box, 3.0f, 1.0f);
     if (b.getToggleState())
     {
-        g.setColour (pal::lime.withAlpha (0.3f));
-        g.fillEllipse (dot.expanded (3.0f));
-        g.setColour (pal::lime);
-        g.fillEllipse (dot.reduced (3.0f));
+        g.setColour (pal::cyan);
+        g.fillRoundedRectangle (box.reduced (3.5f), 1.5f);
     }
 
     g.setColour (b.isEnabled() ? pal::text : pal::textDim);
-    g.setFont (fonts::mono (jlimit (10.0f, 13.0f, r.getHeight() * 0.55f)));
+    g.setFont (fonts::mono (jlimit (10.0f, 12.5f, r.getHeight() * 0.5f)));
     g.drawFittedText (b.getButtonText(), r.withTrimmedLeft (d + 8.0f).toNearestInt(), Justification::centredLeft, 1);
 }
 
@@ -283,7 +300,7 @@ juce::Rectangle<int> BendDemonLookAndFeel::getTooltipBounds (const juce::String&
 {
     juce::GlyphArrangement ga;
     ga.addLineOfText (fonts::mono (12.0f), text, 0.0f, 0.0f);
-    const int w = juce::jmin (420, (int) ga.getBoundingBox (0, -1, true).getWidth() + 22);
+    const int w = juce::jmin (560, (int) ga.getBoundingBox (0, -1, true).getWidth() + 22);
     const int h = 26;
     return juce::Rectangle<int> (pos.x > parent.getCentreX() ? pos.x - (w + 12) : pos.x + 18,
                                  pos.y > parent.getCentreY() ? pos.y - (h + 8)  : pos.y + 14, w, h).constrainedWithin (parent);
@@ -292,10 +309,10 @@ juce::Rectangle<int> BendDemonLookAndFeel::getTooltipBounds (const juce::String&
 void BendDemonLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& text, int w, int h)
 {
     auto r = juce::Rectangle<float> (0, 0, (float) w, (float) h);
-    g.setColour (pal::panel.withAlpha (0.96f));
-    g.fillRoundedRectangle (r, 6.0f);
-    g.setColour (pal::cyan.withAlpha (0.45f));
-    g.drawRoundedRectangle (r.reduced (0.5f), 6.0f, 1.0f);
+    g.setColour (pal::raised);
+    g.fillRoundedRectangle (r, 4.0f);
+    g.setColour (pal::hairline);
+    g.drawRoundedRectangle (r.reduced (0.5f), 4.0f, 1.0f);
     g.setColour (pal::text);
     g.setFont (fonts::mono (12.0f));
     g.drawFittedText (text, r.reduced (10.0f, 2.0f).toNearestInt(), juce::Justification::centredLeft, 1, 0.8f);
@@ -303,28 +320,28 @@ void BendDemonLookAndFeel::drawTooltip (juce::Graphics& g, const juce::String& t
 
 juce::Font BendDemonLookAndFeel::getLabelFont (juce::Label& l)
 {
-    return fonts::mono (juce::jlimit (9.0f, 14.0f, (float) l.getHeight() * 0.7f));
+    return fonts::mono (juce::jlimit (10.0f, 13.0f, (float) l.getHeight() * 0.6f));
 }
 
 void BendDemonLookAndFeel::drawScrollbar (juce::Graphics& g, juce::ScrollBar&, int x, int y, int w, int h, bool vertical,
                                           int thumbStart, int thumbSize, bool over, bool)
 {
-    juce::Rectangle<float> thumb = vertical ? juce::Rectangle<float> ((float) x + 2, (float) thumbStart, (float) w - 4, (float) thumbSize)
-                                            : juce::Rectangle<float> ((float) thumbStart, (float) y + 2, (float) thumbSize, (float) h - 4);
-    g.setColour (pal::violet.withAlpha (over ? 0.7f : 0.4f));
+    juce::Rectangle<float> thumb = vertical ? juce::Rectangle<float> ((float) x + 3, (float) thumbStart, (float) w - 6, (float) thumbSize)
+                                            : juce::Rectangle<float> ((float) thumbStart, (float) y + 3, (float) thumbSize, (float) h - 6);
+    g.setColour (over ? pal::textFaint : pal::hairline);
     g.fillRoundedRectangle (thumb, 3.0f);
 }
 
 void BendDemonLookAndFeel::fillTextEditorBackground (juce::Graphics& g, int w, int h, juce::TextEditor&)
 {
     g.setColour (pal::panel);
-    g.fillRoundedRectangle (0, 0, (float) w, (float) h, 6.0f);
+    g.fillRoundedRectangle (0, 0, (float) w, (float) h, 4.0f);
 }
 
 void BendDemonLookAndFeel::drawTextEditorOutline (juce::Graphics& g, int w, int h, juce::TextEditor& e)
 {
     g.setColour (e.hasKeyboardFocus (true) ? pal::cyan.withAlpha (0.6f) : pal::hairline);
-    g.drawRoundedRectangle (0.5f, 0.5f, (float) w - 1, (float) h - 1, 6.0f, 1.0f);
+    g.drawRoundedRectangle (0.5f, 0.5f, (float) w - 1, (float) h - 1, 4.0f, 1.0f);
 }
 
 void BendDemonLookAndFeel::drawDocumentWindowTitleBar (juce::DocumentWindow& win, juce::Graphics& g, int w, int h,

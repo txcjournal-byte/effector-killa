@@ -1,6 +1,6 @@
 /*
     TrapWin BEND DEMON
-    GesturePad.h - large glowing gesture toggle with a mini curve icon (GLIDE, 808 DIVE, ...).
+    GesturePad.h - large glowing gesture toggle with a mini curve icon (SLIDE, DIVE, ...).
 */
 #pragma once
 
@@ -29,10 +29,17 @@ public:
 
     std::function<void()> onSelect;
 
+    /** 2.0: a click only selects the tile (shows its settings); the on/off state is shown as a dot. */
+    void setSelectOnly (bool b)         { selectOnly = b; setClickingTogglesState (! b); }
+
     void mouseDown (const juce::MouseEvent&) override;
 
+    /** The mini curve of a gesture, fitted into `r` (also used by the APPLY buttons). */
+    static juce::Path iconPath (Icon, juce::Rectangle<float> r);
+
 private:
-    juce::Path makeIcon (juce::Rectangle<float>) const;
+    juce::Path makeIcon (juce::Rectangle<float> r) const { return iconPath (icon, r); }
+    bool selectOnly = false;
 
     Icon icon;
     juce::Colour accent;

@@ -2,6 +2,7 @@
 #include "Palette.h"
 #include "Fonts.h"
 #include "LookAndFeel.h"
+#include "LineEditor.h"
 #include <cmath>
 
 namespace bd
@@ -19,7 +20,7 @@ VoiceField::VoiceField (VisualFifo& f) : fifo (f)
     std::fill (std::begin (activeStroke), std::end (activeStroke), -1);
     strokes.reserve (kMaxStrokes);
     setOpaque (true);
-    setTooltip ("VOICE FIELD - click to change how many bars are shown");
+    setTooltip ("LIVE VIEW - click to show 1 / 2 / 4 / 8 bars");
 }
 
 //==============================================================================
@@ -178,6 +179,23 @@ void VoiceField::prune()
 void VoiceField::tick (float t)
 {
     time = t;
+
+    if (drawMode)
+    {
+        // live strokes are not shown on the pattern canvas (different time base)
+        fifo.drain ([] (const VisualEvent&) {});
+        strokes.clear();
+        std::fill (std::begin (activeStroke), std::end (activeStroke), -1);
+
+        dimension += (dimensionTarget - dimension) * 0.12f;
+        if (std::abs (dimension - dimensionTarget) < 0.001f)
+            dimension = dimensionTarget;
+        updateProjectionFit();
+        updateDrawView();
+        repaint();
+        return;
+    }
+
     updateView();
     fifo.drain ([this] (const VisualEvent& e) { consume (e); });
     prune();
@@ -215,6 +233,9 @@ float VoiceField::uOf (double beat, float& alpha) const noexcept
 {
     float u = (float) ((beat - view.viewStart) / view.viewBeats);
     alpha = 1.0f;
+
+    if (drawMode)
+        return u;
 
     if (view.pageMode)
     {
@@ -288,9 +309,28 @@ float VoiceField::depthScale (float v, float z) const noexcept
 
 void VoiceField::resized()
 {
-    field = getLocalBounds().toFloat().reduced (getWidth() * 0.035f, getHeight() * 0.07f);
+    layoutField();
     updateProjectionFit();
     renderBackgroundImage();
+    patternLayerKey.clear();
+}
+
+void VoiceField::layoutField()
+{
+    if (drawMode)
+    {
+        const float s = getUiScale();
+        auto b = getLocalBounds().toFloat();
+        b.removeFromLeft (48.0f * s);     // piano keys
+        b.removeFromTop (24.0f * s);      // bar ruler
+        b.removeFromRight (6.0f * s);
+        b.removeFromBottom (4.0f * s);
+        field = b;
+    }
+    else
+    {
+        field = getLocalBounds().toFloat().reduced (getWidth() * 0.035f, getHeight() * 0.07f);
+    }
 }
 
 void VoiceField::renderBackgroundImage()
@@ -305,37 +345,11 @@ void VoiceField::renderBackgroundImage()
 void VoiceField::drawBackground (juce::Graphics& g)
 {
     using namespace juce;
+    // 2.0: calm graphite with a very soft centre light (no nebula / stars)
     const auto b = getLocalBounds().toFloat();
-
-    ColourGradient radial (pal::ground1, b.getCentreX(), b.getCentreY() * 0.9f,
-                           pal::ground0, b.getX(), b.getY(), true);
+    g.fillAll (pal::ground0);
+    ColourGradient radial (Colour (0xff121620), b.getCentreX(), b.getCentreY(), pal::ground0, b.getX(), b.getY(), true);
     g.setGradientFill (radial);
-    g.fillAll();
-
-    // faint coloured nebula washes
-    ColourGradient c1 (pal::cyan.withAlpha (0.06f), b.getWidth() * 0.2f, b.getHeight() * 0.8f,
-                       Colours::transparentBlack, b.getWidth() * 0.55f, b.getHeight() * 0.2f, true);
-    g.setGradientFill (c1);
-    g.fillAll();
-    ColourGradient c2 (pal::magenta.withAlpha (0.05f), b.getWidth() * 0.85f, b.getHeight() * 0.25f,
-                       Colours::transparentBlack, b.getWidth() * 0.45f, b.getHeight() * 0.9f, true);
-    g.setGradientFill (c2);
-    g.fillAll();
-
-    // star dust
-    Random rng (42);
-    for (int i = 0; i < 160; ++i)
-    {
-        const float x = rng.nextFloat() * b.getWidth(), y = rng.nextFloat() * b.getHeight();
-        const float r = 0.4f + rng.nextFloat() * 0.9f;
-        g.setColour (pal::text.withAlpha (0.04f + rng.nextFloat() * 0.10f));
-        g.fillEllipse (x, y, r, r);
-    }
-
-    // vignette
-    ColourGradient vig (Colours::transparentBlack, b.getCentreX(), b.getCentreY(),
-                        Colours::black.withAlpha (0.55f), 0.0f, 0.0f, true);
-    g.setGradientFill (vig);
     g.fillAll();
 }
 
@@ -379,7 +393,7 @@ void VoiceField::drawGrid (juce::Graphics& g)
         if (bar && i < totalBeats)
         {
             g.setColour (pal::textFaint);
-            g.setFont (fonts::mono (10.0f));
+            g.setFont (fonts::ui (juce::jmax (10.0f, 11.5f * getUiScale())));
             const auto p = project (u, 1, 0);
             const int barNo = (int) std::floor (view.viewStart / view.viewBeats * numBars + 0.0001) + i / bpb + 1;
             g.drawText (view.pageMode ? String (barNo) : String (), Rectangle<float> (p.x + 4, p.y - 2, 40, 12), Justification::left);
@@ -393,7 +407,7 @@ void VoiceField::drawGrid (juce::Graphics& g)
         const float v = vOf ((float) n);
         line (project (0, v, 0), project (1, v, 0), pal::cyan.withAlpha (0.07f), 0.8f);
         g.setColour (pal::textFaint);
-        g.setFont (fonts::mono (10.0f));
+        g.setFont (fonts::ui (juce::jmax (10.0f, 11.5f * getUiScale())));
         const auto p = project (0, v, 0);
         g.drawText ("C" + String (n / 12 - 1), Rectangle<float> (p.x - 30, p.y - 6, 26, 12), Justification::right);
     }
@@ -409,7 +423,6 @@ void VoiceField::drawStroke (juce::Graphics& g, const Stroke& s)
     const bool active = s.endBeat < 0.0;
 
     // Build screen-space polylines, splitting where the page wraps (u jumps)
-    struct SP { Point<float> p; float half; float timbre; float alpha; float u; };
     std::vector<SP> pts;
     pts.reserve (s.pts.size() + 1);
 
@@ -463,85 +476,7 @@ void VoiceField::drawStroke (juce::Graphics& g, const Stroke& s)
         segStart = i;
         if (b - a < 2) continue;
 
-        float alpha = 0.0f;
-        for (size_t k = a; k < b; ++k) alpha = jmax (alpha, pts[k].alpha);
-        if (alpha <= 0.01f) continue;
-
-        // ribbon polygon
-        Path ribbon, core;
-        auto normalAt = [&] (size_t k)
-        {
-            const auto p0 = pts[k > a ? k - 1 : k].p, p1 = pts[k + 1 < b ? k + 1 : k].p;
-            auto d = p1 - p0;
-            const float len = jmax (0.001f, d.getDistanceFromOrigin());
-            return Point<float> (-d.y / len, d.x / len);
-        };
-
-        for (size_t k = a; k < b; ++k)
-        {
-            const auto n = normalAt (k) * pts[k].half;
-            if (k == a) ribbon.startNewSubPath (pts[k].p + n); else ribbon.lineTo (pts[k].p + n);
-            if (k == a) core.startNewSubPath (pts[k].p);       else core.lineTo (pts[k].p);
-        }
-        for (size_t k = b; k-- > a;)
-            ribbon.lineTo (pts[k].p - normalAt (k) * pts[k].half);
-        ribbon.closeSubPath();
-
-        // colour: timbre + position in time
-        const auto& first = pts[a];
-        const auto& last  = pts[b - 1];
-        const float tStart = jlimit (0.0f, 1.0f, 0.55f * first.timbre + 0.45f * first.u);
-        const float tEnd   = jlimit (0.0f, 1.0f, 0.55f * last.timbre  + 0.45f * last.u);
-        const auto cA = pal::ribbon (tStart), cB = pal::ribbon (tEnd);
-
-        ColourGradient fill (cA.withAlpha (0.20f * alpha), first.p, cB.withAlpha (0.30f * alpha), last.p, false);
-        g.setGradientFill (fill);
-        g.fillPath (ribbon);
-
-        ColourGradient edge (cA.withAlpha (0.35f * alpha), first.p, cB.withAlpha (0.45f * alpha), last.p, false);
-        g.setGradientFill (edge);
-        g.strokePath (ribbon, PathStrokeType (0.8f));
-
-        // glow + bright core line (actual pitch incl. bends)
-        for (int layer = 3; layer >= 1; --layer)
-        {
-            ColourGradient glow (cA.withAlpha (0.07f * alpha), first.p, cB.withAlpha (0.09f * alpha), last.p, false);
-            g.setGradientFill (glow);
-            g.strokePath (core, PathStrokeType (1.5f + (float) layer * 3.2f * uiScale, PathStrokeType::curved, PathStrokeType::rounded));
-        }
-
-        ColourGradient coreCol (cA.brighter (0.6f).withAlpha (0.95f * alpha), first.p,
-                                cB.brighter (0.6f).withAlpha (0.95f * alpha), last.p, false);
-        g.setGradientFill (coreCol);
-        g.strokePath (core, PathStrokeType (1.4f * uiScale, PathStrokeType::curved, PathStrokeType::rounded));
-
-        // sparks travelling along live voices
-        if (active && b == pts.size())
-        {
-            const float len = core.getLength();
-            if (len > 10.0f)
-                for (int k = 0; k < 4; ++k)
-                {
-                    const float f = std::fmod (time * 0.35f + s.seed + (float) k * 0.25f, 1.0f);
-                    const auto p = core.getPointAlongPath (len * f);
-                    const float tw = 0.5f + 0.5f * std::sin (time * 9.0f + (float) k * 2.1f + s.seed * 10.0f);
-                    g.setColour (Colours::white.withAlpha (0.18f * tw * alpha));
-                    g.fillEllipse (Rectangle<float> (9.0f, 9.0f).withCentre (p));
-                    g.setColour (pal::text.withAlpha ((0.5f + 0.5f * tw) * alpha));
-                    g.fillEllipse (Rectangle<float> (2.6f, 2.6f).withCentre (p));
-                }
-        }
-
-        // head
-        if (active && b == pts.size())
-        {
-            const auto p = pts[b - 1].p;
-            const float pulse = 0.5f + 0.5f * std::sin (time * 6.0f + s.seed * 6.0f);
-            g.setColour (cB.withAlpha (0.25f));
-            g.fillEllipse (Rectangle<float> (18.0f + 6.0f * pulse, 18.0f + 6.0f * pulse).withCentre (p));
-            g.setColour (Colours::white);
-            g.fillEllipse (Rectangle<float> (5.0f, 5.0f).withCentre (p));
-        }
+        drawRibbon (g, pts, a, b, active && b == pts.size(), s.seed, 1.0f, true);
     }
 
     // nodes
@@ -595,6 +530,95 @@ void VoiceField::drawStroke (juce::Graphics& g, const Stroke& s)
     }
 }
 
+void VoiceField::drawRibbon (juce::Graphics& g, const std::vector<SP>& pts, size_t a, size_t b, bool active,
+                             float seed, float emphasis, bool sparks)
+{
+    using namespace juce;
+    const float uiScale = jmax (0.6f, field.getHeight() / 480.0f);
+    {
+        float alpha = 0.0f;
+        for (size_t k = a; k < b; ++k) alpha = jmax (alpha, pts[k].alpha);
+        if (alpha <= 0.01f) return;
+
+        // ribbon polygon
+        Path ribbon, core;
+        auto normalAt = [&] (size_t k)
+        {
+            const auto p0 = pts[k > a ? k - 1 : k].p, p1 = pts[k + 1 < b ? k + 1 : k].p;
+            auto d = p1 - p0;
+            const float len = jmax (0.001f, d.getDistanceFromOrigin());
+            return Point<float> (-d.y / len, d.x / len);
+        };
+
+        for (size_t k = a; k < b; ++k)
+        {
+            const auto n = normalAt (k) * pts[k].half;
+            if (k == a) ribbon.startNewSubPath (pts[k].p + n); else ribbon.lineTo (pts[k].p + n);
+            if (k == a) core.startNewSubPath (pts[k].p);       else core.lineTo (pts[k].p);
+        }
+        for (size_t k = b; k-- > a;)
+            ribbon.lineTo (pts[k].p - normalAt (k) * pts[k].half);
+        ribbon.closeSubPath();
+
+        // colour: timbre + position in time
+        const auto& first = pts[a];
+        const auto& last  = pts[b - 1];
+        const float tStart = jlimit (0.0f, 1.0f, 0.55f * first.timbre + 0.45f * first.u);
+        const float tEnd   = jlimit (0.0f, 1.0f, 0.55f * last.timbre  + 0.45f * last.u);
+        const auto cA = pal::ribbon (tStart), cB = pal::ribbon (tEnd);
+
+        ColourGradient fill (cA.withAlpha (0.20f * alpha * emphasis), first.p, cB.withAlpha (0.30f * alpha), last.p, false);
+        g.setGradientFill (fill);
+        g.fillPath (ribbon);
+
+        ColourGradient edge (cA.withAlpha (0.35f * alpha), first.p, cB.withAlpha (0.45f * alpha), last.p, false);
+        g.setGradientFill (edge);
+        g.strokePath (ribbon, PathStrokeType (0.8f));
+
+        // glow + bright core line (actual pitch incl. bends)
+        for (int layer = 3; layer >= 1; --layer)
+        {
+            ColourGradient glow (cA.withAlpha (0.07f * alpha), first.p, cB.withAlpha (0.09f * alpha), last.p, false);
+            g.setGradientFill (glow);
+            g.strokePath (core, PathStrokeType (1.5f + (float) layer * 3.2f * uiScale, PathStrokeType::curved, PathStrokeType::rounded));
+        }
+
+        ColourGradient coreCol (cA.brighter (0.6f).withAlpha (jmin (1.0f, 0.95f * alpha * emphasis)), first.p,
+                                cB.brighter (0.6f).withAlpha (jmin (1.0f, 0.95f * alpha * emphasis)), last.p, false);
+        g.setGradientFill (coreCol);
+        g.strokePath (core, PathStrokeType (1.4f * uiScale, PathStrokeType::curved, PathStrokeType::rounded));
+
+        // sparks travelling along live voices
+        if (active)
+        {
+            const float len = core.getLength();
+            if (len > 10.0f)
+                for (int k = 0; k < 4; ++k)
+                {
+                    const float f = std::fmod (time * 0.35f + seed + (float) k * 0.25f, 1.0f);
+                    const auto p = core.getPointAlongPath (len * f);
+                    const float tw = 0.5f + 0.5f * std::sin (time * 9.0f + (float) k * 2.1f + seed * 10.0f);
+                    g.setColour (Colours::white.withAlpha (0.18f * tw * alpha));
+                    g.fillEllipse (Rectangle<float> (9.0f, 9.0f).withCentre (p));
+                    g.setColour (pal::text.withAlpha ((0.5f + 0.5f * tw) * alpha));
+                    g.fillEllipse (Rectangle<float> (2.6f, 2.6f).withCentre (p));
+                }
+        }
+
+        // head
+        if (active)
+        {
+            const auto p = pts[b - 1].p;
+            const float pulse = 0.5f + 0.5f * std::sin (time * 6.0f + seed * 6.0f);
+            g.setColour (cB.withAlpha (0.25f));
+            g.fillEllipse (Rectangle<float> (18.0f + 6.0f * pulse, 18.0f + 6.0f * pulse).withCentre (p));
+            g.setColour (Colours::white);
+            g.fillEllipse (Rectangle<float> (5.0f, 5.0f).withCentre (p));
+        }
+    }
+    ignoreUnused (sparks);
+}
+
 void VoiceField::drawPlayhead (juce::Graphics& g)
 {
     using namespace juce;
@@ -613,7 +637,7 @@ void VoiceField::drawPlayhead (juce::Graphics& g)
         trail.lineTo (top);
         trail.lineTo (project (u0, 1.02f, 0));
         trail.closeSubPath();
-        ColourGradient grad (pal::cyan.withAlpha (0.0f), project (u0, 0.5f, 0), pal::cyan.withAlpha (0.10f), project (u, 0.5f, 0), false);
+        ColourGradient grad (pal::cyan.withAlpha (0.0f), project (u0, 0.5f, 0), pal::cyan.withAlpha (0.05f), project (u, 0.5f, 0), false);
         g.setGradientFill (grad);
         g.fillPath (trail);
     }
@@ -631,21 +655,12 @@ void VoiceField::drawPlayhead (juce::Graphics& g)
         g.fillPath (plane);
     }
 
-    // soft beam
-    for (int i = 4; i >= 1; --i)
-    {
-        g.setColour (pal::cyan.withAlpha (0.035f));
-        g.drawLine ({ bottom, top }, w * (float) i / 4.0f);
-    }
-
-    ColourGradient core (pal::cyan.withAlpha (0.0f), top, pal::text.withAlpha (0.95f), bottom, false);
-    core.addColour (0.5, pal::cyan.withAlpha (0.9f));
-    g.setGradientFill (core);
-    g.drawLine ({ bottom, top }, 1.6f);
-
-    // base flare
-    g.setColour (pal::cyan.withAlpha (0.25f));
-    g.fillEllipse (Rectangle<float> (w * 0.9f, 8.0f).withCentre (bottom));
+    // calm beam: a soft 6 px halo + a crisp core line
+    g.setColour (pal::cyan.withAlpha (0.10f));
+    g.drawLine ({ bottom, top }, 6.0f);
+    g.setColour (pal::cyan.withAlpha (0.95f));
+    g.drawLine ({ bottom, top }, 1.5f);
+    ignoreUnused (w);
 }
 
 void VoiceField::paint (juce::Graphics& g)
@@ -654,6 +669,12 @@ void VoiceField::paint (juce::Graphics& g)
         g.drawImageAt (bgImage, 0, 0);
     else
         g.fillAll (pal::ground0);
+
+    if (drawMode)
+    {
+        paintDrawMode (g);
+        return;
+    }
 
     drawGrid (g);
 
@@ -671,9 +692,11 @@ void VoiceField::paint (juce::Graphics& g)
 
     // HUD
     g.setColour (pal::textDim);
-    g.setFont (fonts::mono (11.0f, true));
-    g.drawText ("VOICE FIELD", getLocalBounds().reduced (14, 8), juce::Justification::topLeft);
-    g.setFont (fonts::mono (11.0f));
+    const float hudScale = getUiScale();
+    g.setFont (fonts::ui (juce::jmax (10.0f, 12.0f * hudScale), true));
+    g.drawText ("LIVE  -  what the gestures do to your notes", getLocalBounds().reduced (14, 8).withTrimmedLeft (juce::roundToInt (52 * hudScale)),
+                juce::Justification::topLeft);
+    g.setFont (fonts::ui (juce::jmax (10.0f, 12.0f * hudScale)));
     g.setColour (pal::textFaint);
     g.drawText (juce::String (numBars) + (numBars == 1 ? " BAR" : " BARS") + juce::String (juce::CharPointer_UTF8 (view.pageMode ? "  \xc2\xb7  SYNCED" : "  \xc2\xb7  FREE")),
                 getLocalBounds().reduced (14, 8), juce::Justification::topRight);
@@ -681,19 +704,141 @@ void VoiceField::paint (juce::Graphics& g)
     if (strokes.empty() && hint.isNotEmpty())
     {
         g.setColour (pal::textDim.withAlpha (0.8f));
-        g.setFont (fonts::mono (13.0f));
+        g.setFont (fonts::ui (juce::jmax (11.0f, 15.0f * getUiScale())));
         g.drawFittedText (hint, getLocalBounds().reduced (40), juce::Justification::centred, 3);
     }
 }
 
-void VoiceField::mouseDown (const juce::MouseEvent&)
+void VoiceField::mouseDown (const juce::MouseEvent& e)
 {
+    if (drawMode)
+    {
+        if (! field.contains (e.position))
+            return;   // keys / ruler (double-click = fit the view)
+
+        if (canEdit() && controller != nullptr)
+        {
+            // keys only while the user works in the canvas (see keyPressed / mouseExit)
+            if (! hasKeyboardFocus (false))
+                grabKeyboardFocus();
+            controller->mouseDown (e);
+        }
+        return;
+    }
+
     static constexpr int options[] = { 1, 2, 4, 8 };
     int next = 4;
     for (size_t i = 0; i < 4; ++i)
         if (options[i] == numBars) { next = options[(i + 1) % 4]; break; }
     setBars (next);
     prune();
+}
+
+
+void VoiceField::mouseDrag (const juce::MouseEvent& e)
+{
+    if (drawMode && canEdit() && controller != nullptr) controller->mouseDrag (e);
+}
+
+void VoiceField::mouseUp (const juce::MouseEvent& e)
+{
+    if (drawMode && canEdit() && controller != nullptr) controller->mouseUp (e);
+}
+
+void VoiceField::mouseMove (const juce::MouseEvent& e)
+{
+    if (drawMode && canEdit() && controller != nullptr) controller->mouseMove (e);
+}
+
+void VoiceField::mouseDoubleClick (const juce::MouseEvent& e)
+{
+    if (! drawMode) return;
+    if (! field.contains (e.position)) { fitToPattern(); return; }
+    if (canEdit() && controller != nullptr) controller->mouseDoubleClick (e);
+}
+
+void VoiceField::mouseExit (const juce::MouseEvent& e)
+{
+    if (drawMode && controller != nullptr) controller->mouseExit (e);
+
+    // hand the keyboard back to the host as soon as the mouse leaves the canvas
+    if (hasKeyboardFocus (true))
+    {
+        giveAwayKeyboardFocus();
+        juce::Component::unfocusAllComponents();
+    }
+}
+
+void VoiceField::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w)
+{
+    if (! drawMode)
+    {
+        juce::Component::mouseWheelMove (e, w);
+        return;
+    }
+
+    const float dy = w.deltaY, dx = w.deltaX;
+    if (e.mods.isCommandDown() || e.mods.isCtrlDown())
+        zoomTime (dy > 0.0f ? 0.8f : 1.25f, e.position.x);
+    else if (e.mods.isAltDown())
+        zoomPitch (dy > 0.0f ? 0.85f : 1.18f, e.position.y);
+    else if (e.mods.isShiftDown() || std::abs (dx) > std::abs (dy))
+        scrollTime (-(double) (std::abs (dx) > std::abs (dy) ? dx : dy) * pview.beats * 0.25);
+    else
+        scrollPitch (dy * 8.0f);
+}
+
+bool VoiceField::keyPressed (const juce::KeyPress& key)
+{
+    // The space bar always belongs to the host (FL Studio: play / stop). Give the focus back so
+    // the host gets it (JUCE forwards unused keys to the host window).
+    if (key == juce::KeyPress::spaceKey)
+    {
+        giveAwayKeyboardFocus();
+        juce::Component::unfocusAllComponents();
+        return false;
+    }
+
+    if (drawMode && canEdit() && controller != nullptr)
+        return controller->keyPressed (key);
+
+    return false;
+}
+
+//==============================================================================
+void VoiceField::setDrawMode (bool on)
+{
+    if (drawMode == on) return;
+    drawMode = on;
+
+    // Canvas takes keys only after a click inside it (never on hover), see keyPressed.
+    setWantsKeyboardFocus (on);
+    setMouseClickGrabsKeyboardFocus (false);
+    setTooltip (on ? juce::String() : juce::String ("LIVE VIEW - click to show 1 / 2 / 4 / 8 bars"));
+    if (! on && hasKeyboardFocus (true))
+        giveAwayKeyboardFocus();
+
+    strokes.clear();
+    std::fill (std::begin (activeStroke), std::end (activeStroke), -1);
+    layoutField();
+    updateProjectionFit();
+    patternLayerKey.clear();
+    repaint();
+}
+
+void VoiceField::setScale (int key, int type, bool lockOn)
+{
+    ScaleLock sl;
+    sl.set (key, lockOn ? type : (int) ScaleLock::chromatic);
+    for (int i = 0; i < 12; ++i)
+        scaleMask[(size_t) i] = sl.isInScale (i);
+    scaleLockOn = lockOn;
+}
+
+void VoiceField::showToast (const juce::String& text, float seconds)
+{
+    toast = text;
+    toastUntil = time + seconds;
 }
 
 } // namespace bd

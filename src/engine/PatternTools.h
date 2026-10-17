@@ -3,7 +3,7 @@
     PatternTools.h - pure functions on Patterns (no GUI, unit tested):
 
       * edit commands      transpose, quantize start, smooth, magnet (scale pull), duplicate
-      * gesture baking     the 1.x gesture shapes (Glide, Chord Glide, Vibrato, 808 Dive, Rise,
+      * gesture baking     the 1.x gesture shapes (Glide, Chord Glide, Vibrato, Dive, Rise,
                            Wobble, Shake, Trill) as one-click curve generators on selected lines
       * capture            converts recorded MPE (what the live gesture engine sent: notes + per
                            channel bend / pressure / CC74) into editable lines
@@ -80,6 +80,10 @@ std::vector<PatternLine> linesFromCapture (const std::vector<CapturedEvent>&, do
 /** Renders one pass of the pattern to a type-1 MIDI file (one track, tempo + time signature,
     960 ticks per quarter). mono = channel 1 pitch-bend variant (bend range RPN sent on ch 1). */
 juce::MidiFile exportMidi (const Pattern&, bool mono, int bendRange, double bpm);
+
+/** Reads a MIDI file (plain piano-roll MIDI, MPE or mono pitch-bend) into a pattern: notes become
+    lines, bends / pressure / CC74 their curves. Length = the file rounded up to bars (max 64). */
+bool importMidi (const juce::MidiFile&, int bendRange, Pattern& out);
 
 //==============================================================================
 int numFactoryPatterns();

@@ -101,6 +101,10 @@ private:
                     double nowPpq, int pos);
     void endVoice (juce::MidiBuffer&, Voice&, int pos, double nowPpq);
     void emitControls (juce::MidiBuffer&, Voice&, double nowPpq, int pos, bool force);
+    static int releaseVelocity (const Voice& v) noexcept
+    {
+        return v.line != nullptr ? juce::jlimit (0, 127, (int) std::lround (v.line->releaseVelocity * 127.0f)) : 64;
+    }
 
     // mono mode
     void updateMono (juce::MidiBuffer&, double nowPpq, int pos);

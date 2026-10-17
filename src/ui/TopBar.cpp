@@ -3,46 +3,47 @@
 #include "Fonts.h"
 #include "LookAndFeel.h"
 #include "../PluginProcessor.h"
+#include "../engine/InternalSynth.h"
 
 namespace bd
 {
 
-namespace
-{
-    /** 4-point sparkle (concave star). */
-    juce::Path sparkle (juce::Point<float> c, float r)
-    {
-        juce::Path p;
-        const float k = r * 0.18f;
-        p.startNewSubPath (c.x, c.y - r);
-        p.quadraticTo (c.x + k, c.y - k, c.x + r, c.y);
-        p.quadraticTo (c.x + k, c.y + k, c.x, c.y + r);
-        p.quadraticTo (c.x - k, c.y + k, c.x - r, c.y);
-        p.quadraticTo (c.x - k, c.y - k, c.x, c.y - r);
-        p.closeSubPath();
-        return p;
-    }
-}
-
 TopBar::TopBar (BendDemonProcessor& p) : processor (p)
 {
-    synthButton.setButtonText ("LOAD SYNTH");
-    synthButton.setTooltip ("Load the instrument plugin BEND DEMON plays (Serum 2, Vital, Pigments ...)");
-    synthButton.onClick = [this]
+    // mode switch (bound to the "mode" parameter)
+    if (auto* param = processor.getAPVTS().getParameter (ids::mode))
     {
-        if (processor.getHost().hasPlugin()) showSynthMenu();
-        else if (onLoadSynth) onLoadSynth();
-    };
+        modeAttachment = std::make_unique<juce::ParameterAttachment> (*param, [this] (float v)
+        {
+            modeDraw.setToggleState (v > 0.5f, juce::dontSendNotification);
+            modeLive.setToggleState (v <= 0.5f, juce::dontSendNotification);
+        });
+        modeAttachment->sendInitialUpdate();
+    }
+    modeDraw.setTooltip ("DRAW: the drawn pattern plays in sync with the host; piano-roll notes still play live");
+    modeLive.setTooltip ("LIVE: 1.x behaviour - piano-roll notes are turned into bends by the gestures");
+    modeDraw.onClick = [this] { if (modeAttachment) modeAttachment->setValueAsCompleteGesture (1.0f); };
+    modeLive.onClick = [this] { if (modeAttachment) modeAttachment->setValueAsCompleteGesture (0.0f); };
 
-    editorButton.setButtonText ("EDIT");
-    editorButton.setTooltip ("Open the hosted synth's own window");
-    editorButton.onClick = [this] { processor.getHost().showEditorWindow(); };
+    synthButton.setTooltip ("SOUND - pick a built-in sound or load your own synth plugin");
+    synthButton.onClick = [this] { showSynthMenu(); };
 
-    presetButton.setTooltip ("Gesture presets (do not change the hosted synth patch)");
+    for (int b : { 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64 })
+        barsBox.addItem (juce::String (b) + (b == 1 ? " bar" : " bars"), b);
+    barsBox.setTooltip ("LOOP - how many bars the pattern has before it repeats");
+    barsBox.onChange = [this] { if (onBarsChanged && barsBox.getSelectedId() > 0) onBarsChanged (barsBox.getSelectedId()); };
+
+    playButton.setTooltip ("PLAY - hear the pattern right now (when FL Studio is stopped). Press play in FL and it follows FL.");
+    playButton.setLabel ("PLAY");
+    playButton.onClick = [this] { processor.setPreviewPlaying (! processor.isPreviewPlaying()); };
+
+    presetButton.setTooltip ("PRESETS - ready-made patterns with a sound, or shape settings");
     presetButton.onClick = [this] { showPresetMenu(); };
 
     prevPreset.setButtonText ("<");
     nextPreset.setButtonText (">");
+    prevPreset.setVisible (false);
+    nextPreset.setVisible (false);
     auto step = [this] (int d)
     {
         auto& pm = processor.getPresets();
@@ -54,34 +55,38 @@ TopBar::TopBar (BendDemonProcessor& p) : processor (p)
     };
     prevPreset.onClick = [step] { step (-1); };
     nextPreset.onClick = [step] { step (+1); };
+    prevPreset.setTooltip ("Previous factory preset");
+    nextPreset.setTooltip ("Next factory preset");
 
-    dimensionButton.setButtonText ("DIMENSION");
+    dimensionButton.setButtonText ("3D");   // placed by the editor in the canvas corner
     dimensionButton.setClickingTogglesState (true);
-    dimensionButton.setTooltip ("Tilt the voice field into 3D");
+    dimensionButton.setTooltip ("DIMENSION: tilt the field into 3D (view only)");
     dimensionButton.onClick = [this] { if (onDimensionToggled) onDimensionToggled(); };
 
-    panicButton.setButtonText ("!");
-    panicButton.setTooltip ("Panic: release all voices and resend the MPE configuration");
-    panicButton.onClick = [this] { processor.panic(); };
+    settingsButton.setTooltip ("SETTINGS - MPE, pitch-bend range, voices, MIDI out, panic, window size");
+    settingsButton.onClick = [this] { showSettingsMenu(); };
 
-    for (auto* b : { &synthButton, &editorButton, &presetButton, &prevPreset, &nextPreset, &dimensionButton, &panicButton })
-        addAndMakeVisible (b);
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &modeDraw, &modeLive, &synthButton, &barsBox, &playButton,
+                                 &presetButton, &settingsButton })
+        addAndMakeVisible (c);
 
+    setTooltip ("Right-click for window size, or drag the bottom-right corner");
     refresh();
 }
+
+TopBar::~TopBar() = default;
 
 void TopBar::refresh()
 {
     auto& host = processor.getHost();
+    juce::String slot;
+    if (host.isLoading())                                   slot = "LOADING...";
+    else if (! processor.isUsingInternalSynth())            slot = host.getPluginName();
+    else if (host.getMissingPluginName().isNotEmpty())      slot = "MISSING: " + host.getMissingPluginName();
+    else                                                    slot = processor.getSynthSlotText();
 
-    juce::String synthText;
-    if (host.isLoading())                          synthText = "LOADING...";
-    else if (host.hasPlugin())                     synthText = host.getPluginName();
-    else if (host.getMissingPluginName().isNotEmpty()) synthText = "MISSING: " + host.getMissingPluginName();
-    else                                           synthText = "+  LOAD SYNTH";
-
-    synthButton.setButtonText (synthText);
-    editorButton.setEnabled (host.hasPlugin());
+    lastSlot = slot;
+    synthButton.setButtonText (slot);
     presetButton.setButtonText (processor.getPresets().getCurrentName());
     repaint();
 }
@@ -89,199 +94,117 @@ void TopBar::refresh()
 void TopBar::tick (float t)
 {
     time = t;
-    repaint (titleArea.getSmallestIntegerContainer().expanded (4));
 
-    const int v = processor.getActiveVoiceCount();
-    if (v != lastVoices)
+    if (processor.getSynthSlotText() != lastSlot && ! processor.getHost().isLoading())
+        refresh();
+
+    const int bars = processor.getPatternStore().get().bars;
+    if (bars != lastBars)
     {
-        lastVoices = v;
-        repaint (statusArea.getSmallestIntegerContainer().expanded (4));
+        lastBars = bars;
+        if (barsBox.indexOfItemId (bars) >= 0) barsBox.setSelectedId (bars, juce::dontSendNotification);
+        else                                   barsBox.setText (juce::String (bars) + " bars", juce::dontSendNotification);
+    }
+
+    const bool hostPlaying = processor.getVisualFifo().getTransportNow().playing && ! processor.isPreviewPlaying();
+    const bool previewing = processor.isPreviewPlaying();
+    playButton.setIcon (previewing ? IconButton::Icon::stop : IconButton::Icon::play);
+    playButton.setToggleState (previewing || hostPlaying, juce::dontSendNotification);
+    playButton.setEnabled (! hostPlaying && processor.isDrawMode());
+    barsBox.setEnabled (processor.isDrawMode());
+
+    const auto tempo = hostPlaying ? juce::String ("FL ") + juce::String (juce::roundToInt (processor.getTempo()))
+                                   : (previewing ? juce::String ("STOP ") : juce::String ("PLAY ")) + juce::String (juce::roundToInt (processor.getTempo()));
+    if (tempo != lastTempo)
+    {
+        lastTempo = tempo;
+        playButton.setLabel (tempo + " BPM");
     }
 }
 
 void TopBar::resized()
 {
-    auto r = getLocalBounds().reduced (16, 0);
-    const int h = getHeight();
-    const int bh = juce::jlimit (24, 34, h / 2);
+    const float s = (float) getWidth() / 1040.0f;
+    auto r = getLocalBounds().reduced (juce::roundToInt (12 * s), 0);
+    const int bh = juce::roundToInt (32 * s);
+    auto row = [&] (juce::Rectangle<int> a) { return a.withSizeKeepingCentre (a.getWidth(), bh); };
+    const int gap = juce::roundToInt (4 * s), group = juce::roundToInt (16 * s);
 
-    wordmarkArea = r.removeFromLeft (juce::roundToInt (h * 2.7f)).toFloat();
-    r.removeFromLeft (22);   // divider
-    titleArea = r.removeFromLeft (juce::roundToInt (h * 2.75f)).toFloat();
-    r.removeFromLeft (14);
+    wordmarkArea = r.removeFromLeft (juce::roundToInt (196 * s)).toFloat();
+    r.removeFromLeft (group);
 
-    auto right = r.removeFromRight (juce::roundToInt (h * 2.9f));
-    {
-        auto row = right.withSizeKeepingCentre (right.getWidth(), bh);
-        nextPreset.setBounds (row.removeFromRight (bh));
-        row.removeFromRight (4);
-        prevPreset.setBounds (row.removeFromLeft (bh));
-        row.removeFromLeft (4);
-        presetButton.setBounds (row);
-    }
+    modeDraw.setBounds (row (r.removeFromLeft (juce::roundToInt (60 * s))));
+    r.removeFromLeft (gap / 2);
+    modeLive.setBounds (row (r.removeFromLeft (juce::roundToInt (56 * s))));
+    r.removeFromLeft (group);
 
-    r.removeFromRight (10);
-    auto dimRow = r.removeFromRight (juce::roundToInt (h * 1.25f)).withSizeKeepingCentre (juce::roundToInt (h * 1.25f), bh);
-    dimensionButton.setBounds (dimRow);
-    r.removeFromRight (10);
+    settingsButton.setBounds (row (r.removeFromRight (bh)));
+    r.removeFromRight (gap * 2);
+    presetButton.setBounds (row (r.removeFromRight (juce::roundToInt (156 * s))));
+    r.removeFromRight (group);
+    playButton.setBounds (row (r.removeFromRight (juce::roundToInt (112 * s))));
+    r.removeFromRight (group);
+    barsBox.setBounds (row (r.removeFromRight (juce::roundToInt (84 * s))));
+    barsCaption = r.removeFromRight (juce::roundToInt (40 * s)).toFloat();
+    r.removeFromRight (group);
 
-    statusArea = r.removeFromRight (juce::roundToInt (h * 1.75f)).toFloat();
-    r.removeFromRight (10);
-
-    auto slot = r.withSizeKeepingCentre (r.getWidth(), bh);
-    panicButton.setBounds (slot.removeFromRight (bh));
-    slot.removeFromRight (4);
-    editorButton.setBounds (slot.removeFromRight (juce::roundToInt (bh * 1.8f)));
-    slot.removeFromRight (4);
-    synthButton.setBounds (slot);
+    soundCaption = r.removeFromLeft (juce::roundToInt (48 * s)).toFloat();
+    synthButton.setBounds (row (r));
 }
 
 //==============================================================================
 void TopBar::paint (juce::Graphics& g)
 {
-    // translucent strip with a bottom hairline that fades to the sides
-    g.setColour (pal::ground0.withAlpha (0.55f));
-    g.fillRect (getLocalBounds());
-
-    juce::ColourGradient line (pal::cyan.withAlpha (0.0f), 0.0f, (float) getHeight() - 1.0f,
-                               pal::cyan.withAlpha (0.0f), (float) getWidth(), (float) getHeight() - 1.0f, false);
-    line.addColour (0.3, pal::cyan.withAlpha (0.35f));
-    line.addColour (0.7, pal::magenta.withAlpha (0.35f));
-    g.setGradientFill (line);
-    g.fillRect (0.0f, (float) getHeight() - 1.0f, (float) getWidth(), 1.0f);
+    using namespace juce;
+    const float s = (float) getWidth() / 1040.0f;
+    g.fillAll (pal::ground0);
+    g.setColour (pal::hairline);
+    g.fillRect (0, getHeight() - 1, getWidth(), 1);
 
     drawWordmark (g, wordmarkArea);
 
-    // divider
-    const float dx = wordmarkArea.getRight() + 11.0f;
-    g.setColour (pal::hairline.withAlpha (0.5f));
-    g.fillRect (dx, (float) getHeight() * 0.22f, 1.0f, (float) getHeight() * 0.56f);
-
-    drawTitle (g, titleArea);
-    drawStatus (g, statusArea);
+    g.setColour (pal::textDim);
+    g.setFont (fonts::ui (jmax (10.0f, 13.0f * s)));
+    g.drawText ("Sound", soundCaption.toNearestInt(), Justification::centredLeft);
+    g.drawText ("Loop", barsCaption.toNearestInt(), Justification::centredLeft);
 }
 
 void TopBar::drawWordmark (juce::Graphics& g, juce::Rectangle<float> r)
 {
     using namespace juce;
+    const float h = r.getHeight();
 
-    auto main = r.withTrimmedBottom (r.getHeight() * 0.36f).withTrimmedTop (r.getHeight() * 0.10f);
-    auto sub  = r.withTop (main.getBottom() + 1.0f).withHeight (r.getHeight() * 0.2f);
-
-    // "TRAPWIN" as a path so it can be skewed and chrome-filled
+    // TRAPWIN (brand) - small, chrome
+    auto brand = r.withWidth (r.getWidth() * 0.38f).withSizeKeepingCentre (r.getWidth() * 0.38f, h * 0.30f);
     GlyphArrangement ga;
-    const auto font = fonts::display (main.getHeight() * 0.95f, 2);
-    ga.addFittedText (font, "TRAPWIN", main.getX(), main.getY(), main.getWidth() * 0.86f, main.getHeight(),
+    ga.addFittedText (fonts::display (brand.getHeight(), 2), "TRAPWIN", brand.getX(), brand.getY(), brand.getWidth(), brand.getHeight(),
                       Justification::centredLeft, 1, 0.8f);
     Path text;
     ga.createPath (text);
-
     const auto tb = text.getBounds();
-    text.applyTransform (AffineTransform::shear (-0.18f, 0.0f).translated (tb.getHeight() * 0.18f * (tb.getBottom() / tb.getHeight()), 0.0f));
-
-    // chrome: bright top, dark band, bright bottom
-    ColourGradient chrome (Colour (0xfff4f8ff), 0.0f, tb.getY(), Colour (0xff8d97b8), 0.0f, tb.getBottom(), false);
-    chrome.addColour (0.45, Colour (0xffdfe7ff));
-    chrome.addColour (0.52, Colour (0xff4a5375));
-    chrome.addColour (0.70, Colour (0xffb9c4e6));
-    g.setColour (pal::cyan.withAlpha (0.18f));
-    g.strokePath (text, PathStrokeType (3.0f));
+    text.applyTransform (AffineTransform::shear (-0.16f, 0.0f).translated (tb.getHeight() * 0.16f * (tb.getBottom() / jmax (1.0f, tb.getHeight())), 0.0f));
+    ColourGradient chrome (Colour (0xffeef2fa), 0.0f, tb.getY(), Colour (0xff8a93a8), 0.0f, tb.getBottom(), false);
+    chrome.addColour (0.5, Colour (0xffc9d1e3));
     g.setGradientFill (chrome);
     g.fillPath (text);
-    g.setColour (Colours::white.withAlpha (0.35f));
-    g.strokePath (text, PathStrokeType (0.6f));
 
-    // two sparkles
-    const auto tb2 = text.getBounds();
-    const float s1 = main.getHeight() * 0.28f, s2 = main.getHeight() * 0.17f;
-    for (auto [c, rad] : { std::pair<Point<float>, float> { { tb2.getRight() + s1 * 0.9f, tb2.getY() + s1 * 0.4f }, s1 },
-                           std::pair<Point<float>, float> { { tb2.getRight() + s1 * 2.2f, tb2.getY() + s1 * 1.6f }, s2 } })
-    {
-        g.setColour (pal::cyan.withAlpha (0.25f));
-        g.fillEllipse (Rectangle<float> (rad * 1.6f, rad * 1.6f).withCentre (c));
-        g.setColour (Colours::white);
-        g.fillPath (sparkle (c, rad));
-    }
+    // divider
+    const float dx = text.getBounds().getRight() + 10.0f;
+    g.setColour (pal::hairline);
+    g.fillRect (dx, h * 0.28f, 1.0f, h * 0.44f);
 
-    g.setColour (pal::textDim);
-    g.setFont (fonts::mono (jmax (7.5f, sub.getHeight() * 0.95f), true));
-    g.drawFittedText (String (CharPointer_UTF8 ("+ AUDIO \xc2\xb7 UNDERGROUND +")), sub.toNearestInt(), Justification::centredLeft, 1, 0.6f);
-}
-
-void TopBar::drawTitle (juce::Graphics& g, juce::Rectangle<float> r)
-{
-    using namespace juce;
-
-    auto area = r.withSizeKeepingCentre (r.getWidth(), r.getHeight() * 0.55f);
-    GlyphArrangement ga;
-    ga.addFittedText (fonts::display (area.getHeight() * 0.95f, 2), "BEND DEMON",
-                      area.getX(), area.getY(), area.getWidth(), area.getHeight(), Justification::centredLeft, 1, 0.7f);
-    Path text;
-    ga.createPath (text);
-    const auto tb = text.getBounds();
-
-    // animated shimmer: the gradient slides across, a white highlight band sweeps through
-    const float w = tb.getWidth();
-    const float shift = std::fmod (time * 0.25f, 1.0f);
-    const float x0 = tb.getX() - w + shift * 2.0f * w;
-
-    ColourGradient grad (pal::cyan, x0, 0.0f, pal::cyan, x0 + 2.0f * w, 0.0f, false);
-    grad.addColour (0.25, pal::violet);
-    grad.addColour (0.5,  pal::magenta);
-    grad.addColour (0.75, pal::violet);
-
-    g.setColour (pal::violet.withAlpha (0.20f));
-    g.strokePath (text, PathStrokeType (4.0f));
+    // BEND DEMON - product name with the accent gradient
+    auto name = Rectangle<float> (dx + 10.0f, r.getY(), r.getRight() - dx - 10.0f, h).withSizeKeepingCentre (r.getRight() - dx - 10.0f, h * 0.30f);
+    GlyphArrangement ga2;
+    ga2.addFittedText (fonts::display (name.getHeight(), 1), "BEND DEMON", name.getX(), name.getY(), name.getWidth(), name.getHeight(),
+                       Justification::centredLeft, 1, 0.5f);
+    Path t2;
+    ga2.createPath (t2);
+    const auto nb = t2.getBounds();
+    ColourGradient grad (pal::cyan, nb.getX(), 0.0f, pal::magenta, nb.getRight(), 0.0f, false);
+    grad.addColour (0.5, pal::violet);
     g.setGradientFill (grad);
-    g.fillPath (text);
-
-    const float sweep = std::fmod (time * 0.45f, 1.6f) - 0.3f;
-    ColourGradient hi (Colours::white.withAlpha (0.0f), tb.getX() + sweep * w - 30.0f, 0.0f,
-                       Colours::white.withAlpha (0.0f), tb.getX() + sweep * w + 30.0f, 0.0f, false);
-    hi.addColour (0.5, Colours::white.withAlpha (0.55f));
-    g.setGradientFill (hi);
-    g.fillPath (text);
-
-    g.setColour (pal::textDim);
-    g.setFont (fonts::mono (jmax (8.0f, r.getHeight() * 0.15f)));
-    g.drawText ("MPE GESTURE ENGINE", r.withTop (area.getBottom() + 1.0f).toNearestInt(), Justification::topLeft);
-}
-
-void TopBar::drawStatus (juce::Graphics& g, juce::Rectangle<float> r)
-{
-    using namespace juce;
-
-    const int voices = processor.getActiveVoiceCount();
-    const int maxV   = processor.getConfiguredVoices();
-    const bool midiOut = processor.isMidiOutMode();
-    const bool hosted  = processor.getHost().hasPlugin();
-
-    auto top = r.withHeight (r.getHeight() * 0.5f).withY (r.getY() + r.getHeight() * 0.12f);
-    auto bot = top.withY (top.getBottom());
-
-    // voice meter: one dot per member channel
-    const int n = jmax (1, maxV);
-    const float dot = jmin (6.0f, (top.getWidth() - 4.0f) / (float) n - 1.5f);
-    for (int i = 0; i < n; ++i)
-    {
-        auto c = Rectangle<float> (dot, dot).withCentre ({ top.getX() + 2.0f + (dot + 1.5f) * (float) i + dot * 0.5f, top.getCentreY() - 4.0f });
-        const bool lit = i < voices;
-        g.setColour (lit ? pal::ribbon ((float) i / (float) n) : pal::hairline);
-        g.fillEllipse (c);
-    }
-
-    g.setColour (pal::text);
-    g.setFont (fonts::mono (jmax (8.0f, top.getHeight() * 0.36f), true));
-    g.drawText (String (voices) + "/" + String (maxV) + " VOICES", top.withTrimmedTop (top.getHeight() * 0.42f).toNearestInt(), Justification::centredLeft);
-
-    const Colour statusCol = midiOut ? pal::amber : (hosted ? pal::lime : pal::textDim);
-    g.setColour (statusCol);
-    g.fillEllipse (Rectangle<float> (6.0f, 6.0f).withCentre ({ bot.getX() + 4.0f, bot.getCentreY() }));
-    g.setFont (fonts::mono (jmax (8.0f, bot.getHeight() * 0.36f)));
-    const String s = midiOut ? String ("MPE > MIDI OUT")
-                             : (hosted ? String (CharPointer_UTF8 ("MPE \xc2\xb1")) + String (processor.getBendRange()) + " LIVE"
-                                       : String ("MPE READY"));
-    g.drawText (s, bot.withTrimmedLeft (12.0f).toNearestInt(), Justification::centredLeft);
+    g.fillPath (t2);
 }
 
 //==============================================================================
@@ -290,10 +213,14 @@ void TopBar::showPresetMenu()
     auto& pm = processor.getPresets();
     juce::PopupMenu menu;
 
-    menu.addSectionHeader ("Factory");
     const auto factory = pm.getFactoryNames();
+    const int numPat = PresetManager::numPatternPresets();
+    menu.addSectionHeader ("Patterns");
     for (int i = 0; i < factory.size(); ++i)
+    {
+        if (i == numPat) menu.addSectionHeader ("Gestures (keep the pattern)");
         menu.addItem (1 + i, factory[i], true, factory[i] == pm.getCurrentName());
+    }
 
     const auto user = pm.getUserNames();
     if (! user.isEmpty())
@@ -319,7 +246,7 @@ void TopBar::showPresetMenu()
             else if (r == 5001)                          PresetManager::getUserPresetDirectory().startAsProcess();
             else if (r == 5000)
             {
-                auto* aw = new juce::AlertWindow ("Save gesture preset", "Name:", juce::MessageBoxIconType::NoIcon);
+                auto* aw = new juce::AlertWindow ("Save preset", "Name (stores the pattern and all settings):", juce::MessageBoxIconType::NoIcon);
                 aw->addTextEditor ("name", pm2.getCurrentName());
                 aw->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
                 aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
@@ -340,27 +267,104 @@ void TopBar::showPresetMenu()
 
 void TopBar::showSynthMenu()
 {
-    juce::PopupMenu menu;
-    menu.addItem (1, "Open synth window");
-    menu.addItem (2, "Change synth...");
-    menu.addItem (3, "Resend MPE configuration");
-    menu.addSeparator();
-    menu.addItem (4, "Unload synth");
+    auto& host = processor.getHost();
+    const bool internal = processor.isUsingInternalSynth();
 
+    juce::PopupMenu menu;
+    menu.addSectionHeader ("Built-in sounds");
+    for (int i = 0; i < InternalSynth::numSounds; ++i)
+        menu.addItem (1 + i, InternalSynth::getSoundName (i), true, internal && processor.getInternalSound() == i);
+
+    menu.addSectionHeader ("Your synth plugin");
+    if (host.hasPlugin())
+    {
+        menu.addItem (20, "Use " + host.getPluginName(), true, ! internal);
+        menu.addItem (21, "Open plugin window");
+        menu.addItem (22, "Change plugin...");
+        menu.addItem (23, "Unload plugin");
+    }
+    else
+    {
+        menu.addItem (22, "Load plugin...");
+    }
     juce::Component::SafePointer<TopBar> safe (this);
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&synthButton), [safe] (int r)
     {
-        if (safe == nullptr) return;
-        auto& host = safe->processor.getHost();
-        switch (r)
+        if (safe == nullptr || r == 0) return;
+        auto& proc = safe->processor;
+        if (r >= 1 && r <= InternalSynth::numSounds)
         {
-            case 1: host.showEditorWindow(); break;
-            case 2: if (safe->onLoadSynth) safe->onLoadSynth(); break;
-            case 3: safe->processor.panic(); break;
-            case 4: host.unloadPlugin(); break;
+            proc.setInternalSound (r - 1);
+            proc.setUseInternalSynth (true);
+        }
+        else switch (r)
+        {
+            case 20: proc.setUseInternalSynth (false); break;
+            case 21: proc.getHost().showEditorWindow(); break;
+            case 22: if (safe->onLoadSynth) safe->onLoadSynth(); break;
+            case 23: proc.getHost().unloadPlugin(); break;
+            case 30: proc.panic(); break;
             default: break;
         }
         safe->refresh();
+    });
+}
+
+void TopBar::showSettingsMenu()
+{
+    auto& apvts = processor.getAPVTS();
+    auto get = [&apvts] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
+
+    juce::PopupMenu bend, voices, size;
+    const int curRange = (int) std::lround (get (ids::bendRange));
+    for (int i = 0; i < numBendRanges; ++i)
+        bend.addItem (100 + i, juce::String (juce::CharPointer_UTF8 ("\xc2\xb1")) + juce::String (bendRanges[i]) + " semitones" + (bendRanges[i] == 48 ? "  (MPE standard)" : ""),
+                      true, i == curRange);
+    const int curVoices = (int) std::lround (get (ids::voices));
+    for (int v : { 1, 2, 4, 6, 8, 10, 12, 15 })
+        voices.addItem (200 + v, juce::String (v) + (v == 1 ? " voice" : " voices"), true, v == curVoices);
+
+    juce::PopupMenu m;
+    m.addSectionHeader ("Synth connection");
+    m.addItem (1, "Mono slides (for synths without MPE, e.g. Serum 1)", true, get (ids::seqMono) > 0.5f);
+    m.addSubMenu ("Pitch-bend range (set the same in your synth)", bend);
+    m.addSubMenu ("Voices (MPE channels)", voices);
+    m.addItem (2, "Send MIDI out instead of playing a synth", true, get (ids::midiOutMode) > 0.5f);
+    m.addItem (3, "Snap piano-roll notes to the scale", true, get (ids::quantizeInput) > 0.5f);
+    m.addSeparator();
+    m.addItem (4, "Panic: stop all notes + resend MPE setup");
+    m.addItem (5, "Window size...");
+
+    auto toggle = [&apvts] (const char* id)
+    {
+        if (auto* p = apvts.getParameter (id))
+        {
+            p->beginChangeGesture();
+            p->setValueNotifyingHost (p->getValue() > 0.5f ? 0.0f : 1.0f);
+            p->endChangeGesture();
+        }
+    };
+    auto setPlain = [&apvts] (const char* id, float v)
+    {
+        if (auto* p = apvts.getParameter (id))
+        {
+            p->beginChangeGesture();
+            p->setValueNotifyingHost (p->convertTo0to1 (v));
+            p->endChangeGesture();
+        }
+    };
+
+    juce::Component::SafePointer<TopBar> safe (this);
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&settingsButton), [safe, toggle, setPlain] (int r)
+    {
+        if (safe == nullptr || r == 0) return;
+        if (r == 1) toggle (ids::seqMono);
+        else if (r == 2) toggle (ids::midiOutMode);
+        else if (r == 3) toggle (ids::quantizeInput);
+        else if (r == 4) safe->processor.panic();
+        else if (r == 5) { if (safe->onWindowSizeMenu) safe->onWindowSizeMenu(); }
+        else if (r >= 100 && r < 100 + numBendRanges) setPlain (ids::bendRange, (float) (r - 100));
+        else if (r > 200) setPlain (ids::voices, (float) (r - 200));
     });
 }
 

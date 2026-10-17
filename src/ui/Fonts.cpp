@@ -20,8 +20,8 @@ namespace
             unbMedium   = make (BinaryData::UnboundedMedium_ttf,      BinaryData::UnboundedMedium_ttfSize);
             unbBold     = make (BinaryData::UnboundedBold_ttf,        BinaryData::UnboundedBold_ttfSize);
             unbBlack    = make (BinaryData::UnboundedBlack_ttf,       BinaryData::UnboundedBlack_ttfSize);
-            monoRegular = make (BinaryData::JetBrainsMonoRegular_ttf, BinaryData::JetBrainsMonoRegular_ttfSize);
-            monoBold    = make (BinaryData::JetBrainsMonoBold_ttf,    BinaryData::JetBrainsMonoBold_ttfSize);
+            monoRegular = make (BinaryData::InterMedium_ttf,           BinaryData::InterMedium_ttfSize);
+            monoBold    = make (BinaryData::InterSemiBold_ttf,         BinaryData::InterSemiBold_ttfSize);
         }
     };
 

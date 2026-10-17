@@ -6,154 +6,52 @@ using namespace bd;
 
 namespace
 {
-    constexpr float kTopFrac  = 0.095f;   // top bar height / editor height
-    constexpr float kDockFrac = 0.33f;    // dock height / editor height
+    constexpr float kTop = 52.0f, kTool = 44.0f, kLane = 104.0f, kInspector = 272.0f, kStatus = 26.0f;   // at 1040 px wide
 }
 
 //==============================================================================
 BendDemonEditor::BendDemonEditor (BendDemonProcessor& p)
-    : AudioProcessorEditor (p), processor (p), topBar (p), voiceField (p.getVisualFifo())
+    : AudioProcessorEditor (p), processor (p), voiceField (p.getVisualFifo()), topBar (p)
 {
     setLookAndFeel (&lnf);
-    auto& s = p.getAPVTS();
+    auto& store = p.getPatternStore();
+
+    controller = std::make_unique<LineEditController> (voiceField, store, p.getAPVTS(),
+                                                       [&p] { return p.getGestureSettings(); },
+                                                       [&p] { return p.getTempo(); });
+    voiceField.setPatternStore (&store);
+    voiceField.setEditController (controller.get());
+
+    toolbar   = std::make_unique<EditToolbar> (p, *controller, voiceField);
+    lane      = std::make_unique<ExpressionLane> (voiceField, store);
+    inspector = std::make_unique<Inspector> (p, *controller);
 
     addAndMakeVisible (voiceField);
+    addAndMakeVisible (*lane);
+    addAndMakeVisible (*inspector);
+    addAndMakeVisible (*toolbar);
     addAndMakeVisible (topBar);
+    addAndMakeVisible (statusBar);
+    addAndMakeVisible (topBar.getDimensionButton());
+    addChildComponent (banner);
 
-    // ---------------------------------------------------------------- gesture pads
-    struct PadDef { const char* id; const char* title; GesturePad::Icon icon; juce::Colour col; Section section; };
-    const PadDef padDefs[] = {
-        { ids::glideOn,      "GLIDE",       GesturePad::Icon::glide,      pal::cyan,    Section::glide },
-        { ids::chordGlideOn, "CHORD GLIDE", GesturePad::Icon::chordGlide, pal::violet,  Section::glide },
-        { ids::vibratoOn,    "VIBRATO",     GesturePad::Icon::vibrato,    pal::magenta, Section::vibrato },
-        { ids::diveOn,       "808 DIVE",    GesturePad::Icon::dive,       pal::amber,   Section::dive },
-        { ids::riseOn,       "RISE",        GesturePad::Icon::rise,       pal::lime,    Section::dive },
-        { ids::wobbleOn,     "WOBBLE",      GesturePad::Icon::wobble,     pal::violet,  Section::motion },
-        { ids::shakeOn,      "SHAKE",       GesturePad::Icon::shake,      pal::magenta, Section::motion },
-        { ids::trillOn,      "TRILL",       GesturePad::Icon::trill,      pal::cyan,    Section::motion },
+    auto toast = [this] (const juce::String& m) { voiceField.showToast (m); };
+    controller->onMessage = toast;
+    toolbar->onMessage = toast;
+    processor.onCaptureComplete = [this] (int n)
+    {
+        voiceField.showToast (n > 0 ? "Captured " + juce::String (n) + " lines. Mute the piano-roll notes so they don't double."
+                                    : juce::String ("Capture finished: nothing was played"));
     };
 
-    for (auto& d : padDefs)
-    {
-        auto pad = std::make_unique<GesturePad> (s, d.id, d.title, d.icon, d.col);
-        const auto section = d.section;
-        auto* raw = pad.get();
-        pad->onSelect = [this, section, raw]
-        {
-            showSection (section);
-            for (auto& other : pads) other->setSelected (other.get() == raw);
-        };
-        addAndMakeVisible (*pad);
-        pads.push_back (std::move (pad));
-    }
+    toolbar->onLaneToggled = [this] (bool b) { setLaneOpen (b); };
+    inspector->onLoadSynth = [this] { showSynthBrowser (true); };
+    inspector->onTabChanged = [this] { saveUiState(); };
+    lane->onModeChanged = [this] { saveUiState(); };
 
-    // ---------------------------------------------------------------- section controls
-    auto knob = [&] (const char* id, const char* cap, juce::Colour c) -> juce::Component*
-    {
-        owned.push_back (std::make_unique<GlowKnob> (s, id, cap, c));
-        addChildComponent (*owned.back());
-        return owned.back().get();
-    };
-    auto choice = [&] (const char* id, const char* cap) -> juce::Component*
-    {
-        owned.push_back (std::make_unique<ChoiceBox> (s, id, cap));
-        addChildComponent (*owned.back());
-        return owned.back().get();
-    };
-    auto pill = [&] (const char* id, const char* text) -> juce::Component*
-    {
-        owned.push_back (std::make_unique<PillToggle> (s, id, text));
-        addChildComponent (*owned.back());
-        return owned.back().get();
-    };
-
-    sections.push_back ({ Section::glide, "GLIDE", {
-        knob (ids::glideTime,   "Glide Time",   pal::cyan),
-        knob (ids::glideWindow, "Glide Window", pal::cyan),
-        knob (ids::chordWindow, "Chord Window", pal::violet),
-        choice (ids::glideCurve, "Curve") } });
-
-    sections.push_back ({ Section::vibrato, "VIBRATO", {
-        knob (ids::vibRate,  "Rate",  pal::magenta),
-        knob (ids::vibDepth, "Depth", pal::magenta),
-        knob (ids::vibDelay, "Delay", pal::magenta),
-        pill (ids::vibSync, "Sync"),
-        choice (ids::vibDiv, "Division") } });
-
-    sections.push_back ({ Section::dive, "808 DIVE / RISE", {
-        knob (ids::diveAmount, "Dive Amount", pal::amber),
-        knob (ids::diveTime,   "Dive Time",   pal::amber),
-        pill (ids::diveSync, "Sync"),
-        choice (ids::diveDiv,   "Division"),
-        choice (ids::diveCurve, "Curve") } });
-
-    sections.push_back ({ Section::motion, "WOBBLE / SHAKE / TRILL", {
-        knob (ids::wobbleDepth, "Wobble",      pal::violet),
-        choice (ids::wobbleDiv, "Wobble Rate"),
-        knob (ids::shakeDepth,  "Shake",       pal::magenta),
-        knob (ids::shakeRate,   "Shake Rate",  pal::magenta),
-        choice (ids::trillDiv,  "Trill Rate") } });
-
-    sections.push_back ({ Section::expression, "PRESSURE / TIMBRE", {
-        knob (ids::pressure,      "Pressure",     pal::lime),
-        knob (ids::pressureTime,  "Press Time",   pal::lime),
-        choice (ids::pressureShape, "Press Shape"),
-        knob (ids::velToPressure, "Vel>Press",    pal::lime),
-        knob (ids::timbre,        "Timbre",       pal::amber),
-        knob (ids::timbreTime,    "Timbre Time",  pal::amber),
-        choice (ids::timbreShape, "Timbre Shape"),
-        knob (ids::velToTimbre,   "Vel>Timbre",   pal::amber) } });
-
-    // ---------------------------------------------------------------- always-visible
-    scaleLock = std::make_unique<PillToggle> (s, ids::scaleLockOn, "Scale Lock");
-    quantize  = std::make_unique<PillToggle> (s, ids::quantizeInput, "Quantize In");
-    midiOut   = std::make_unique<PillToggle> (s, ids::midiOutMode, "MIDI Out");
-    scaleKey  = std::make_unique<ChoiceBox>  (s, ids::scaleKey, "Key");
-    scaleType = std::make_unique<ChoiceBox>  (s, ids::scaleType, "Scale");
-    bendRange = std::make_unique<ChoiceBox>  (s, ids::bendRange, "Bend Range");
-    voicesKnob = std::make_unique<GlowKnob>  (s, ids::voices, "Voices", pal::cyan);
-    gainKnob   = std::make_unique<GlowKnob>  (s, ids::outputGain, "Output", pal::violet);
-
-    midiOut->setTooltip ("Send the generated MPE to BEND DEMON's MIDI output instead of the hosted synth");
-    quantize->setTooltip ("Snap incoming notes to the scale");
-
-    for (juce::Component* c : std::initializer_list<juce::Component*> { scaleLock.get(), quantize.get(), midiOut.get(), scaleKey.get(),
-                                 scaleType.get(), bendRange.get(), voicesKnob.get(), gainKnob.get() })
-        addAndMakeVisible (c);
-
-    // expression section toggle via a small button row: reuse pill toggles for pressure/timbre on/off
-    {
-        auto pOn = std::make_unique<PillToggle> (s, ids::pressureOn, "Pressure");
-        auto tOn = std::make_unique<PillToggle> (s, ids::timbreOn, "Timbre");
-        sections.back().items.insert (sections.back().items.begin(), { pOn.get(), tOn.get() });
-        addChildComponent (*pOn); addChildComponent (*tOn);
-        owned.push_back (std::move (pOn)); owned.push_back (std::move (tOn));
-    }
-
-    // ---------------------------------------------------------------- section tabs
-    {
-        const std::pair<const char*, Section> tabDefs[] = {
-            { "GLIDE", Section::glide }, { "VIBRATO", Section::vibrato }, { "DIVE", Section::dive },
-            { "MOTION", Section::motion }, { "EXPRESSION", Section::expression } };
-
-        for (auto& [name, sec] : tabDefs)
-        {
-            auto* b = tabs.add (new juce::TextButton (name));
-            b->setClickingTogglesState (true);
-            b->setRadioGroupId (4711);
-            b->setColour (juce::TextButton::textColourOnId, pal::ground0);
-            const auto section = sec;
-            b->onClick = [this, section]
-            {
-                showSection (section);
-                for (auto& pad : pads) pad->setSelected (false);
-            };
-            addAndMakeVisible (b);
-        }
-    }
-
-    // ---------------------------------------------------------------- top bar + browser
     topBar.onLoadSynth = [this] { showSynthBrowser (true); };
+    topBar.onWindowSizeMenu = [this] { showWindowSizeMenu(); };
+    topBar.onBarsChanged = [this] (int b) { if (b != processor.getPatternStore().get().bars) controller->setBars (b); };
     topBar.onDimensionToggled = [this]
     {
         const bool on = topBar.getDimensionButton().getToggleState();
@@ -167,17 +65,36 @@ BendDemonEditor::BendDemonEditor (BendDemonProcessor& p)
 
     processor.getHost().addChangeListener (this);
 
-    // restore UI state (read the saved width before any resize callback can overwrite it)
+    // ---------------------------------------------------------------- restore UI state
     auto ui = processor.getUiState();
-    const int savedWidth = (int) ui.getProperty ("width", defaultWidth);
+    const int savedWidth = (int) ui.getProperty ("width", 1040);
     const bool dim = ui.getProperty ("dimension", false);
     topBar.getDimensionButton().setToggleState (dim, juce::dontSendNotification);
     voiceField.setDimension (dim);
     voiceField.setBars ((int) ui.getProperty ("bars", 4));
+    laneOpen      = ui.getProperty ("laneOpen", true);
+    inspectorOpen = ui.getProperty ("inspectorOpen", true);
+    toolbar->setLaneOpen (laneOpen);
+    toolbar->setSnapIndex ((int) ui.getProperty ("snap", 4));
+    toolbar->getMagnet().setValue ((float) (double) ui.getProperty ("magnet", 0.6), true);
+    controller->setMagnet (toolbar->getMagnet().getValue());
+    controller->setTool ((LineEditController::Tool) juce::jlimit (0, 3, (int) ui.getProperty ("tool", 0)));
+    inspector->setTab ((Inspector::Tab) juce::jlimit (0, 2, (int) ui.getProperty ("inspectorTab", 0)));
+    lane->setMode ((ExpressionLane::Mode) juce::jlimit (0, 3, (int) ui.getProperty ("laneMode", 0)));
 
-    pads.front()->setSelected (true);
-    showSection (Section::glide);
-    updateHint();
+    voiceField.setDrawMode (true);
+    if (ui.hasProperty ("viewBeats"))
+    {
+        VoiceField::PatternView v;
+        v.start = ui.getProperty ("viewStart", 0.0);
+        v.beats = ui.getProperty ("viewBeats", 16.0);
+        v.lo = (float) (double) ui.getProperty ("viewLo", 48.0);
+        v.hi = (float) (double) ui.getProperty ("viewHi", 84.0);
+        voiceField.setPatternView (v);
+    }
+    else
+        voiceField.fitToPattern();
+    lastLoadCount = store.getLoadCount();
 
     // ---------------------------------------------------------------- size
    #if BEND_DEMON_USE_OPENGL
@@ -191,21 +108,20 @@ BendDemonEditor::BendDemonEditor (BendDemonProcessor& p)
     if (auto* c = getConstrainer())
         c->setFixedAspectRatio ((double) defaultWidth / (double) defaultHeight);
 
-    // first open: a size that fits the screen (Windows display scaling included);
-    // later opens: the size the user chose, but never bigger than the current screen
     const bool hasSaved = ui.hasProperty ("width");
     setEditorWidth (fitWidthToScreen (hasSaved ? savedWidth : 1040));
 
-    // right-click the top bar for quick sizes
     topBar.addMouseListener (this, false);
-    topBar.setTooltip ("Right-click for window size. Or drag the bottom-right corner.");
 
-    // Keys belong to the host: clicking a pad, knob or button must not take keyboard focus,
-    // otherwise the space bar would press that button instead of starting/stopping FL Studio.
+    // Keys belong to the host: buttons, sliders and menus never take keyboard focus (space =
+    // FL Studio play / stop). Only the canvas takes keys, after a click inside it.
     setWantsKeyboardFocus (false);
     for (auto* child : getChildren())
         if (child != browser.get())
             releaseKeys (*child);
+
+    drawModeShown = ! processor.isDrawMode();   // force applyMode
+    applyMode (processor.isDrawMode());
 
     sizeRestored = true;
     startMs = juce::Time::getMillisecondCounterHiRes();
@@ -215,8 +131,9 @@ BendDemonEditor::BendDemonEditor (BendDemonProcessor& p)
 BendDemonEditor::~BendDemonEditor()
 {
     stopTimer();
+    saveUiState();
+    processor.onCaptureComplete = nullptr;
     processor.getHost().removeChangeListener (this);
-    processor.getUiState().setProperty ("bars", voiceField.getBars(), nullptr);
 
    #if BEND_DEMON_USE_OPENGL
     glContext.detach();
@@ -225,18 +142,123 @@ BendDemonEditor::~BendDemonEditor()
     setLookAndFeel (nullptr);
 }
 
+void BendDemonEditor::saveUiState()
+{
+    auto ui = processor.getUiState();
+    ui.setProperty ("bars", voiceField.getBars(), nullptr);
+    ui.setProperty ("laneOpen", laneOpen, nullptr);
+    ui.setProperty ("inspectorOpen", inspectorOpen, nullptr);
+    ui.setProperty ("snap", toolbar->getSnapIndex(), nullptr);
+    ui.setProperty ("magnet", (double) controller->getMagnet(), nullptr);
+    ui.setProperty ("tool", (int) controller->getTool(), nullptr);
+    ui.setProperty ("inspectorTab", (int) inspector->getTab(), nullptr);
+    ui.setProperty ("laneMode", (int) lane->getMode(), nullptr);
+    const auto v = voiceField.getPatternView();
+    ui.setProperty ("viewStart", v.start, nullptr);
+    ui.setProperty ("viewBeats", v.beats, nullptr);
+    ui.setProperty ("viewLo", (double) v.lo, nullptr);
+    ui.setProperty ("viewHi", (double) v.hi, nullptr);
+}
+
 //==============================================================================
+void BendDemonEditor::applyMode (bool draw)
+{
+    if (draw == drawModeShown) return;
+    drawModeShown = draw;
+
+    voiceField.setDrawMode (draw);
+    voiceField.setWantsKeyboardFocus (draw);
+    toolbar->setEditingEnabled (draw);
+    if (! draw && inspector->getTab() == Inspector::Tab::note)
+        inspector->setTab (Inspector::Tab::shapes);
+    updateHint();
+    resized();
+}
+
 void BendDemonEditor::timerCallback()
 {
     const float t = (float) ((juce::Time::getMillisecondCounterHiRes() - startMs) * 0.001);
-    lastFrameTime = t;
+
+    applyMode (processor.isDrawMode());
+
+    auto& store = processor.getPatternStore();
+    if (store.getLoadCount() != lastLoadCount)
+    {
+        lastLoadCount = store.getLoadCount();
+        voiceField.fitToPattern();
+    }
+
+    auto& apvts = processor.getAPVTS();
+    auto val = [&apvts] (const char* id) { return apvts.getRawParameterValue (id)->load(); };
+    voiceField.setScale ((int) std::lround (val (ids::scaleKey)), (int) std::lround (val (ids::scaleType)), val (ids::scaleLockOn) > 0.5f);
+    const auto tv = processor.getVisualFifo().getTransportNow();
+    voiceField.setSequencerPosition (tv.ppq, processor.isSequencerRunning());
+    voiceField.setGridDivision (controller->getSnap());
+
+    // a synth without MPE was loaded: say what happened and offer the fix
+    if (processor.hasNonMpeNotice() && ! banner.isVisible())
+    {
+        banner.show ("This synth doesn't support MPE - BEND DEMON switched to mono slides. "
+                     "For slides on every note use Serum 2, Vital or the built-in sound.",
+                     "USE BUILT-IN SOUND",
+                     [this] { processor.setUseInternalSynth (true); processor.dismissNonMpeNotice(); banner.setVisible (false);
+                              if (auto* p = processor.getAPVTS().getParameter (ids::seqMono)) p->setValueNotifyingHost (0.0f); },
+                     [this] { processor.dismissNonMpeNotice(); banner.setVisible (false); });
+        banner.toFront (false);
+    }
+    else if (! processor.hasNonMpeNotice() && banner.isVisible())
+        banner.setVisible (false);
+
+    updateStatus();
 
     voiceField.tick (t);
     topBar.tick (t);
+    toolbar->tick (t);
+    inspector->tick (t);
+    if (lane->isVisible()) lane->repaint();
+}
 
-    // breathing phase for active pads (~0.6 Hz), staggered so they don't pulse in lockstep
-    for (size_t i = 0; i < pads.size(); ++i)
-        pads[i]->setPhase (t * 0.6f + (float) i * 0.13f);
+void BendDemonEditor::updateStatus()
+{
+    // left: what the thing under the mouse does (its tooltip, in plain words)
+    juce::String hint;
+    auto* c = juce::Desktop::getInstance().getMainMouseSource().getComponentUnderMouse();
+    if (c == &voiceField || (c != nullptr && voiceField.isParentOf (c)))
+    {
+        if (! processor.isDrawMode())
+            hint = "LIVE - play notes in FL Studio: the shapes that are switched on bend them (SHAPES tab)";
+        else if (! voiceField.canEdit())
+            hint = "3D VIEW - turn 3D off to draw";
+        else switch (controller->getTool())
+        {
+            case LineEditController::Tool::pencil: hint = "PENCIL - click to place a note, drag to draw a slide. Shift = whole semitones, right-click = delete"; break;
+            case LineEditController::Tool::line:   hint = "LINE - click and drag a straight slide, click further right to add a corner, Esc to finish"; break;
+            case LineEditController::Tool::select: hint = "SELECT - drag to move, Alt-drag to copy, drag the ends to resize, drag a dot to reshape"; break;
+            case LineEditController::Tool::eraser: hint = "ERASER - click or sweep over notes to delete them"; break;
+        }
+    }
+    else
+    {
+        for (auto* p = c; p != nullptr && p != this; p = p->getParentComponent())
+            if (auto* tc = dynamic_cast<juce::TooltipClient*> (p))
+            {
+                hint = tc->getTooltip();
+                if (hint.isNotEmpty()) break;
+            }
+    }
+    auto& cap = processor.getCaptureRecorder();
+    if (cap.isArmed())
+        hint = cap.isRecording() ? "RECORDING - playing your piano-roll notes into the pattern ..."
+                                 : "RECORDING ARMED - starts at the next loop / bar line when FL plays";
+
+    // right: what is loaded
+    const auto& pat = processor.getPatternStore().get();
+    const juce::String dot (juce::CharPointer_UTF8 ("  \xc2\xb7  "));
+    juce::String info = processor.getPresets().getCurrentName() + dot + juce::String (pat.bars) + (pat.bars == 1 ? " bar" : " bars")
+                        + dot + juce::String ((int) pat.lines.size()) + " notes";
+    if (processor.getAPVTS().getRawParameterValue (ids::seqMono)->load() > 0.5f)
+        info << dot << "mono slides";
+    statusBar.setTexts (hint, info);
 }
 
 void BendDemonEditor::changeListenerCallback (juce::ChangeBroadcaster*)
@@ -248,10 +270,14 @@ void BendDemonEditor::changeListenerCallback (juce::ChangeBroadcaster*)
 void BendDemonEditor::updateHint()
 {
     auto& host = processor.getHost();
-    if (processor.isMidiOutMode())
+    if (processor.isDrawMode())
+        voiceField.setHintText (juce::String (juce::CharPointer_UTF8 ("Draw a line with the pencil \xe2\x80\x93 it plays as one note that can slide anywhere.\n"))
+                                + "Then press PLAY (or play in FL Studio). Or pick a pattern from the presets.");
+    else if (processor.isMidiOutMode())
         voiceField.setHintText ("MIDI OUT MODE\nRoute BEND DEMON's MIDI output to an MPE synth on another channel.");
-    else if (! host.hasPlugin())
-        voiceField.setHintText ("LOAD A SYNTH TO BEGIN\nPick an MPE-capable synth (Serum 2, Vital, Pigments, Phase Plant ...),\nthen play or write a melody in the piano roll.");
+    else if (! host.hasPlugin() || processor.isUsingInternalSynth())
+        voiceField.setHintText ("LIVE MODE\nPlay or write a melody in the piano roll: the gestures bend it.\n"
+                                "Sound: " + processor.getSynthSlotText());
     else
         voiceField.setHintText ("PLAY A MELODY\n" + host.getPluginName() + " is listening in MPE.");
 }
@@ -277,23 +303,24 @@ void BendDemonEditor::showSynthBrowser (bool show)
     }
     else
     {
-        // hand the keyboard straight back to the host (space = play/stop)
         browser->giveAwayKeyboardFocus();
         juce::Component::unfocusAllComponents();
     }
 }
 
-void BendDemonEditor::showSection (Section sec)
+void BendDemonEditor::setLaneOpen (bool b)
 {
-    currentSection = sec;
-    const int idx = (int) sec;
-    if (juce::isPositiveAndBelow (idx, tabs.size()))
-        tabs[idx]->setToggleState (true, juce::dontSendNotification);
-    for (auto& sc : sections)
-        for (auto* c : sc.items)
-            c->setVisible (sc.section == sec);
+    laneOpen = b;
+    toolbar->setLaneOpen (b);
     resized();
-    repaint();
+    saveUiState();
+}
+
+void BendDemonEditor::setInspectorOpen (bool b)
+{
+    inspectorOpen = b;
+    resized();
+    saveUiState();
 }
 
 //==============================================================================
@@ -304,9 +331,8 @@ int BendDemonEditor::fitWidthToScreen (int wanted) const
     if (auto* d = (isShowing() ? displays.getDisplayForRect (getScreenBounds()) : displays.getPrimaryDisplay()))
         area = d->userArea;
 
-    // leave room for the host's own toolbars and the plugin window title bar
-    const int maxW = juce::jmin (juce::roundToInt (area.getWidth() * 0.80),
-                                 juce::roundToInt (area.getHeight() * 0.78 * defaultWidth / (double) defaultHeight));
+    const int maxW = juce::jmin (juce::roundToInt (area.getWidth() * 0.85),
+                                 juce::roundToInt (area.getHeight() * 0.80 * defaultWidth / (double) defaultHeight));
     return juce::jlimit (minWidth, juce::jmax (minWidth, maxW), wanted);
 }
 
@@ -318,19 +344,22 @@ void BendDemonEditor::setEditorWidth (int w)
 
 void BendDemonEditor::mouseDown (const juce::MouseEvent& e)
 {
-    if (! e.mods.isPopupMenu())
-        return;
+    if (e.mods.isPopupMenu())
+        showWindowSizeMenu();
+}
 
+void BendDemonEditor::showWindowSizeMenu()
+{
     juce::PopupMenu m;
-    m.addSectionHeader ("WINDOW SIZE");
-    const int widths[] = { 640, 800, 960, 1120, 1280, 1600 };
-    const char* names[] = { "50 %", "62 %", "75 %", "87 %", "100 %", "125 %" };
+    m.addSectionHeader ("Window size");
+    const int widths[] = { 640, 800, 1040, 1280, 1440, 1680 };
+    const char* names[] = { "62 %", "77 %", "100 %", "123 %", "138 %", "162 %" };
     for (int i = 0; i < 6; ++i)
         m.addItem (i + 1, names[i], true, std::abs (getWidth() - widths[i]) < 8);
     m.addSeparator();
     m.addItem (100, "Fit to screen");
 
-    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&topBar),
+    m.showMenuAsync (juce::PopupMenu::Options().withMousePosition(),
                      [safe = juce::Component::SafePointer<BendDemonEditor> (this), widths] (int r)
                      {
                          if (safe == nullptr || r == 0) return;
@@ -342,138 +371,38 @@ void BendDemonEditor::mouseDown (const juce::MouseEvent& e)
 //==============================================================================
 void BendDemonEditor::resized()
 {
+    const float s = (float) getWidth() / (float) defaultWidth;
     auto r = getLocalBounds();
-    const int h = getHeight();
 
-    topBar.setBounds (r.removeFromTop (juce::roundToInt (h * kTopFrac)));
-    dockArea = r.removeFromBottom (juce::roundToInt (h * kDockFrac));
+    topBar.setBounds (r.removeFromTop (juce::roundToInt (kTop * s)));
+    statusBar.setBounds (r.removeFromBottom (juce::roundToInt (kStatus * s)));
+    toolbar->setBounds (r.removeFromTop (juce::roundToInt (kTool * s)));
+
+    inspector->setVisible (inspectorOpen);
+    if (inspectorOpen)
+        inspector->setBounds (r.removeFromRight (juce::roundToInt (kInspector * s)));
+
+    const bool showLane = laneOpen && drawModeShown;
+    lane->setVisible (showLane);
+    if (showLane)
+        lane->setBounds (r.removeFromBottom (juce::roundToInt (kLane * s)));
+
     voiceField.setBounds (r);
+    {
+        // 3D view toggle in the canvas corner (above the piano keys)
+        topBar.getDimensionButton().setBounds (juce::Rectangle<int> (r.getX() + 3, r.getY() + 3,
+                                                                      juce::roundToInt (42 * s), juce::roundToInt (18 * s)));
+        topBar.getDimensionButton().toFront (false);
+    }
+    banner.setBounds (r.reduced (juce::roundToInt (40 * s), 0).withHeight (juce::roundToInt (46 * s))
+                       .translated (0, juce::roundToInt (26 * s)));
     browser->setBounds (getLocalBounds());
-
-    layoutDock (dockArea);
 
     if (sizeRestored)
         processor.getUiState().setProperty ("width", getWidth(), nullptr);
 }
 
-void BendDemonEditor::layoutDock (juce::Rectangle<int> area)
-{
-    const float scale = (float) getWidth() / (float) defaultWidth;
-    auto r = area.reduced (juce::roundToInt (16 * scale), juce::roundToInt (12 * scale));
-
-    // row 1: pads
-    auto padRow = r.removeFromTop (juce::roundToInt (r.getHeight() * 0.44f));
-    const int gap = juce::roundToInt (8 * scale);
-    const int padW = (padRow.getWidth() - gap * ((int) pads.size() - 1)) / (int) pads.size();
-    for (auto& p : pads)
-    {
-        p->setBounds (padRow.removeFromLeft (padW));
-        padRow.removeFromLeft (gap);
-    }
-
-    r.removeFromTop (juce::roundToInt (12 * scale));
-
-    // row 2: [section controls ........][global controls]
-    globalArea  = r.removeFromRight (juce::roundToInt (r.getWidth() * 0.42f));
-    sectionArea = r.withTrimmedRight (juce::roundToInt (18 * scale));
-
-    // tabs in the caption row
-    {
-        auto tabRow = sectionArea.withHeight (juce::roundToInt (20 * scale)).withTrimmedLeft (juce::roundToInt (170 * scale));
-        const int tw = tabRow.getWidth() / juce::jmax (1, tabs.size());
-        for (auto* t : tabs)
-            t->setBounds (tabRow.removeFromLeft (tw).reduced (2, 0));
-    }
-
-    // section controls: knobs get square cells, choices/pills share a column
-    for (auto& sc : sections)
-    {
-        if (sc.section != currentSection) continue;
-
-        auto row = sectionArea.withTrimmedTop (juce::roundToInt (26 * scale));
-        const int cellH = row.getHeight();
-        int knobs = 0, others = 0;
-        for (auto* c : sc.items) (dynamic_cast<GlowKnob*> (c) != nullptr ? knobs : others)++;
-
-        const int sideW = others > 0 ? juce::roundToInt (cellH * 1.25f) : 0;
-        const int knobW = knobs > 0 ? juce::jmin (cellH, (row.getWidth() - sideW - 8) / knobs) : 0;
-
-        auto side = row.removeFromRight (sideW);
-        const int sideItemH = others > 0 ? juce::jmin (juce::roundToInt (40 * scale), side.getHeight() / others) : 0;
-
-        for (auto* c : sc.items)
-        {
-            if (dynamic_cast<GlowKnob*> (c) != nullptr)
-                c->setBounds (row.removeFromLeft (knobW).reduced (2));
-            else
-            {
-                auto cell = side.removeFromTop (sideItemH).reduced (0, 2);
-                if (dynamic_cast<PillToggle*> (c) != nullptr)
-                    cell = cell.withSizeKeepingCentre (cell.getWidth(), juce::jmin (cell.getHeight(), juce::roundToInt (24 * scale)));
-                c->setBounds (cell);
-            }
-        }
-    }
-
-    // global controls: scale lock block + routing block
-    auto g = globalArea.withTrimmedTop (juce::roundToInt (16 * scale));
-    auto knobs = g.removeFromRight (juce::roundToInt (g.getHeight() * 1.6f));
-    voicesKnob->setBounds (knobs.removeFromLeft (knobs.getWidth() / 2).reduced (2));
-    gainKnob->setBounds (knobs.reduced (2));
-    g.removeFromRight (juce::roundToInt (10 * scale));
-
-    const int rowH = g.getHeight() / 3;
-    auto row1 = g.removeFromTop (rowH).reduced (0, 2);
-    auto row2 = g.removeFromTop (rowH).reduced (0, 2);
-    auto row3 = g.reduced (0, 2);
-    const int pillH = juce::jmin (row1.getHeight(), juce::roundToInt (24 * scale));
-
-    scaleLock->setBounds (row1.removeFromLeft (row1.getWidth() / 2 - 4).withSizeKeepingCentre (row1.getWidth() / 2 - 4, pillH));
-    row1.removeFromLeft (8);
-    quantize->setBounds (row1.withSizeKeepingCentre (row1.getWidth(), pillH));
-
-    scaleKey->setBounds (row2.removeFromLeft (row2.getWidth() / 3));
-    row2.removeFromLeft (6);
-    scaleType->setBounds (row2);
-
-    bendRange->setBounds (row3.removeFromLeft (row3.getWidth() / 2 - 4));
-    row3.removeFromLeft (8);
-    midiOut->setBounds (row3.withTrimmedTop (row3.getHeight() / 3).withSizeKeepingCentre (row3.getWidth(), pillH));
-}
-
-//==============================================================================
 void BendDemonEditor::paint (juce::Graphics& g)
 {
     g.fillAll (pal::ground0);
-
-    // dock: glass panel with a glowing top edge
-    auto dock = dockArea.toFloat();
-    juce::ColourGradient bg (pal::ground1.withAlpha (0.9f), dock.getCentreX(), dock.getY(),
-                             pal::ground0, dock.getCentreX(), dock.getBottom(), false);
-    g.setGradientFill (bg);
-    g.fillRect (dock);
-
-    juce::ColourGradient edge (pal::cyan.withAlpha (0.0f), dock.getX(), dock.getY(), pal::magenta.withAlpha (0.0f), dock.getRight(), dock.getY(), false);
-    edge.addColour (0.25, pal::cyan.withAlpha (0.45f));
-    edge.addColour (0.75, pal::magenta.withAlpha (0.45f));
-    g.setGradientFill (edge);
-    g.fillRect (dock.withHeight (1.0f));
-
-    const float scale = (float) getWidth() / (float) defaultWidth;
-
-    // section caption
-    juce::String title;
-    for (auto& sc : sections) if (sc.section == currentSection) title = sc.title;
-
-    g.setFont (fonts::mono (11.0f * juce::jmax (0.85f, scale), true));
-    g.setColour (pal::cyan);
-    g.drawText (title, sectionArea.withHeight (juce::roundToInt (20 * scale)), juce::Justification::centredLeft);
-
-    g.setColour (pal::textDim);
-    g.drawText ("SCALE / MPE / OUTPUT", globalArea.withHeight (juce::roundToInt (14 * scale)), juce::Justification::topLeft);
-
-    g.setColour (pal::hairline.withAlpha (0.5f));
-    g.fillRect ((float) globalArea.getX() - 9.0f * scale, (float) globalArea.getY() + 4.0f, 1.0f, (float) globalArea.getHeight() - 8.0f);
 }
-
-void BendDemonEditor::paintOverChildren (juce::Graphics&) {}

@@ -53,15 +53,7 @@ void SynthBrowser::visibilityChanged()
 
 bool SynthBrowser::isKnownMpeSynth (const juce::PluginDescription& d)
 {
-    static const char* names[] = { "serum 2", "vital", "pigments", "phase plant", "surge", "equator",
-                                   "kontakt", "falcon", "omnisphere", "audio modeling", "osmose",
-                                   "strobe2", "cypher2", "thorn", "bitwig", "seaboard", "vcv", "zebra", "hive",
-                                   "massive x", "synplant", "spire", nullptr };
-    const auto n = d.name.toLowerCase();
-    for (int i = 0; names[i] != nullptr; ++i)
-        if (n.contains (names[i]))
-            return true;
-    return false;
+    return HostedPluginManager::isKnownMpeSynth (d);
 }
 
 void SynthBrowser::refilter()
@@ -76,6 +68,14 @@ void SynthBrowser::refilter()
         if (q.isEmpty() || hay.contains (q))
             filtered.add (d);
     }
+
+    // MPE-capable synths first (they can slide every note on its own), then by name
+    std::stable_sort (filtered.begin(), filtered.end(), [] (const juce::PluginDescription& a, const juce::PluginDescription& b)
+    {
+        const bool ma = isKnownMpeSynth (a), mb = isKnownMpeSynth (b);
+        if (ma != mb) return ma;
+        return a.name.compareIgnoreCase (b.name) < 0;
+    });
 
     list.updateContent();
     if (filtered.size() > 0 && list.getSelectedRow() < 0)
@@ -135,26 +135,37 @@ void SynthBrowser::paintListBoxItem (int row, juce::Graphics& g, int w, int h, b
 
     if (selected)
     {
-        juce::ColourGradient grad (pal::cyan.withAlpha (0.20f), r.getTopLeft(), pal::magenta.withAlpha (0.10f), r.getTopRight(), false);
-        g.setGradientFill (grad);
-        g.fillRoundedRectangle (r, 6.0f);
-        g.setColour (pal::cyan.withAlpha (0.5f));
-        g.drawRoundedRectangle (r, 6.0f, 1.0f);
+        g.setColour (pal::raised);
+        g.fillRoundedRectangle (r, 4.0f);
+        g.setColour (pal::cyan.withAlpha (0.6f));
+        g.drawRoundedRectangle (r, 4.0f, 1.0f);
     }
 
     const bool mpe = isKnownMpeSynth (d);
-    g.setColour (mpe ? pal::lime : pal::textFaint);
-    g.fillEllipse (juce::Rectangle<float> (6, 6).withCentre ({ r.getX() + 12.0f, r.getCentreY() }));
+    auto rr = r.reduced (10.0f, 0.0f);
+    if (mpe)
+    {
+        auto badge = rr.removeFromLeft (40.0f).withSizeKeepingCentre (40.0f, 18.0f);
+        g.setColour (pal::cyan.withAlpha (0.16f));
+        g.fillRoundedRectangle (badge, 3.0f);
+        g.setColour (pal::cyan);
+        g.drawRoundedRectangle (badge, 3.0f, 1.0f);
+        g.setFont (fonts::ui (11.0f, true));
+        g.drawText ("MPE", badge.toNearestInt(), juce::Justification::centred);
+    }
+    else
+        rr.removeFromLeft (40.0f);
+    rr.removeFromLeft (10.0f);
 
     g.setColour (pal::text);
-    g.setFont (fonts::mono (14.0f, true));
-    g.drawText (d.name, r.withTrimmedLeft (24).withTrimmedRight (200).toNearestInt(), juce::Justification::centredLeft);
+    g.setFont (fonts::ui (14.0f, true));
+    g.drawText (d.name, rr.withTrimmedRight (220).toNearestInt(), juce::Justification::centredLeft);
 
     g.setColour (pal::textDim);
-    g.setFont (fonts::mono (11.0f));
+    g.setFont (fonts::ui (12.0f));
     const juce::String dot (juce::CharPointer_UTF8 ("  \xc2\xb7  "));
-    g.drawText (d.manufacturerName + dot + d.pluginFormatName + (mpe ? dot + "MPE" : juce::String()),
-                r.withTrimmedRight (10).toNearestInt(), juce::Justification::centredRight);
+    g.drawText (d.manufacturerName + dot + d.pluginFormatName + (mpe ? juce::String() : dot + "mono slides"),
+                rr.toNearestInt(), juce::Justification::centredRight);
 }
 
 void SynthBrowser::listBoxItemDoubleClicked (int row, const juce::MouseEvent&) { loadRow (row); }
@@ -203,34 +214,28 @@ void SynthBrowser::resized()
 
 void SynthBrowser::paint (juce::Graphics& g)
 {
-    g.fillAll (pal::ground0.withAlpha (0.78f));
+    g.fillAll (juce::Colours::black.withAlpha (0.6f));
 
     auto panel = panelBounds().toFloat();
-    for (int i = 4; i >= 1; --i)
-    {
-        g.setColour (pal::violet.withAlpha (0.04f));
-        g.fillRoundedRectangle (panel.expanded ((float) i * 4.0f), 18.0f + (float) i * 4.0f);
-    }
-    juce::ColourGradient bg (pal::ground1, panel.getTopLeft(), pal::ground0, panel.getBottomRight(), false);
-    g.setGradientFill (bg);
-    g.fillRoundedRectangle (panel, 16.0f);
-    g.setColour (pal::violet.withAlpha (0.45f));
-    g.drawRoundedRectangle (panel, 16.0f, 1.2f);
+    g.setColour (pal::ground1);
+    g.fillRoundedRectangle (panel, 8.0f);
+    g.setColour (pal::hairline);
+    g.drawRoundedRectangle (panel, 8.0f, 1.0f);
 
     auto r = panelBounds().reduced (20);
     auto header = r.removeFromTop (40);
     g.setColour (pal::text);
-    g.setFont (fonts::display (18.0f, 2));
-    g.drawText ("LOAD SYNTH", header, juce::Justification::centredLeft);
+    g.setFont (fonts::ui (18.0f, true));
+    g.drawText ("Load your synth", header, juce::Justification::centredLeft);
 
-    g.setFont (fonts::mono (11.0f));
+    g.setFont (fonts::ui (12.0f));
     g.setColour (pal::textDim);
-    g.drawText (juce::String (filtered.size()) + " / " + juce::String (all.size()) + " INSTRUMENTS  -  lime = MPE capable",
+    g.drawText (juce::String (filtered.size()) + " / " + juce::String (all.size()) + " instruments  -  MPE = every note slides on its own",
                 header.withTrimmedLeft (170).withTrimmedRight (40), juce::Justification::centredRight);
 
     auto bottom = panelBounds().reduced (20).removeFromBottom (40).withTrimmedRight (130);
     g.setColour (status.startsWith ("ERROR") ? pal::magenta : pal::textDim);
-    g.setFont (fonts::mono (11.0f));
+    g.setFont (fonts::ui (12.0f));
     g.drawFittedText (status.isNotEmpty() ? status
                                           : juce::String ("Double-click or press Enter to load. Scan results are cached."),
                       bottom, juce::Justification::centredLeft, 2);
@@ -247,7 +252,7 @@ void SynthBrowser::paint (juce::Graphics& g)
     if (all.isEmpty() && ! host.isScanning())
     {
         g.setColour (pal::textDim);
-        g.setFont (fonts::mono (13.0f));
+        g.setFont (fonts::ui (13.0f));
         g.drawFittedText ("No instruments found yet. Press SCAN.", list.getBounds(), juce::Justification::centred, 2);
     }
 }

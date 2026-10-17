@@ -33,7 +33,7 @@ while a scripted melody plays through the real engine. The fonts are the embedde
 | `src/VisualFifo.h` | Lock-free audio → UI event queue (`juce::AbstractFifo`) + transport anchor |
 | `tests/` | Engine unit tests (`juce::UnitTest`): 7 suites, ~29k checks |
 | `tools/` | Dev tools (off by default): UI snapshot app, end-to-end host test, "MPE Probe" test synth |
-| `resources/fonts/` | Unbounded + JetBrains Mono (SIL OFL 1.1, licences included), embedded as BinaryData |
+| `resources/fonts/` | Unbounded + Inter (SIL OFL 1.1, licences included), embedded as BinaryData |
 | `scripts/` | `build-mac.sh`, `build-win.ps1`, installer files (pkg distribution, Inno Setup `.iss`) |
 | `.github/workflows/build.yml` | CI: Linux tests + host test, macOS universal pkg, Windows installer. Signing gated on secrets |
 | `MANUAL.md` | User manual (FL Studio workflow) |

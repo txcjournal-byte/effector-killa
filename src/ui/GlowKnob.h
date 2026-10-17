@@ -39,9 +39,11 @@ public:
     void paint (juce::Graphics&) override;
 
     juce::ComboBox& getCombo() noexcept { return combo; }
+    void setCaptionFraction (float f)   { captionFraction = f; resized(); repaint(); }
 
 private:
     juce::ComboBox combo;
+    float captionFraction = 0.45f;
     juce::String caption;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> attachment;
 };
