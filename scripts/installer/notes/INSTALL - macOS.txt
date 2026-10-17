@@ -1,4 +1,4 @@
-TrapWin BEND DEMON 1.0.0 - macOS installation (Apple Silicon & Intel)
+TrapWin BEND DEMON 1.0.1 - macOS installation (Apple Silicon & Intel)
 =====================================================================
 
 The plugin is signed and notarized by Apple.

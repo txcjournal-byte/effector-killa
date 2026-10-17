@@ -1,7 +1,7 @@
-TrapWin BEND DEMON 1.0.0 - Windows installation (Windows 10/11, 64-bit)
+TrapWin BEND DEMON 1.0.1 - Windows installation (Windows 10/11, 64-bit)
 =======================================================================
 
-1. Unzip this file and run "TrapWinBendDemon-1.0.0-Windows-Setup.exe".
+1. Unzip this file and run "TrapWinBendDemon-1.0.1-Windows-Setup.exe".
    (If Windows SmartScreen appears: "More info" > "Run anyway".)
 2. The installer puts the VST3 plugin here:
        C:\Program Files\Common Files\VST3\BEND DEMON.vst3
