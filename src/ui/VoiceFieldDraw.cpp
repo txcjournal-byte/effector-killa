@@ -155,6 +155,10 @@ void VoiceField::paintDrawMode (juce::Graphics& g)
     using namespace juce;
     const float s = getUiScale();
 
+    // keep the projection in step with the pattern view *before* painting: the cached line layer is
+    // keyed on pview, so drawing it with a stale view would bake lines at the wrong pitch.
+    updateDrawView();
+
     drawPatternGrid (g);
     drawPatternLines (g);
 
@@ -366,7 +370,7 @@ void VoiceField::drawLine (juce::Graphics& g, const PatternLine& l, int index, b
         float lastX = -1.0e9f;
         for (size_t i = 1; i < l.pitch.size(); ++i)
         {
-            const Point<float> q (beatToX (l.start + l.pitch[i].t), pitchToY (l.pitch[i].v));
+            const Point<float> q (beatToX (l.start + l.pitch[i].t), pitchToY (l.curvePitchAt (l.pitch[i].t)));
             if (q.x - lastX < 7.0f * uiScale) continue;
             lastX = q.x;
             g.setColour (pal::ground0);
