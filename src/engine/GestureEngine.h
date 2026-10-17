@@ -139,6 +139,12 @@ public:
     /** Release every voice at the start of the next block (transport stop, synth change ...). */
     void requestReleaseAll() noexcept               { releasePending = true; }
 
+    /** True while a release-all or a zone configuration is waiting for the next block. */
+    bool isResetPending() const noexcept            { return configPending.load() || releasePending.load(); }
+
+    /** Number of member channels the gesture engine allocates from (2 .. 1 + n). */
+    int getLiveChannelCount() const noexcept;
+
     /** Latency introduced by chord detection lookahead. */
     int getLatencySamples() const noexcept;
 

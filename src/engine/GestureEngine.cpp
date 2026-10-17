@@ -37,7 +37,7 @@ void GestureEngine::reset()
         v.channel = ch;
     }
 
-    allocator.setNumMemberChannels (settings.numVoices);
+    allocator.setNumMemberChannels (getLiveChannelCount());
     queueClear();
     clock = 0;
     nextTick = 0;
@@ -47,7 +47,8 @@ void GestureEngine::reset()
 
 void GestureEngine::setSettings (const EngineSettings& s)
 {
-    const bool layoutChanged = s.numVoices != settings.numVoices || s.bendRange != settings.bendRange;
+    const bool layoutChanged = s.numVoices != settings.numVoices || s.bendRange != settings.bendRange
+                            || s.liveChannels != settings.liveChannels || s.masterBendRange != settings.masterBendRange;
 
     settings = s;
     settings.numVoices = juce::jlimit (1, 15, settings.numVoices);
@@ -58,6 +59,12 @@ void GestureEngine::setSettings (const EngineSettings& s)
         releasePending = true;
         configPending  = true;
     }
+}
+
+int GestureEngine::getLiveChannelCount() const noexcept
+{
+    const int n = juce::jlimit (1, 15, settings.numVoices);
+    return settings.liveChannels > 0 ? juce::jmin (n, settings.liveChannels) : n;
 }
 
 int GestureEngine::getLatencySamples() const noexcept
@@ -136,9 +143,10 @@ void GestureEngine::process (const juce::MidiBuffer& in, juce::MidiBuffer& out, 
 
     if (configPending.exchange (false))
     {
-        allocator.setNumMemberChannels (settings.numVoices);
+        allocator.setNumMemberChannels (getLiveChannelCount());
         const int span = MpeOutput::addZoneConfiguration (out, 0, juce::jmax (0, numSamples - 1),
-                                                          settings.numVoices, settings.bendRange);
+                                                          settings.numVoices, settings.bendRange,
+                                                          juce::jlimit (1, 96, settings.masterBendRange));
         notBefore = blockStart + juce::jmin (span, juce::jmax (0, numSamples - 1));
     }
 
@@ -305,7 +313,7 @@ void GestureEngine::handleNoteOnGroup (juce::MidiBuffer& out, int64_t t, int64_t
         int candidates[16];
         int numCand = 0;
 
-        for (int ch = 2; ch <= 1 + settings.numVoices; ++ch)
+        for (int ch = 2; ch <= allocator.getLastChannel(); ++ch)
             if (isGlideCandidate (voices[(size_t) ch], t))
                 candidates[numCand++] = ch;
 

@@ -104,7 +104,14 @@ set(BD_ENGINE_SOURCES
     src/engine/ScaleLock.h          src/engine/ScaleLock.cpp
     src/engine/VoiceAllocator.h     src/engine/VoiceAllocator.cpp
     src/engine/MpeOutput.h          src/engine/MpeOutput.cpp
-    src/engine/GestureEngine.h      src/engine/GestureEngine.cpp)
+    src/engine/GestureEngine.h      src/engine/GestureEngine.cpp
+    src/engine/Pattern.h            src/engine/Pattern.cpp
+    src/engine/PatternExchange.h
+    src/engine/PatternPlayer.h      src/engine/PatternPlayer.cpp
+    src/engine/PatternTools.h       src/engine/PatternTools.cpp
+    src/engine/PatternFactory.cpp
+    src/engine/CaptureFifo.h
+    src/engine/InternalSynth.h      src/engine/InternalSynth.cpp)
 
 # -------------------------------------------------------------------------------------
 # Plugin

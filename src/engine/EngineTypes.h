@@ -88,6 +88,8 @@ struct EngineSettings
     // MPE layout
     int   numVoices        = 15;     // member channels 2..(1 + numVoices), 1..15
     int   bendRange        = 48;     // per-note pitch bend range in semitones
+    int   liveChannels     = 0;      // 2.0: member channels the gesture engine may use (2..1+n), 0 = all numVoices
+    int   masterBendRange  = 2;      // RPN 0 sent on the master channel (Mono/Legacy mode uses bendRange)
 
     // GLIDE (mono legato) and CHORD GLIDE
     bool  glideOn          = true;

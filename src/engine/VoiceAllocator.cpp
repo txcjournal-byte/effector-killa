@@ -4,18 +4,18 @@
 namespace bd
 {
 
-void VoiceAllocator::setNumMemberChannels (int n) noexcept
+void VoiceAllocator::setChannelRange (int first, int last) noexcept
 {
-    numMembers = std::clamp (n, 1, maxMemberChans);
+    firstCh    = std::clamp (first, 2, 16);
+    numMembers = std::clamp (last - firstCh + 1, 1, 17 - firstCh);
     slots = {};
-    lastAllocated = 1;
+    lastAllocated = firstCh - 1;
 }
 
 VoiceAllocator::Result VoiceAllocator::allocate (int noteNumber, int64_t stamp) noexcept
 {
     Result r;
-    const int firstCh = 2;
-    const int lastCh  = 1 + numMembers;
+    const int lastCh = firstCh + numMembers - 1;
 
     auto take = [&] (int ch)
     {
@@ -77,19 +77,19 @@ VoiceAllocator::Result VoiceAllocator::allocate (int noteNumber, int64_t stamp) 
 
 void VoiceAllocator::markReleasing (int channel) noexcept
 {
-    if (channel >= 2 && channel <= 1 + numMembers)
+    if (channel >= firstCh && channel < firstCh + numMembers)
         slots[(size_t) index (channel)].state = State::releasing;
 }
 
 void VoiceAllocator::markHeld (int channel) noexcept
 {
-    if (channel >= 2 && channel <= 1 + numMembers)
+    if (channel >= firstCh && channel < firstCh + numMembers)
         slots[(size_t) index (channel)].state = State::held;
 }
 
 void VoiceAllocator::free (int channel) noexcept
 {
-    if (channel >= 2 && channel <= 1 + numMembers)
+    if (channel >= firstCh && channel < firstCh + numMembers)
         slots[(size_t) index (channel)].state = State::free;
 }
 
@@ -101,7 +101,7 @@ void VoiceAllocator::freeAll() noexcept
 
 bool VoiceAllocator::isBusy (int channel) const noexcept
 {
-    return channel >= 2 && channel <= 1 + numMembers
+    return channel >= firstCh && channel < firstCh + numMembers
         && slots[(size_t) index (channel)].state != State::free;
 }
 
@@ -109,7 +109,7 @@ int VoiceAllocator::numBusy() const noexcept
 {
     int n = 0;
     for (int i = 0; i < numMembers; ++i)
-        if (slots[(size_t) i].state != State::free)
+        if (slots[(size_t) index (firstCh + i)].state != State::free)
             ++n;
     return n;
 }

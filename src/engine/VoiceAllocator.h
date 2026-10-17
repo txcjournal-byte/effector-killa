@@ -34,8 +34,14 @@ public:
     };
 
     /** numMemberChannels: 1..15 (member channels 2 .. 1 + n). Resets all state. */
-    void setNumMemberChannels (int n) noexcept;
-    int  getNumMemberChannels() const noexcept { return numMembers; }
+    void setNumMemberChannels (int n) noexcept   { setChannelRange (2, 1 + n); }
+    int  getNumMemberChannels() const noexcept   { return numMembers; }
+
+    /** Restricts allocation to member channels first..last (2..16). Resets all state.
+        (2.0: the line sequencer and the live gesture engine share one MPE zone.) */
+    void setChannelRange (int firstChannel, int lastChannel) noexcept;
+    int  getFirstChannel() const noexcept        { return firstCh; }
+    int  getLastChannel() const noexcept         { return firstCh + numMembers - 1; }
 
     /** Allocates a channel for a note. `stamp` must increase monotonically (e.g. a sample clock). */
     Result allocate (int noteNumber, int64_t stamp) noexcept;
@@ -68,8 +74,9 @@ private:
     static int index (int channel) noexcept { return channel - 2; }
 
     std::array<Slot, maxMemberChans> slots {};
+    int firstCh = 2;
     int numMembers = maxMemberChans;
-    int lastAllocated = 1;          // so the first allocation is channel 2
+    int lastAllocated = 1;          // so the first allocation is the first channel
 };
 
 } // namespace bd
