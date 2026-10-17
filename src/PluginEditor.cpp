@@ -215,7 +215,13 @@ void BendDemonEditor::timerCallback()
     topBar.tick (t);
     toolbar->tick (t);
     inspector->tick (t);
-    if (lane->isVisible()) lane->repaint();
+    if (lane->isVisible())
+    {
+        // the lane only changes with the pattern, the selection or the view
+        const auto v = voiceField.getPatternView();
+        const auto key = juce::String ((int) store.getVersion()) + "|" + juce::String (v.start, 4) + "|" + juce::String (v.beats, 4);
+        if (key != lastLaneKey) { lastLaneKey = key; lane->repaint(); }
+    }
 }
 
 void BendDemonEditor::updateStatus()

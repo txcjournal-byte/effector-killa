@@ -109,7 +109,6 @@ private:
     double sampleRate = 44100.0;
     int sound = glideLead;
     int64_t ageCounter = 0;
-    int coefCounter = 0;
     float pitchCoef = 0.05f, ctrlCoef = 0.01f;
 
     // FX

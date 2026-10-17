@@ -131,8 +131,8 @@ Inspector::Inspector (BendDemonProcessor& p, LineEditController& c) : processor 
         const bool uni = polarity.getButtonText() == "BIPOLAR";
         editSelected ([uni] (PatternLine& l) { l.vibUnipolar = uni; }, "Pitch mod polarity", false);
     };
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &lfoShape, &lfoSpeed, &polarity })
-        addAndMakeVisible (c);
+    for (juce::Component* comp : std::initializer_list<juce::Component*> { &lfoShape, &lfoSpeed, &polarity })
+        addAndMakeVisible (comp);
 
     smoothCurve.setTooltip ("SMOOTH - the pitch flows in soft curves through the points");
     straightCurve.setTooltip ("STRAIGHT - the pitch moves in straight lines between the points");

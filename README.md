@@ -283,27 +283,41 @@ Without the secrets, unsigned artefacts are still uploaded.
 
 ## What was verified, and what was not
 
-Verified in a Linux container (Ubuntu 24.04, GCC 13, JUCE 8.0.9):
+Verified in a Linux container (Ubuntu 24.04, GCC 13 + Clang 18, JUCE 8.0.9):
 
-* Engine unit tests: **29,252 checks, 0 failures** (channel allocation, 14-bit bend maths, MPE
-  configuration and VST3-safe ordering, mono glide, chord-glide matching, dive timing and delayed
-  note-off, tempo-synced dive, scale snapping in all scales, trill, quantize, stuck-note fuzzing,
-  release-all, and decoding by `juce::MPEInstrument` as a reference MPE receiver).
-* `BendDemon_VST3` and `BendDemon_Standalone` compile and link (Release, LTO) with zero warnings in project code.
-* **End-to-end hosting**: `BendDemonHostTest` loads the `MPE Probe` VST3 (a minimal MPE synth
-  that only plays once it has received a valid MPE zone) through the real `HostedPluginManager`,
-  plays 60 → 64 legato with GLIDE, and measures the output: **261.62 Hz → 329.67 Hz**
-  (expected 261.63 / 329.63). It then saves and restores BEND DEMON's state into a new instance;
-  the hosted plugin comes back.
-* The UI renders correctly at 1280×800 and 960×600, flat and in DIMENSION (see screenshots).
+* Engine unit tests: **35,511 checks, 0 failures**. 1.x: channel allocation, 14-bit bend maths,
+  MPE configuration and VST3-safe ordering, glide / chord glide, dive timing, scale snapping,
+  stuck-note fuzzing, `juce::MPEInstrument` decoding. 2.0: curve interpolation (no overshoot,
+  continuity), pattern playback timing, loop boundaries with odd block sizes, seek + chase, stop,
+  jitter tolerance, channel allocation and stealing for overlapping lines, live editing while
+  playing, a fuzz of random patterns / seeks / stops / edits (no hanging notes), mono / legacy
+  mode (last-note priority, legato order, retrigger outside the bend range), capture conversion
+  (incl. a 1.x glide), capture recorder (last N bars, armed pass, host loop), MIDI export (MPE and
+  mono, written and read back), MIDI import, gesture baking (all 8), edit tools, magnet, exact XML
+  state round trip, the lock-free pattern exchange, the built-in synth (all sounds audible, finite,
+  soft-clipped, released; pitch follows the MPE bend).
+* `BendDemon_VST3` and `BendDemon_Standalone` build (Release, LTO) with **zero warnings in project
+  code** under GCC's JUCE-recommended flags; all project sources also compile warning-free under
+  Clang 18 with JUCE's Clang flags (`-Wconversion -Wshadow-all -Wshorten-64-to-32 …`, as Apple clang).
+* **pluginval** (strictness 5, in-process) on the Linux VST3: **SUCCESS**.
+* **End-to-end hosting** (`BendDemonHostTest`): the `MPE Probe` VST3 hosted through the real
+  `HostedPluginManager`: live glide 60 → 64 = **261.62 → 329.67 Hz**; a drawn line 60 → 67 played by
+  the sequencer on the preview clock = **261.60 → 392.06 Hz**; project state restore brings back
+  the hosted plugin and the pattern.
+* **UI**: `BendDemonSnapshot` renders the editor at 1040×650, 800×500 and 640×400 (DRAW, selection +
+  lane, SHAPES, SOUND, DIMENSION, LIVE, the no-MPE notice) and drives the canvas with synthetic mouse
+  and key events: pencil drag / click, line tool, select-drag (grid + semitones), box select,
+  Ctrl+D, undo / redo, eraser, and that the **space bar is not consumed**. All checks pass.
+* The Standalone app starts and runs under Xvfb without crashing.
 
 **Not verified here (needs the owner's machines):**
 
-* macOS and Windows builds, the AU format, `auval`, signing, notarization and installers. The
-  scripts are written to Apple's and Microsoft's documented flows but have not been run.
-* Hosting real commercial synths (Serum 2, Vital, Pigments …) and real FL Studio behaviour.
+* macOS and Windows builds (MSVC, Apple clang), the AU format, `auval`, signing, notarization and
+  installers. The scripts follow Apple's and Microsoft's documented flows but have not been run.
+* Real FL Studio behaviour (transport, PDC, MIDI out ports, dropping the exported MIDI file) and
+  hosting real commercial synths (Serum 2, Vital, Pigments …).
+* Audio quality / CPU of the built-in synth on real hardware (it was only checked numerically).
 * OpenGL rendering on macOS (the Linux check used the software renderer).
-* Feel and CPU cost of the UI on real displays.
 
 ## Known limitations / risks
 

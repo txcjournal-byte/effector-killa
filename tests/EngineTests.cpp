@@ -644,7 +644,7 @@ public:
 
                 for (int i = 0; i < 400; ++i)
                 {
-                    t += rng.nextInt (ms (60));
+                    t += rng.nextInt ((int) ms (60));
                     const int note = 36 + rng.nextInt (36);
                     if (held[note] && rng.nextBool()) { ev.push_back ({ t, off (note) }); held[note] = false; }
                     else                              { ev.push_back ({ t, on (note, 1 + rng.nextInt (127)) }); held[note] = true; }

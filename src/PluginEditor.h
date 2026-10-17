@@ -89,6 +89,7 @@ private:
 
     bool laneOpen = true, inspectorOpen = true, drawModeShown = true;
     uint32_t lastLoadCount = 0;
+    juce::String lastLaneKey;
     double startMs = 0.0;
     bool sizeRestored = false;
 

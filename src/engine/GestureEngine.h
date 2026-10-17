@@ -214,7 +214,6 @@ private:
     double  sampleRate = 44100.0;
     int64_t clock = 0;              // absolute sample clock (start of current block)
     int64_t nextTick = 0;
-    int64_t blockStartPpqClock = 0; // clock value at which transport.ppq is valid
     uint32_t voiceSeed = 0x9e3779b9u;
 
     // Set from the message thread (synth change, panic), consumed on the audio thread.

@@ -256,11 +256,11 @@ void PillSlider::paint (juce::Graphics& g)
     auto t = r.reduced (7.0f, 0.0f).toNearestInt();
     g.setFont (fonts::mono (fs));
     g.setColour (isEnabled() ? pal::textDim : pal::textFaint);
-    if (getWidth() > 90)
+    if (getWidth() > 70)
         g.drawFittedText (caption, t, Justification::centredLeft, 1, 0.7f);
     g.setFont (fonts::mono (fs, true));
     g.setColour (isEnabled() ? pal::text : pal::textFaint);
-    g.drawFittedText (String (roundToInt (value * 100.0f)) + "%", t, getWidth() > 90 ? Justification::centredRight : Justification::centred, 1, 0.7f);
+    g.drawFittedText (String (roundToInt (value * 100.0f)) + "%", t, getWidth() > 70 ? Justification::centredRight : Justification::centred, 1, 0.7f);
 }
 
 void PillSlider::mouseDown (const juce::MouseEvent&)            { dragStartValue = value; }
