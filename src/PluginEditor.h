@@ -33,7 +33,8 @@
 
 class BendDemonEditor final : public juce::AudioProcessorEditor,
                               private juce::Timer,
-                              private juce::ChangeListener
+                              private juce::ChangeListener,
+                              private juce::KeyListener
 {
 public:
     explicit BendDemonEditor (BendDemonProcessor&);
@@ -68,6 +69,12 @@ private:
     int  fitWidthToScreen (int wantedWidth) const;
     void setEditorWidth (int width);
     static void releaseKeys (juce::Component&);
+
+    // every key press inside the plugin window passes here last: the space bar always goes to the host
+    using juce::Component::keyPressed;
+    bool keyPressed (const juce::KeyPress&, juce::Component*) override;
+    void parentHierarchyChanged() override;
+    juce::Component::SafePointer<juce::Component> keyRoot;
 
     BendDemonProcessor& processor;
     bd::BendDemonLookAndFeel lnf;

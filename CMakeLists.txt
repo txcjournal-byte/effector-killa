@@ -168,6 +168,7 @@ if(BEND_DEMON_BUILD_PLUGIN)
         src/ui/GesturePad.h             src/ui/GesturePad.cpp
         src/ui/TopBar.h                 src/ui/TopBar.cpp
         src/ui/VoiceField.h             src/ui/VoiceField.cpp
+        src/ui/HostKeys.h               src/ui/HostKeys.cpp
         src/ui/VoiceFieldDraw.cpp
         src/ui/LineEditor.h             src/ui/LineEditor.cpp
         src/ui/ExpressionLane.h         src/ui/ExpressionLane.cpp

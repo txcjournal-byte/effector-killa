@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "ui/HostKeys.h"
 #include "ui/Palette.h"
 #include "ui/Fonts.h"
 
@@ -130,6 +131,7 @@ BendDemonEditor::BendDemonEditor (BendDemonProcessor& p)
 
 BendDemonEditor::~BendDemonEditor()
 {
+    if (keyRoot != nullptr) keyRoot->removeKeyListener (this);
     stopTimer();
     saveUiState();
     processor.onCaptureComplete = nullptr;
@@ -286,6 +288,31 @@ void BendDemonEditor::updateHint()
                                 "Sound: " + processor.getSynthSlotText());
     else
         voiceField.setHintText ("PLAY A MELODY\n" + host.getPluginName() + " is listening in MPE.");
+}
+
+void BendDemonEditor::parentHierarchyChanged()
+{
+    // Listen on the top-level component of the plugin window: when nothing has focus JUCE sends
+    // keys there, and when the canvas has focus unused keys bubble up to it.
+    auto* top = getTopLevelComponent();
+    if (top == keyRoot.getComponent()) return;
+    if (keyRoot != nullptr) keyRoot->removeKeyListener (this);
+    keyRoot = top;
+    if (keyRoot != nullptr) keyRoot->addKeyListener (this);
+}
+
+bool BendDemonEditor::keyPressed (const juce::KeyPress& key, juce::Component*)
+{
+    // typing in a text field (synth search, preset name) keeps every key
+    if (dynamic_cast<juce::TextEditor*> (juce::Component::getCurrentlyFocusedComponent()) != nullptr)
+        return false;
+
+    // Space = play / stop in FL Studio. Never keep it: hand the keyboard back to the host and
+    // replay the key there so it works wherever the mouse is in the plugin.
+    if (key.getKeyCode() == juce::KeyPress::spaceKey)
+        return bd::hostkeys::forwardToHost (*this, key);
+
+    return false;
 }
 
 void BendDemonEditor::releaseKeys (juce::Component& c)

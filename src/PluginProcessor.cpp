@@ -553,12 +553,22 @@ void BendDemonProcessor::setStateInformation (const void* data, int size)
         presets.setCurrentName (tree.getProperty ("presetName", "Init").toString());
         useInternal.store ((bool) tree.getProperty ("useInternalSynth", false));
 
-        // A 1.x project has no pattern and no mode: keep its 1.x behaviour (LIVE).
+        // A 1.x project has no pattern: open it like a fresh 2.0 instance (DRAW + demo pattern on
+        // the built-in sound) so pressing play in the host makes sound right away. Its hosted synth
+        // stays loaded and can be selected again in the SOUND tab.
         const bool fromV1 = tree.getProperty ("version", "").toString().startsWith ("1.");
         apvts.replaceState (tree);
         if (fromV1)
+        {
             if (auto* p = apvts.getParameter (bd::ids::mode))
-                p->setValueNotifyingHost (0.0f);
+                p->setValueNotifyingHost (1.0f);
+            useInternal.store (true);
+            if (pattern == nullptr)
+            {
+                pattern = std::make_shared<bd::Pattern> (bd::tools::makeFactoryPattern (0));
+                presets.setCurrentName (bd::tools::factoryPatternName (0));
+            }
+        }
     }
 
     {
