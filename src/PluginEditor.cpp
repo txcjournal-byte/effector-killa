@@ -187,12 +187,18 @@ BendDemonEditor::BendDemonEditor (BendDemonProcessor& p)
    #endif
 
     setResizable (true, true);
-    setResizeLimits (minWidth, minHeight, 1920, 1200);
+    setResizeLimits (minWidth, minHeight, 2560, 1600);
     if (auto* c = getConstrainer())
         c->setFixedAspectRatio ((double) defaultWidth / (double) defaultHeight);
 
-    const int w = savedWidth;
-    setSize (juce::jlimit (minWidth, 1920, w), juce::jlimit (minHeight, 1200, juce::roundToInt (w * (double) defaultHeight / defaultWidth)));
+    // first open: a size that fits the screen (Windows display scaling included);
+    // later opens: the size the user chose, but never bigger than the current screen
+    const bool hasSaved = ui.hasProperty ("width");
+    setEditorWidth (fitWidthToScreen (hasSaved ? savedWidth : 1040));
+
+    // right-click the top bar for quick sizes
+    topBar.addMouseListener (this, false);
+    topBar.setTooltip ("Right-click for window size. Or drag the bottom-right corner.");
 
     sizeRestored = true;
     startMs = juce::Time::getMillisecondCounterHiRes();
@@ -264,6 +270,49 @@ void BendDemonEditor::showSection (Section sec)
             c->setVisible (sc.section == sec);
     resized();
     repaint();
+}
+
+//==============================================================================
+int BendDemonEditor::fitWidthToScreen (int wanted) const
+{
+    juce::Rectangle<int> area (1366, 728);
+    auto& displays = juce::Desktop::getInstance().getDisplays();
+    if (auto* d = (isShowing() ? displays.getDisplayForRect (getScreenBounds()) : displays.getPrimaryDisplay()))
+        area = d->userArea;
+
+    // leave room for the host's own toolbars and the plugin window title bar
+    const int maxW = juce::jmin (juce::roundToInt (area.getWidth() * 0.80),
+                                 juce::roundToInt (area.getHeight() * 0.78 * defaultWidth / (double) defaultHeight));
+    return juce::jlimit (minWidth, juce::jmax (minWidth, maxW), wanted);
+}
+
+void BendDemonEditor::setEditorWidth (int w)
+{
+    w = juce::jlimit (minWidth, 2560, w);
+    setSize (w, juce::roundToInt (w * (double) defaultHeight / defaultWidth));
+}
+
+void BendDemonEditor::mouseDown (const juce::MouseEvent& e)
+{
+    if (! e.mods.isPopupMenu())
+        return;
+
+    juce::PopupMenu m;
+    m.addSectionHeader ("WINDOW SIZE");
+    const int widths[] = { 640, 800, 960, 1120, 1280, 1600 };
+    const char* names[] = { "50 %", "62 %", "75 %", "87 %", "100 %", "125 %" };
+    for (int i = 0; i < 6; ++i)
+        m.addItem (i + 1, names[i], true, std::abs (getWidth() - widths[i]) < 8);
+    m.addSeparator();
+    m.addItem (100, "Fit to screen");
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&topBar),
+                     [safe = juce::Component::SafePointer<BendDemonEditor> (this), widths] (int r)
+                     {
+                         if (safe == nullptr || r == 0) return;
+                         if (r == 100) safe->setEditorWidth (safe->fitWidthToScreen (2560));
+                         else          safe->setEditorWidth (widths[r - 1]);
+                     });
 }
 
 //==============================================================================

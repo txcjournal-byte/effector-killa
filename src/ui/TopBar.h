@@ -11,7 +11,8 @@ class BendDemonProcessor;
 namespace bd
 {
 
-class TopBar final : public juce::Component
+class TopBar final : public juce::Component,
+                     public juce::SettableTooltipClient
 {
 public:
     explicit TopBar (BendDemonProcessor&);

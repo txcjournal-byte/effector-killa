@@ -46,7 +46,7 @@ while a scripted melody plays through the real engine. The fonts are the embedde
 | Company / Manufacturer | TrapWin, code `Trwn` |
 | Product / Plugin code | BEND DEMON, `BdDm` |
 | Bundle id | `com.trapwin.benddemon` |
-| Version | 1.0.0 |
+| Version | 1.0.1 |
 | Formats | VST3 + Standalone (Windows), VST3 + AU + Standalone (macOS universal arm64/x86_64) |
 | Type | Synth/instrument (`IS_SYNTH`), needs MIDI in, produces MIDI out (MIDI-out mode), VST3 category `Instrument\|Synth`, AU `aumu` |
 
@@ -84,7 +84,7 @@ The script:
    AU → `/Library/Audio/Plug-Ins/Components`, app → `/Applications`) and `productbuild` a
    distribution package with choices, signs it with the installer identity, notarizes and staples it
 
-Output: `dist/mac/BEND-DEMON-1.0.0-mac.pkg`. Leave the variables unset to get an unsigned build.
+Output: `dist/mac/BEND-DEMON-1.0.1-mac.pkg`. Leave the variables unset to get an unsigned build.
 
 Manual equivalent:
 ```bash
@@ -107,7 +107,7 @@ $env:BD_SIGN_CERT_SHA1 = "<thumbprint of your code-signing cert>"   # or BD_SIGN
 Builds VST3 + Standalone (x64, static MSVC runtime), runs the tests, signs the `.vst3` and `.exe`
 with `signtool /fd sha256 /tr <timestamp>`, then compiles `scripts/installer/BendDemon.iss`, which
 installs the VST3 to `C:\Program Files\Common Files\VST3\BEND DEMON.vst3` and the standalone app
-to `C:\Program Files\TrapWin\BEND DEMON`. Output: `dist\win\TrapWinBendDemon-1.0.0-Windows-Setup.exe`
+to `C:\Program Files\TrapWin\BEND DEMON`. Output: `dist\win\TrapWinBendDemon-1.0.1-Windows-Setup.exe`
 (signed too, if a certificate is configured).
 
 ### Linux (development only)

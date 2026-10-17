@@ -163,7 +163,7 @@ jobs:
           $out = Join-Path $env:GITHUB_WORKSPACE "installer-out"
           New-Item -ItemType Directory -Force -Path $out | Out-Null
           $p = Start-Process -FilePath $iscc -NoNewWindow -Wait -PassThru `
-                 -ArgumentList @("/DAppVersion=1.0.0", "/DSourceDir=$dist", "/DOutputDir=$out", "scripts\installer\BendDemon.iss") `
+                 -ArgumentList @("/DAppVersion=1.0.1", "/DSourceDir=$dist", "/DOutputDir=$out", "scripts\installer\BendDemon.iss") `
                  -RedirectStandardOutput iscc.log -RedirectStandardError iscc-err.log
           Get-Content iscc.log, iscc-err.log
           if ($p.ExitCode -ne 0) {
@@ -273,22 +273,22 @@ jobs:
         shell: bash
         run: |
           set -e
-          D="trapwin.com/TrapWin BEND DEMON 1.0.0"
+          D="trapwin.com/TrapWin BEND DEMON 1.0.1"
           mkdir -p "$D/Windows" "$D/macOS" "$D/Docs" "$D/Shop"
           N=scripts/installer/notes
           # Shop downloads: one zip per platform with the installer / plugins, install notes and EULA
           W=stage/win; M=stage/mac; mkdir -p "$W" "$M"
           cp artefacts/TrapWinBendDemon-Windows-Installer/*.exe "$W/"
           cp "$N/INSTALL - Windows.txt" EULA.txt "$W/"
-          (cd "$W" && zip -qry "$GITHUB_WORKSPACE/$D/Windows/TrapWinBendDemon-1.0.0-Windows.zip" .)
+          (cd "$W" && zip -qry "$GITHUB_WORKSPACE/$D/Windows/TrapWinBendDemon-1.0.1-Windows.zip" .)
           if [ -d artefacts/TrapWinBendDemon-macOS-signed ]; then
             (cd "$M" && unzip -q ../../artefacts/TrapWinBendDemon-macOS-signed/*.zip)
             # ditto --keepParent puts the bundles in a "signed" folder -> flatten
             if [ -d "$M/signed" ]; then mv "$M"/signed/* "$M/"; rmdir "$M/signed"; fi
-            MZ="TrapWinBendDemon-1.0.0-macOS.zip"
+            MZ="TrapWinBendDemon-1.0.1-macOS.zip"
           else
             cp -R artefacts/TrapWinBendDemon-macOS/. "$M/"
-            MZ="TrapWinBendDemon-1.0.0-macOS-UNSIGNED.zip"
+            MZ="TrapWinBendDemon-1.0.1-macOS-UNSIGNED.zip"
           fi
           cp "$N/INSTALL - macOS.txt" EULA.txt "$M/"
           (cd "$M" && zip -qry --symlinks "$GITHUB_WORKSPACE/$D/macOS/$MZ" .)

@@ -32,8 +32,10 @@ public:
 
     static constexpr int defaultWidth  = 1280;
     static constexpr int defaultHeight = 800;
-    static constexpr int minWidth      = 960;
-    static constexpr int minHeight     = 600;
+    static constexpr int minWidth      = 640;
+    static constexpr int minHeight     = 400;
+
+    void mouseDown (const juce::MouseEvent&) override;
 
 private:
     enum class Section { glide, vibrato, dive, motion, expression };
@@ -44,6 +46,8 @@ private:
     void layoutDock (juce::Rectangle<int>);
     void showSynthBrowser (bool);
     void updateHint();
+    int  fitWidthToScreen (int wantedWidth) const;
+    void setEditorWidth (int width);
 
     BendDemonProcessor& processor;
     bd::BendDemonLookAndFeel lnf;

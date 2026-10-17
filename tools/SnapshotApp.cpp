@@ -136,10 +136,10 @@ private:
         if (stage == 2 && elapsed > 8.2)  { shoot ("bend-demon-dimension.png"); ++stage; }
         if (stage == 3 && elapsed > 8.3)
         {
-            editor->setSize (960, 600);
+            editor->setSize (800, 500);
             ++stage;
         }
-        if (stage == 4 && elapsed > 9.0)  { shoot ("bend-demon-960x600.png"); ++stage; quit(); }
+        if (stage == 4 && elapsed > 9.0)  { shoot ("bend-demon-800x500.png"); ++stage; quit(); }
     }
 
     static juce::Button* findDimensionButton (juce::Component* c)

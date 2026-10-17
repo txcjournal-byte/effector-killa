@@ -1,11 +1,11 @@
 ; =====================================================================================
 ;  TrapWin BEND DEMON - Inno Setup 6 installer script
 ;  Built by scripts\build-win.ps1:
-;     iscc /DAppVersion=1.0.0 /DSourceDir=<dir with BEND DEMON.vst3 + BEND DEMON.exe> /DOutputDir=<out> BendDemon.iss
+;     iscc /DAppVersion=1.0.1 /DSourceDir=<dir with BEND DEMON.vst3 + BEND DEMON.exe> /DOutputDir=<out> BendDemon.iss
 ; =====================================================================================
 
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.0.1"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\..\dist\win\bundles"
